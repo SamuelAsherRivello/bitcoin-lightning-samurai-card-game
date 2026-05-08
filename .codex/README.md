@@ -28,3 +28,12 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 4. Implement in the generated project's chosen source layout.
 5. Verify behavior with the generated project's documented commands.
 6. Refresh README and image assets when visible structure or workflow changes.
+
+## Technology Stack Skills
+
+| Skill | Purpose |
+| ----- | ------- |
+| `add-tech-stack` | Shared setup philosophy for adding a project-specific stack without losing the generic Codex/Specify foundation. |
+| `add-tech-stack-rust` | Rust overlay based on `https://github.com/SamuelAsherRivello/rust-project-template`. |
+| `add-tech-stack-bevy` | Bevy overlay based on `https://github.com/SamuelAsherRivello/bevy-project-template`. |
+| `add-tech-stack-dioxus` | Dioxus overlay based on `https://github.com/SamuelAsherRivello/dioxus-project-template`. |

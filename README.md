@@ -89,6 +89,7 @@ Related tech: [OpenAI Codex](https://openai.com/codex)
 | [`.aiignore`](./.aiignore) | AI-agent ignore file for version control internals, generated output, runtime data, logs, and local caches. |
 | [`.agents/skills`](./.agents/skills) | Specify skills for constitution, specification, clarification, planning, tasks, implementation, analysis, and issue conversion. |
 | [`.codex/skills`](./.codex/skills) | Codex skills for planning, README refreshes, images, reviews, QA, release preparation, memory, and project creation. |
+| [`.codex/skills/add-tech-stack`](./.codex/skills/add-tech-stack/SKILL.md) | Shared technology-stack overlay workflow. Use the Rust, Bevy, or Dioxus variants when a generated project chooses one of those stacks. |
 | [`.codex/rules`](./.codex/rules) | Repo-local rules that generated projects can extend with stack-specific guidance. |
 | [`.specify`](./.specify) | Specify configuration, templates, workflow scripts, and constitution. |
 | [`specs`](./specs) | Active project specs. |
