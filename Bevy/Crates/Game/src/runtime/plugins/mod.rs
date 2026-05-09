@@ -8,7 +8,8 @@ use crate::runtime::systems::{
     advance_ticks, load_saved_window_placement, restore_window_placement_to_current_monitors,
     save_window_placement_on_close, scale_debug_hud, setup_card_placeholder, setup_debug_hud,
     setup_game, setup_inspector, setup_primary_camera, smooth_card_rotation, toggle_inspector,
-    track_card_pointer_target, track_window_placement, track_window_size, update_debug_hud,
+    track_card_pointer_target, track_window_placement, track_window_size,
+    update_card_parallax_layers, update_debug_hud,
 };
 
 pub struct CoreGamePlugin;
@@ -48,6 +49,7 @@ impl Plugin for CoreGamePlugin {
                     save_window_placement_on_close.before(bevy::window::close_when_requested),
                     track_card_pointer_target,
                     smooth_card_rotation.after(track_card_pointer_target),
+                    update_card_parallax_layers.after(smooth_card_rotation),
                     toggle_inspector,
                     update_debug_hud.after(toggle_inspector),
                     scale_debug_hud,

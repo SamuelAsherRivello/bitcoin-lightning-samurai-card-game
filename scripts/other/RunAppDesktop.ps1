@@ -16,6 +16,13 @@ $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $PackageName = "bevy-card-game"
 $TargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
 
+if (-not $env:RUST_BACKTRACE) {
+    $env:RUST_BACKTRACE = "1"
+}
+if (-not $env:RUST_LIB_BACKTRACE) {
+    $env:RUST_LIB_BACKTRACE = "1"
+}
+
 if ($CheckOnly) {
     & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -AppOnly -Quiet
 } else {
@@ -78,6 +85,7 @@ try {
         }
 
         Write-Host "Opening desktop app: $ExecutablePath"
+        Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
         Start-Process -FilePath $ExecutablePath -WorkingDirectory $RepositoryRoot
     }
 } finally {

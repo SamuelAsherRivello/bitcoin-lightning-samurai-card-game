@@ -1,6 +1,7 @@
 use bevy::{
     ecs::system::SystemParam,
     prelude::*,
+    render::view::NoIndirectDrawing,
     text::{Underline, UnderlineColor},
     ui::UiScale,
     window::{
@@ -19,8 +20,8 @@ use bevy_inspector_egui::{
 use bevy_persistent::prelude::Persistent;
 
 use crate::runtime::components::{
-    CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText, InspectorState, Player,
-    PrimarySceneCamera,
+    CardParallaxLayer, CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText,
+    InspectorState, Player, PrimarySceneCamera,
 };
 use crate::runtime::resources::{
     CardInspectionDefaults, CardInspectionState, DebugHudState, GameTicks, PrimaryCameraDefaults,
@@ -35,6 +36,17 @@ const TARGET_WIDTH: f32 = DEFAULT_WINDOW_WIDTH as f32;
 const TARGET_HEIGHT: f32 = DEFAULT_WINDOW_HEIGHT as f32;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
+const BACKGROUND_DOT_COLUMNS: u32 = 10;
+const BACKGROUND_DOT_ROWS: u32 = 14;
+const FOREGROUND_DOT_COLUMNS: u32 = 6;
+const FOREGROUND_DOT_ROWS: u32 = 8;
+const BACKGROUND_DOT_SIZE_RATIO: f32 = 0.035;
+const FOREGROUND_DOT_SIZE_RATIO: f32 = 0.052;
+const BACKGROUND_APPARENT_DEPTH: f32 = -1.0;
+const FRAME_APPARENT_DEPTH: f32 = 0.0;
+const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
+const LAYER_RENDER_Z_STEP: f32 = 0.0001;
+const PARALLAX_OFFSET_RATIO: f32 = 0.065;
 
 pub fn setup_game(mut commands: Commands) {
     commands.spawn((Player, Name::new(GameTitle::DISPLAY)));
@@ -45,6 +57,7 @@ pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<Primary
         Name::new("Primary 3D Camera"),
         PrimarySceneCamera,
         Camera3d::default(),
+        NoIndirectDrawing,
         Projection::Perspective(PerspectiveProjection {
             fov: camera_defaults.fov_radians,
             near: camera_defaults.near,
@@ -61,24 +74,225 @@ pub fn setup_card_placeholder(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Cuboid::new(
-        card_defaults.width,
-        card_defaults.height,
-        card_defaults.thickness,
-    ));
-    let material = materials.add(StandardMaterial {
-        base_color: card_defaults.material_color,
+    let background_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.12, 0.46, 0.58),
+        unlit: true,
+        ..Default::default()
+    });
+    let frame_material = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        unlit: true,
+        ..Default::default()
+    });
+    let foreground_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.62, 0.16),
+        unlit: true,
+        ..Default::default()
+    });
+    let background_dot_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.72, 0.90, 0.95),
+        unlit: true,
+        ..Default::default()
+    });
+    let foreground_dot_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.42, 0.19, 0.04),
         unlit: true,
         ..Default::default()
     });
 
-    commands.spawn((
-        Name::new("Poker Card Placeholder"),
-        CardPlaceholder,
+    let frame_thickness_x = card_defaults.width * 0.1;
+    let frame_thickness_y = card_defaults.height * 0.1;
+    let hole_width = card_defaults.width - (frame_thickness_x * 2.0);
+    let hole_height = card_defaults.height - (frame_thickness_y * 2.0);
+    let card_front_z = (card_defaults.thickness * 0.5) + LAYER_RENDER_Z_STEP;
+    let background_z = card_front_z;
+    let background_detail_z = card_front_z + LAYER_RENDER_Z_STEP;
+    let frame_z = card_front_z + (LAYER_RENDER_Z_STEP * 3.0);
+    let foreground_z = card_front_z + (LAYER_RENDER_Z_STEP * 5.0);
+    let background_width = hole_width;
+    let background_height = hole_height;
+    let background_dot_size = background_width * BACKGROUND_DOT_SIZE_RATIO;
+    let background_dot_field_width = background_width;
+    let background_dot_field_height = background_height;
+
+    let background_mesh = meshes.add(Rectangle::new(background_width, background_height));
+    let vertical_frame_mesh = meshes.add(Rectangle::new(frame_thickness_x, card_defaults.height));
+    let horizontal_frame_mesh = meshes.add(Rectangle::new(hole_width, frame_thickness_y));
+    let foreground_width = card_defaults.width * 0.5;
+    let foreground_height = card_defaults.height * 0.5;
+    let foreground_mesh = meshes.add(Rectangle::new(foreground_width, foreground_height));
+    let background_dot_mesh = meshes.add(Rectangle::new(background_dot_size, background_dot_size));
+    let foreground_dot_mesh = meshes.add(Rectangle::new(
+        foreground_width * FOREGROUND_DOT_SIZE_RATIO,
+        foreground_width * FOREGROUND_DOT_SIZE_RATIO,
+    ));
+
+    commands
+        .spawn((
+            Name::new("Poker Card Placeholder"),
+            CardPlaceholder,
+            Transform::default(),
+            Visibility::default(),
+        ))
+        .with_children(|parent| {
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Background Aperture Fill"),
+                background_mesh,
+                background_material,
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, background_z),
+            );
+            spawn_dot_pattern(
+                parent,
+                "Card Background Dot",
+                background_dot_field_width,
+                background_dot_field_height,
+                BACKGROUND_DOT_COLUMNS,
+                BACKGROUND_DOT_ROWS,
+                background_detail_z,
+                background_dot_mesh,
+                background_dot_material,
+                BACKGROUND_APPARENT_DEPTH,
+            );
+
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Frame Left"),
+                vertical_frame_mesh.clone(),
+                frame_material.clone(),
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(
+                    -(card_defaults.width * 0.5) + (frame_thickness_x * 0.5),
+                    0.0,
+                    frame_z,
+                ),
+            );
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Frame Right"),
+                vertical_frame_mesh,
+                frame_material.clone(),
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(
+                    (card_defaults.width * 0.5) - (frame_thickness_x * 0.5),
+                    0.0,
+                    frame_z,
+                ),
+            );
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Frame Top"),
+                horizontal_frame_mesh.clone(),
+                frame_material.clone(),
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(
+                    0.0,
+                    (card_defaults.height * 0.5) - (frame_thickness_y * 0.5),
+                    frame_z,
+                ),
+            );
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Frame Bottom"),
+                horizontal_frame_mesh,
+                frame_material,
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(
+                    0.0,
+                    -(card_defaults.height * 0.5) + (frame_thickness_y * 0.5),
+                    frame_z,
+                ),
+            );
+
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Foreground Rectangle"),
+                foreground_mesh,
+                foreground_material,
+                FOREGROUND_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, foreground_z),
+            );
+            spawn_dot_pattern(
+                parent,
+                "Card Foreground Dot",
+                foreground_width,
+                foreground_height,
+                FOREGROUND_DOT_COLUMNS,
+                FOREGROUND_DOT_ROWS,
+                foreground_z + LAYER_RENDER_Z_STEP,
+                foreground_dot_mesh,
+                foreground_dot_material,
+                FOREGROUND_APPARENT_DEPTH,
+            );
+        });
+}
+
+fn spawn_parallax_plane(
+    parent: &mut ChildSpawnerCommands,
+    name: Name,
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    apparent_depth: f32,
+    neutral_translation: Vec3,
+) {
+    parent.spawn((
+        name,
         Mesh3d(mesh),
         MeshMaterial3d(material),
-        Transform::default(),
+        Transform::from_translation(neutral_translation),
+        CardParallaxLayer::new(apparent_depth, neutral_translation),
     ));
+}
+
+fn spawn_dot_pattern(
+    parent: &mut ChildSpawnerCommands,
+    name_prefix: &'static str,
+    width: f32,
+    height: f32,
+    columns: u32,
+    rows: u32,
+    z: f32,
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    apparent_depth: f32,
+) {
+    for (index, position) in dot_pattern_positions(width, height, columns, rows)
+        .into_iter()
+        .enumerate()
+    {
+        let neutral_translation = Vec3::new(position.x, position.y, z);
+        parent.spawn((
+            Name::new(format!("{name_prefix} {}", index + 1)),
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(material.clone()),
+            Transform::from_translation(neutral_translation),
+            CardParallaxLayer::new(apparent_depth, neutral_translation),
+        ));
+    }
+}
+
+fn dot_pattern_positions(width: f32, height: f32, columns: u32, rows: u32) -> Vec<Vec2> {
+    if columns == 0 || rows == 0 {
+        return Vec::new();
+    }
+
+    let x_step = width / columns as f32;
+    let y_step = height / rows as f32;
+    let x_start = (width * -0.5) + (x_step * 0.5);
+    let y_start = (height * -0.5) + (y_step * 0.5);
+    let mut positions = Vec::with_capacity((columns * rows) as usize);
+
+    for row in 0..rows {
+        for column in 0..columns {
+            positions.push(Vec2::new(
+                x_start + (column as f32 * x_step),
+                y_start + (row as f32 * y_step),
+            ));
+        }
+    }
+
+    positions
 }
 
 pub fn track_card_pointer_target(
@@ -119,6 +333,30 @@ pub fn smooth_card_rotation(
     let blend = 1.0 - 0.01_f32.powf(time.delta_secs() / response_seconds);
     transform.rotation = transform.rotation.slerp(card_state.target_rotation, blend);
     transform.translation = Vec3::ZERO;
+}
+
+pub fn update_card_parallax_layers(
+    card_defaults: Res<CardInspectionDefaults>,
+    card_query: Query<&Transform, (With<CardPlaceholder>, Without<CardParallaxLayer>)>,
+    mut layer_query: Query<(&CardParallaxLayer, &mut Transform)>,
+) {
+    let Ok(card_transform) = card_query.single() else {
+        return;
+    };
+
+    let (yaw, pitch, _) = card_transform.rotation.to_euler(EulerRot::YXZ);
+    let max_tilt = card_defaults.max_tilt_radians.max(f32::EPSILON);
+    let tilt =
+        Vec2::new(yaw / max_tilt, -pitch / max_tilt).clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
+    let max_offset = Vec2::new(
+        card_defaults.width * PARALLAX_OFFSET_RATIO,
+        card_defaults.height * PARALLAX_OFFSET_RATIO,
+    );
+
+    for (layer, mut transform) in &mut layer_query {
+        let offset = tilt * max_offset * layer.apparent_depth;
+        transform.translation = layer.neutral_translation + Vec3::new(offset.x, offset.y, 0.0);
+    }
 }
 
 pub fn update_card_target_from_pointer(
@@ -779,6 +1017,49 @@ mod tests {
             let child_font = app.world().get::<TextFont>(child).unwrap();
             assert_eq!(child_font.font_size, DEBUG_HUD_FONT_SIZE);
         }
+    }
+
+    #[test]
+    fn dot_pattern_positions_fill_bounds_without_touching_edges() {
+        let positions = dot_pattern_positions(1.0, 2.0, 2, 4);
+
+        assert_eq!(positions.len(), 8);
+        assert_eq!(positions.first(), Some(&Vec2::new(-0.25, -0.75)));
+        assert_eq!(positions.last(), Some(&Vec2::new(0.25, 0.75)));
+    }
+
+    #[test]
+    fn polished_layers_use_flat_artwork_with_apparent_depth_offsets() {
+        let card_defaults = CardInspectionDefaults::default();
+        let frame_thickness_x = card_defaults.width * 0.1;
+        let frame_thickness_y = card_defaults.height * 0.1;
+        let hole_width = card_defaults.width - (frame_thickness_x * 2.0);
+        let hole_height = card_defaults.height - (frame_thickness_y * 2.0);
+        let max_parallax_offset = Vec2::new(
+            card_defaults.width * PARALLAX_OFFSET_RATIO,
+            card_defaults.height * PARALLAX_OFFSET_RATIO,
+        );
+        let background_dot_size = hole_width * BACKGROUND_DOT_SIZE_RATIO;
+        let background_dot_field_width = hole_width;
+        let background_dot_field_height = hole_height;
+
+        assert_eq!(BACKGROUND_APPARENT_DEPTH, -1.0);
+        assert_eq!(FRAME_APPARENT_DEPTH, 0.0);
+        assert_eq!(FOREGROUND_APPARENT_DEPTH, 1.0);
+        assert!(LAYER_RENDER_Z_STEP < card_defaults.thickness * 0.01);
+        assert!(PARALLAX_OFFSET_RATIO > 0.0);
+        assert_eq!(hole_width + (frame_thickness_x * 2.0), card_defaults.width);
+        assert_eq!(hole_height + (frame_thickness_y * 2.0), card_defaults.height);
+        assert_eq!(background_dot_field_width, hole_width);
+        assert_eq!(background_dot_field_height, hole_height);
+        assert!(
+            background_dot_field_width + (max_parallax_offset.x * 2.0) + background_dot_size
+                <= card_defaults.width
+        );
+        assert!(
+            background_dot_field_height + (max_parallax_offset.y * 2.0) + background_dot_size
+                <= card_defaults.height
+        );
     }
 
     #[test]

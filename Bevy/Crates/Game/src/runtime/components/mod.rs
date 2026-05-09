@@ -10,6 +10,21 @@ pub struct PrimarySceneCamera;
 pub struct CardPlaceholder;
 
 #[derive(Component, Debug)]
+pub struct CardParallaxLayer {
+    pub apparent_depth: f32,
+    pub neutral_translation: Vec3,
+}
+
+impl CardParallaxLayer {
+    pub const fn new(apparent_depth: f32, neutral_translation: Vec3) -> Self {
+        Self {
+            apparent_depth,
+            neutral_translation,
+        }
+    }
+}
+
+#[derive(Component, Debug)]
 pub struct DebugHudText;
 
 #[derive(Component, Debug)]

@@ -41,6 +41,12 @@ $env:CARGO_INCREMENTAL = "1"
 $env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target\run-app-desktop-hot-reload"
 $env:WGPU_BACKEND = "dx12"
 $env:BEVY_ASSET_ROOT = $RepositoryRoot
+if (-not $env:RUST_BACKTRACE) {
+    $env:RUST_BACKTRACE = "1"
+}
+if (-not $env:RUST_LIB_BACKTRACE) {
+    $env:RUST_LIB_BACKTRACE = "1"
+}
 if (-not $env:CARGO_BUILD_JOBS) {
     $env:CARGO_BUILD_JOBS = [Environment]::ProcessorCount
 }
@@ -61,6 +67,7 @@ Write-Host "Starting desktop hot reload with Dioxus CLI."
 Write-Host "Package: $PackageName"
 Write-Host "Target dir: $env:CARGO_TARGET_DIR"
 Write-Host "Dioxus CLI: $DxVersionOutput"
+Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
 Write-Host "Edit hot-reload-enabled Rust systems and save."
 if ($EnableFastDevFeature) {
     Write-Host "Using features: $HotReloadFeature,$FastDevFeature"
