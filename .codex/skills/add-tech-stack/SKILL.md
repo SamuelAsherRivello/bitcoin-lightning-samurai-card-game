@@ -16,8 +16,8 @@ Read `references/shared-philosophy.md` when the task asks for stack policy, root
 1. Inspect the current repo tree, `README.md`, `AGENTS.md`, `.codex/project-identity.md`, `.specify/memory/constitution.md`, and active `specs/`.
 2. Identify whether the user wants a general stack decision or a named overlay skill.
 3. Preserve the project-neutral contract unless the user explicitly asks to specialize this repo.
-4. Put reusable scripts in `project/scripts` unless the selected stack's reference explicitly chooses another path.
-5. Put reusable assets in `project/assets` unless the selected stack's reference explicitly chooses another path.
+4. Put reusable scripts in root `scripts` unless the selected stack's reference explicitly chooses another path.
+5. Put runtime assets in the selected stack's asset folder, with Bevy assets under `Bevy/Crates/Game/Assets`.
 6. Update README, AGENTS, specs, and `.codex/memory/project-memory.md` when the stack changes repository conventions.
 7. Add only the minimum dependencies, files, and commands needed for the selected stack.
 8. Verify with stack-appropriate commands and report any checks that cannot run.

@@ -6,7 +6,7 @@
 All implementation work MUST follow the active specification, the project constitution, and the repo-local agent guidance. Bevy-specific rules belong in project specs, README guidance, and repo-local Codex memory.
 
 ### II. Clear Project Boundaries
-Project behavior belongs in the Bevy source tree under `Bevy/Crates`. Game runtime assets belong under `Bevy/Crates/Game/Assets`; non-game seed assets and repeatable scripts belong under `project/assets` and `project/scripts`.
+Project behavior belongs in the Bevy source tree under `Bevy/Crates`. Runtime assets belong under `Bevy/Crates/Game/Assets`; repeatable scripts belong under `scripts`.
 
 ### III. Visible User Feedback
 User-facing workflows SHOULD provide visible loading, progress, success, and failure feedback when work is asynchronous or can fail.
@@ -18,7 +18,7 @@ Local files, caches, generated outputs, and user preferences MUST be documented 
 Schema changes, migrations, seed data, and destructive data operations MUST be explicit in specs and plans. Destructive database operations are not performed by agents.
 
 ### VI. Verify Real Behavior
-User-visible changes SHOULD be verified through the real target workflow when practical. Prefer project-local scripts in `project/scripts` after a generated project defines them.
+User-visible changes SHOULD be verified through the real target workflow when practical. Prefer repository scripts in `scripts` after a generated project defines them.
 
 ### VII. Implementation Standards
 All implementation code MUST follow Rust and Bevy conventions, including explicit ECS ownership through components, resources, systems, and plugins.
@@ -35,7 +35,7 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 ## Project Constraints
 
 - Keep project-specific source layout documented in `README.md` and active specs.
-- Keep reusable project assets under `project/assets` until the generated project defines a more specific asset location.
+- Keep runtime assets under `Bevy/Crates/Game/Assets`.
 - Preserve the Codex and Specify workflow files unless a generated project intentionally replaces them.
 - Keep `documentation/` updated when README images or supporting docs change.
 - Keep `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` as replaceable README image slots.
@@ -45,7 +45,7 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 ## Development Workflow
 
 1. Inspect current files before editing and keep changes scoped to the requested behavior.
-2. Prefer project scripts over ad hoc commands for setup, web serving, desktop serving, and tests.
+2. Prefer repository scripts under `scripts` over ad hoc commands for setup, web serving, desktop serving, and tests.
 3. For framework or dependency guidance, use official documentation and the project-local Codex rules before changing code.
 4. If a port or build artifact is stale or locked, diagnose the actual process or path instead of assuming a clean environment.
 5. Treat build output, dependency caches, runtime data, and test output as generated artifacts unless a spec explicitly says otherwise.

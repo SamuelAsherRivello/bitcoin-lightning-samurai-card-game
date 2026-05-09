@@ -373,6 +373,8 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_card_game_shared",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

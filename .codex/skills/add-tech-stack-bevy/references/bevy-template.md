@@ -18,4 +18,4 @@ Reference repo: `https://github.com/SamuelAsherRivello/bevy-project-template`
 - Keep the ECS split when adding Bevy code: components hold data, systems own behavior, plugins group features, resources hold shared state.
 - Put reusable game assets in the Bevy asset tree once Bevy is selected.
 - Keep Codex/Specify infrastructure at the root; Bevy is the implementation stack, not the whole repo identity unless requested.
-- If adding scripts, decide whether to keep this template's `project/scripts` convention or intentionally adopt the reference repo's `Scripts/Common` and `Scripts/Other` split.
+- If adding scripts, use this repository's root `scripts` convention unless intentionally adopting the reference repo's `Scripts/Common` and `Scripts/Other` split.

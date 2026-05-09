@@ -18,7 +18,7 @@ Read `references/bevy-template.md` before editing files for Bevy stack work.
 3. Add Bevy conventions only when the project is intentionally a game, simulation, editor, or Bevy runtime.
 4. Keep ECS concepts explicit: components, resources, systems, plugins, assets, tests, and hot reload.
 5. Update README, AGENTS, specs, and memory with Bevy-specific commands and architecture.
-6. Keep generated game assets under the chosen Bevy asset folder; keep non-game seed assets under `project/assets`.
+6. Keep generated game assets under the chosen Bevy asset folder.
 7. Verify with the Bevy build/run/test commands introduced by the implementation.
 
 ## Guardrails

@@ -2,10 +2,11 @@
 
 | Goal | Command |
 | ---- | ------- |
-| Run automated tests | `project/scripts/RunTests.ps1` |
-| Build the workspace | `project/scripts/build.ps1` |
-| Run Windows desktop app | `project/scripts/RunAppDesktop.ps1` |
-| Run Windows desktop app in release mode | `project/scripts/RunAppDesktop.ps1 -Release` |
+| Install dependencies once | `scripts/main/InstallDependencies.ps1` |
+| Run automated tests | `scripts/main/RunTests.ps1` |
+| Run Windows desktop app | `scripts/main/RunAppDesktop.ps1` |
+| Run Windows desktop app in release mode | `scripts/main/RunAppDesktop.ps1 -Release` |
+| Stop desktop app and project build processes | `scripts/other/StopApp.ps1` |
 
 ## Manual Acceptance
 

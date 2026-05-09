@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::{DebugHudState, GameTicks};
+use crate::runtime::resources::{DebugHudState, GameTicks, WindowPlacementState};
 use crate::runtime::systems::{
-    advance_ticks, scale_debug_hud, setup_debug_hud, setup_game, setup_inspector, toggle_inspector,
-    update_debug_hud,
+    advance_ticks, load_saved_window_placement, restore_window_placement_to_current_monitors,
+    save_window_placement_on_close, scale_debug_hud, setup_debug_hud, setup_game, setup_inspector,
+    toggle_inspector, track_window_placement, track_window_size, update_debug_hud,
 };
 
 pub struct CoreGamePlugin;
@@ -12,12 +13,25 @@ impl Plugin for CoreGamePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameTicks>()
             .init_resource::<DebugHudState>()
+            .init_resource::<WindowPlacementState>()
             .init_resource::<ButtonInput<KeyCode>>()
-            .add_systems(Startup, (setup_game, setup_inspector, setup_debug_hud))
+            .add_systems(
+                Startup,
+                (
+                    load_saved_window_placement,
+                    setup_game,
+                    setup_inspector,
+                    setup_debug_hud,
+                ),
+            )
             .add_systems(
                 Update,
                 (
                     advance_ticks,
+                    restore_window_placement_to_current_monitors,
+                    track_window_placement,
+                    track_window_size,
+                    save_window_placement_on_close,
                     toggle_inspector,
                     update_debug_hud.after(toggle_inspector),
                     scale_debug_hud,

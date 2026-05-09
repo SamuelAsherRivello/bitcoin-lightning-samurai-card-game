@@ -15,6 +15,6 @@ Reference repo: `https://github.com/SamuelAsherRivello/rust-project-template`
 ## Adaptation Rules
 
 - Use the reference repo's workspace and script philosophy, but rename folders to match the generated project's purpose.
-- Prefer `project/scripts` for this template unless the generated Rust project intentionally adopts the reference repo's lowercase `scripts` convention.
+- Prefer root `scripts` for this repository unless the generated Rust project intentionally adopts a different convention.
 - Keep Rust rules in `AGENTS.md` concise: formatting, ownership, errors, tests, and avoiding broad refactors.
 - Add Cargo files only when the user explicitly wants implementation, not for planning-only tasks.

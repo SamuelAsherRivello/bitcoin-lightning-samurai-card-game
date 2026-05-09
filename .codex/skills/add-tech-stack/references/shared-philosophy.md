@@ -11,8 +11,8 @@
 | Specs | Keep active feature specs in `specs/`. |
 | Codex | Keep repo-local skills, memory, and rules in `.codex/`. |
 | Specify | Keep workflow templates, scripts, and constitution in `.specify/`. |
-| Assets | Start reusable assets in `project/assets/`; move only when the selected stack has a stronger convention. |
-| Scripts | Start repeatable commands in `project/scripts/`; stack overlays may introduce a more idiomatic scripts folder if the reference repo uses one consistently. |
+| Assets | Use the selected stack's runtime asset folder; Bevy assets live under `Bevy/Crates/Game/Assets/`. |
+| Scripts | Start repeatable commands in root `scripts/`; stack overlays may introduce a more idiomatic scripts folder if the reference repo uses one consistently. |
 | README | Keep the current README shape: TOC, Pics, Getting Started, Details, Structure, Features, Credits. |
 | Images | Keep README images in `documentation/images/` unless a generated stack deliberately changes documentation conventions. |
 

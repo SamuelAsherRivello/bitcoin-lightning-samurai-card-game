@@ -1,6 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
+$RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+
+& (Join-Path $PSScriptRoot "StopApp.ps1") -Quiet
 
 Push-Location $RepositoryRoot
 try {

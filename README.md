@@ -6,11 +6,10 @@ A Bevy ECS card game project built from the Codex Project Template.
 
 | Task | Command |
 | ---- | ------- |
-| Build | `project/scripts/build.ps1` |
-| Test | `project/scripts/test.ps1` |
-| Run tests | `project/scripts/RunTests.ps1` |
-| Run | `project/scripts/run.ps1` |
-| Run desktop | `project/scripts/RunAppDesktop.ps1` |
+| Install dependencies once | `scripts/main/InstallDependencies.ps1` |
+| Run tests | `scripts/main/RunTests.ps1` |
+| Run desktop | `scripts/main/RunAppDesktop.ps1` |
+| Stop app | `scripts/other/StopApp.ps1` |
 
 ## Structure
 
@@ -26,7 +25,7 @@ A Bevy ECS card game project built from the Codex Project Template.
 | `.codex` | Repo-local Codex guidance, skills, memory, and rules. |
 | `.specify` | Specify workflow configuration and constitution. |
 | `specs` | Active project specs. |
-| `project/scripts` | Repeatable local commands. |
+| `scripts` | Repeatable local commands. |
 | `documentation/images` | README-visible supporting images. |
 
 ## Stack

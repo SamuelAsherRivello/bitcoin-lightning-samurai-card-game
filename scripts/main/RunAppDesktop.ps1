@@ -8,11 +8,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "../..")
+$RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $TargetTriple = "x86_64-pc-windows-msvc"
 $PackageName = "bevy-card-game"
 
+& (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
+
 $env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target"
+$env:WGPU_BACKEND = "dx12"
 
 if ($UseSccache) {
     $Sccache = Get-Command "sccache" -ErrorAction SilentlyContinue
@@ -57,6 +60,7 @@ if ($CargoArgs) {
 }
 
 Write-Host "Target: $TargetTriple"
+Write-Host "WGPU backend: $env:WGPU_BACKEND"
 Write-Host "Incremental builds: $env:CARGO_INCREMENTAL"
 Write-Host "Cargo target dir: $env:CARGO_TARGET_DIR"
 

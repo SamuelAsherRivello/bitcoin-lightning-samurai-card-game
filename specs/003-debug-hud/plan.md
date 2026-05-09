@@ -14,11 +14,11 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 | Language/Version | Rust 2024 workspace |
 | Primary Dependencies | Bevy 0.18.1, bevy-inspector-egui 0.36.0 |
 | Storage | N/A |
-| Testing | `project/scripts/RunTests.ps1` runs `cargo test --workspace` |
+| Testing | `scripts/main/RunTests.ps1` runs `cargo test --workspace` |
 | Target Platform | Windows desktop now; browser WebGPU remains a required final verification target |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | HUD update is lightweight and frame-local; FPS text is sampled on a 0.5 second interval |
-| Constraints | Keep implementation under `Bevy/Crates/Game/src/runtime/`; keep scripts under `project/scripts/`; no gameplay HUD systems |
+| Constraints | Keep implementation under `Bevy/Crates/Game/src/runtime/`; keep scripts under `scripts/`; no gameplay HUD systems |
 | Scale/Scope | One HUD panel, one FPS toggle, one inspector toggle, automated tests for creation and input behavior |
 
 ## Constitution Check
@@ -26,10 +26,10 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 | Gate | Status | Notes |
 | ---- | ------ | ----- |
 | Active spec and repo guidance followed | ✅ | Implementation follows `003-debug-hud` and repo-local AGENTS guidance |
-| Source, scripts, and tests stay in approved locations | ✅ | Runtime code is under `Bevy/Crates/Game/src/runtime/`; scripts are under `project/scripts/` |
+| Source, scripts, and tests stay in approved locations | ✅ | Runtime code is under `Bevy/Crates/Game/src/runtime/`; scripts are under `scripts/` |
 | Visible feedback requirements respected | ✅ | DebugHUD is visible by default; no unrelated loading/toast systems added |
 | Browser/local storage constraints | ✅ | No storage, SQLite, OPFS, or browser-only state added |
-| Real behavior verification path | ✅ | Desktop build and tests use project scripts; browser WebGPU verification is documented in quickstart |
+| Real behavior verification path | ✅ | Desktop build and tests use repository scripts; browser WebGPU verification is documented in quickstart |
 | Rust and Bevy ECS standards | ✅ | State is represented with components, resources, systems, and plugins |
 | Target parity risk documented | ✅ | Desktop is verified in this iteration; browser WebGPU must be verified separately if toolchain is unavailable |
 
@@ -42,10 +42,13 @@ Bevy/Crates/Game/src/runtime/
 ├── resources/mod.rs     # Game tick and DebugHUD state resources
 └── systems/mod.rs       # HUD setup/update, inspector toggle/UI, scaling, and prototype setup
 
-project/scripts/
-├── RunTests.ps1         # Automated test suite entry point
-├── build.ps1            # Workspace build entry point
-└── RunAppDesktop.ps1    # Windows desktop run entry point
+scripts/
+├── main/
+│   ├── RunTests.ps1         # Automated test suite entry point
+│   └── RunAppDesktop.ps1    # Windows desktop run entry point
+└── other/
+    ├── RunTests.ps1         # Test implementation
+    └── StopApp.ps1          # Stops running project app/build processes
 ```
 
 **Structure Decision**: Keep all behavior inside the existing Bevy runtime ECS layout. Do not add a separate UI framework, gameplay subsystem, asset pipeline, or persistence layer for this feature.

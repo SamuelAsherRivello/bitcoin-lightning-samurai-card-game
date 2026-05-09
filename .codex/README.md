@@ -16,8 +16,8 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 | `.agents/skills` | Specify workflow skills. |
 | `.specify` | Specify configuration, templates, scripts, and constitution. |
 | `specs` | Active feature specifications. |
-| `project/assets` | Project assets and fixtures. |
-| `project/scripts` | Repeatable local project scripts. |
+| `Bevy/Crates/Game/Assets` | Runtime game assets and fixtures. |
+| `scripts` | Repeatable local project scripts. |
 | `documentation/images` | README-visible image assets. |
 
 ## Default Workflow

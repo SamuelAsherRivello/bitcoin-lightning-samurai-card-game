@@ -73,6 +73,8 @@ A reviewer moves or resizes the desktop window, closes the app, and sees the app
 ### Functional Requirements
 
 - **FR-001**: The repository MUST provide repeatable scripts for building, testing, and running the desktop app.
+- **FR-001A**: The repository MUST keep repeatable scripts under root `scripts`.
+- **FR-001B**: The repository SHOULD provide helper scripts for dependency checks and stopping project-local app/build processes.
 - **FR-002**: The repository MUST provide VS Code task entries for build, test, and desktop run workflows.
 - **FR-003**: The desktop run workflow MUST show command output in the VS Code integrated terminal when started through the VS Code task.
 - **FR-004**: The desktop app MUST default to an 800x600 window when no valid saved placement exists.
