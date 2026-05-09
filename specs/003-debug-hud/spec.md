@@ -1,6 +1,6 @@
-# Feature Specification: Debug HUD
+# Feature Specification: DebugHUD
 
-**Feature Branch**: `001-card-inspection-poc`  
+**Feature Branch**: `003-debug-hud`  
 **Created**: 2026-05-09  
 **Status**: Draft  
 **Input**: User description: "Copy how the HUD works in https://github.com/SamuelAsherRivello/bevy-jam-1. Keep the main HUD panel, title/status text, and key legend. WASD should be visible but do nothing. Keep F and I only and bring in that functionality. Do not include toast, minimap, reticle, or other HUD-related systems. Add tests and a RunTests script."
@@ -10,14 +10,17 @@
 ### Session 2026-05-09
 
 - Q: Which bevy-jam-1 HUD content should be kept? -> A: Keep the top-left HUD panel, title/status text, key legend with non-functional `WASD`, and functional `F` and `I`; exclude toast, minimap, reticle, and other listed HUD systems.
-- Q: How should `002-debug-hud` relate to the no-HUD rule in `001-card-inspection-poc` when both are implemented? -> A: `002-debug-hud` replaces the no-HUD rule in `001`; the final app should show the debug HUD by default.
-- Q: Should `001-card-inspection-poc` and `002-debug-hud` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
+- Q: How should `003-debug-hud` relate to the no-HUD rule in `004-card-inspection-poc` when both are implemented? -> A: `003-debug-hud` replaces the no-HUD rule in `004`; the final app should show the DebugHUD by default.
+- Q: Should `004-card-inspection-poc` and `003-debug-hud` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
+- Q: How should debug overlay scripts, tasks, docs, and source-facing labels be named? -> A: Rename all debug overlay scripts, tasks, docs, and source-facing labels to use `DebugHUD` so generic `HUD` remains available for a future user-facing HUD.
+- Q: Should `WASD` labels visually react to key presses? -> A: `WASD` labels may visually highlight while pressed through a DebugHUD/InputSystem key-state capture, but no gameplay, camera, card, or other non-DebugHUD system may consume those keys in this spec.
+- Q: Which approved DebugHUD keys are toggles? -> A: DebugHUD key labels are classified as toggle or non-toggle: `F` and `I` are toggles; `W`, `A`, `S`, and `D` are non-toggle hold indicators.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Show Debug HUD Panel (Priority: P1)
+### User Story 1 - Show DebugHUD Panel (Priority: P1)
 
-A reviewer sees a top-left debug HUD panel adapted from the bevy-jam-1 HUD pattern while running the card-inspection prototype.
+A reviewer sees a top-left DebugHUD panel adapted from the bevy-jam-1 HUD pattern while running the card-inspection prototype.
 
 **Why this priority**: The HUD provides lightweight review diagnostics without adding gameplay UI.
 
@@ -25,7 +28,7 @@ A reviewer sees a top-left debug HUD panel adapted from the bevy-jam-1 HUD patte
 
 **Acceptance Scenarios**:
 
-1. **Given** the prototype is running, **When** the reviewer observes the top-left corner, **Then** a translucent debug HUD panel is visible by default.
+1. **Given** the prototype is running, **When** the reviewer observes the top-left corner, **Then** a translucent DebugHUD panel is visible by default.
 2. **Given** the HUD is visible, **When** the reviewer reads it, **Then** it shows the prototype title, frame/status text, and key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
 
 ---
@@ -64,7 +67,7 @@ A reviewer presses `I` to show or hide the inspector while preserving the POC sc
 
 ### User Story 4 - Keep WASD Non-Functional (Priority: P2)
 
-A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, but those keys do not trigger gameplay, camera, card movement, or selection behavior.
+A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, and those labels may visually react while pressed, but those keys do not trigger gameplay, camera, card movement, or selection behavior.
 
 **Why this priority**: The visual pattern is copied from bevy-jam-1, but the card POC must not inherit aircraft movement or gameplay controls.
 
@@ -72,8 +75,9 @@ A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, but those keys do 
 
 **Acceptance Scenarios**:
 
-1. **Given** the prototype is running, **When** the reviewer presses `W`, `A`, `S`, or `D`, **Then** the card does not move, rotate because of those keys, select, score, shoot, or trigger gameplay.
+1. **Given** the prototype is running, **When** the reviewer presses `W`, `A`, `S`, or `D`, **Then** the DebugHUD key legend may show the pressed key state, but the card does not move, rotate because of those keys, select, score, shoot, or trigger gameplay.
 2. **Given** `WASD` key labels are visible, **When** the reviewer presses those keys, **Then** FPS and inspector visibility remain unchanged.
+3. **Given** `WASD` key labels are visible, **When** the reviewer releases those keys, **Then** their pressed-state feedback clears because they are non-toggle hold indicators.
 
 ### Edge Cases
 
@@ -86,45 +90,52 @@ A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, but those keys do 
 
 ### Functional Requirements
 
-- **FR-001**: The prototype MUST include one top-left debug HUD panel adapted from the bevy-jam-1 HUD pattern.
-- **FR-001A**: This debug HUD feature replaces the no-HUD rule from `001-card-inspection-poc` for the final combined app; the debug HUD MUST be visible by default.
-- **FR-002**: The debug HUD MUST show the prototype title and frame/status text.
-- **FR-003**: The debug HUD MUST show key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
-- **FR-004**: The `F` key MUST toggle FPS visibility in the debug HUD.
+- **FR-001**: The prototype MUST include one top-left DebugHUD panel adapted from the bevy-jam-1 HUD pattern.
+- **FR-001A**: This DebugHUD feature replaces the no-HUD rule from `004-card-inspection-poc` for the final combined app; the DebugHUD MUST be visible by default.
+- **FR-002**: The DebugHUD MUST show the prototype title and frame/status text.
+- **FR-003**: The DebugHUD MUST show key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
+- **FR-004**: The `F` key MUST toggle FPS visibility in the DebugHUD.
 - **FR-005**: The `I` key MUST toggle inspector visibility.
-- **FR-006**: The `W`, `A`, `S`, and `D` keys MUST NOT trigger movement, gameplay, camera, card, selection, scoring, or deck behavior.
+- **FR-006**: The `W`, `A`, `S`, and `D` keys MAY be captured by the DebugHUD/InputSystem for visible key-state feedback, but MUST NOT trigger movement, gameplay, camera, card, selection, scoring, deck behavior, or any other non-DebugHUD behavior in this spec.
+- **FR-006A**: Approved DebugHUD keys MUST be classified as toggle or non-toggle: `F` and `I` are toggles, while `W`, `A`, `S`, and `D` are non-toggle hold indicators.
 - **FR-007**: The HUD MUST use a translucent top-left panel style comparable to the bevy-jam-1 HUD.
 - **FR-008**: The HUD MUST scale responsively when the application window size changes.
 - **FR-009**: The implementation MUST include automated tests for HUD creation, `F` toggle behavior, `I` toggle behavior, and non-functional `WASD` behavior.
 - **FR-010**: The repository MUST include a `RunTests` script that runs the automated test suite.
+- **FR-010A**: Debug overlay scripts, tasks, docs, and source-facing labels MUST use `DebugHUD` naming rather than generic `HUD` naming so generic `HUD` remains available for a future user-facing HUD.
+- **FR-010B**: The feature MUST include an InputSystem-style key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, and `I`.
 - **FR-011**: This feature MUST NOT include bevy-jam-1 toast, minimap, reticle, autopilot, reset, shooting, health, score, or gameplay HUD behavior.
-- **FR-012**: The debug HUD MUST support both Windows desktop and browser WebGPU before completion; during implementation iterations, desktop-only builds are acceptable for fast feedback.
+- **FR-012**: The DebugHUD MUST support both Windows desktop and browser WebGPU before completion; during implementation iterations, desktop-only builds are acceptable for fast feedback.
 
 ### Key Entities
 
-- **Debug HUD Panel**: The top-left diagnostic UI surface showing prototype status and key labels.
+- **DebugHUD Panel**: The top-left diagnostic UI surface showing prototype status and key labels.
 - **FPS Toggle**: The `F` key behavior that shows or hides FPS text in the HUD.
 - **Inspector Toggle**: The `I` key behavior that shows or hides inspector visibility.
-- **Non-Functional WASD Labels**: Visible `W`, `A`, `S`, and `D` key labels that preserve the copied HUD pattern without adding gameplay controls.
+- **DebugHUD InputSystem**: The debug-only key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, and `I`, including each key's toggle or non-toggle classification.
+- **Non-Gameplay WASD Labels**: Visible `W`, `A`, `S`, and `D` key labels that preserve the copied HUD pattern and may show pressed state without adding gameplay controls.
 - **RunTests Script**: A repeatable project script for running the automated test suite.
+- **DebugHUD Naming**: The canonical naming convention for debug overlay scripts, tasks, docs, and source-facing labels.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: In 100% of launch checks, one top-left debug HUD panel is visible.
+- **SC-001**: In 100% of launch checks, one top-left DebugHUD panel is visible.
 - **SC-002**: In HUD content checks, the HUD includes title/status text and labels for `W`, `A`, `S`, `D`, `F`, and `I`.
 - **SC-003**: In toggle tests, pressing `F` changes FPS visibility state on each press and does not change inspector visibility.
 - **SC-004**: In toggle tests, pressing `I` changes inspector visibility state on each press and does not change FPS visibility.
-- **SC-005**: In keyboard behavior tests, pressing `W`, `A`, `S`, and `D` produces no card movement, gameplay action, FPS toggle, or inspector toggle.
+- **SC-005**: In keyboard behavior tests, pressing `W`, `A`, `S`, and `D` may update DebugHUD key-state feedback but produces no card movement, gameplay action, FPS toggle, inspector toggle, camera behavior, or non-DebugHUD behavior.
+- **SC-005A**: In key classification tests, `F` and `I` behave as toggles while `W`, `A`, `S`, and `D` behave as non-toggle hold indicators.
 - **SC-006**: The `RunTests` script completes the automated test suite from the repository root.
+- **SC-006A**: Review of scripts, tasks, docs, and source-facing labels finds `DebugHUD` naming for debug overlay-specific items and no generic debug overlay item named only `HUD`.
 - **SC-007**: Reviewers identify no toast, minimap, reticle, autopilot, reset, shooting, health, score, or gameplay HUD behavior in this feature.
-- **SC-008**: Final acceptance verification passes for the debug HUD on Windows desktop and browser WebGPU, or any blocked target is documented with the exact blocker.
+- **SC-008**: Final acceptance verification passes for the DebugHUD on Windows desktop and browser WebGPU, or any blocked target is documented with the exact blocker.
 
 ## Assumptions
 
 - The HUD is reviewer-facing diagnostic UI, not player-facing gameplay UI.
 - The bevy-jam-1 HUD is the visual and behavioral reference for the panel, title/status text, key labels, and `F`/`I` toggle pattern.
-- `WASD` remains visible only to preserve the copied HUD pattern; it is intentionally non-functional in this card POC.
+- `WASD` remains visible to preserve the copied HUD pattern and may provide DebugHUD-only pressed feedback; it is intentionally non-functional for gameplay, card, camera, and other non-DebugHUD systems in this card POC.
 - Toast, minimap, reticle, and gameplay HUD systems are intentionally excluded from this feature.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.

@@ -40,6 +40,10 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep Bevy source organized by ECS role under `Bevy/Crates/Game/src/runtime/`.
 - Use `project/scripts/build.ps1`, `project/scripts/test.ps1`, and `project/scripts/run.ps1` for repeatable local workflows.
 
+<!-- SPECKIT START -->
+Active feature spec for clarification: `specs/001-basic-setup/spec.md`
+<!-- SPECKIT END -->
+
 ## Markdown Format Rules
 
 | Rule | Requirement |
