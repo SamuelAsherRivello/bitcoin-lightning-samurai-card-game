@@ -13,6 +13,7 @@ $AppProcessNames = @(
     "bevy_card_game.exe"
 )
 $ProjectPathPattern = [regex]::Escape($RepositoryRoot)
+$PackageCommandPattern = "(^|\s)--package\s+$([regex]::Escape($PackageName))(\s|$)"
 $StoppedCount = 0
 
 $Processes = Get-CimInstance Win32_Process |
@@ -23,6 +24,12 @@ $Processes = Get-CimInstance Win32_Process |
             $_.CommandLine -and
             $_.CommandLine -match $ProjectPathPattern -and
             ($_.Name -in @("cargo.exe", "dx.exe", "rustc.exe", "rust-lld.exe", "link.exe") -or $_.Name -in $AppProcessNames)
+        ) -or
+        (
+            -not $AppOnly -and
+            $_.Name -eq "dx.exe" -and
+            $_.CommandLine -and
+            $_.CommandLine -match $PackageCommandPattern
         )
     }
 

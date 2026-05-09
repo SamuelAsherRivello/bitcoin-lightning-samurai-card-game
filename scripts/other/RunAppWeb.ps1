@@ -14,6 +14,8 @@ $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $PackageName = "bevy-card-game"
 $TargetDir = Join-Path $RepositoryRoot "target\run-app-web"
 $WebRoot = Join-Path $TargetDir "site"
+$SourceAssetsRoot = Join-Path $RepositoryRoot "bevy\crates\game\assets"
+$WebAssetsRoot = Join-Path $WebRoot "assets"
 $ServerRoot = Join-Path $TargetDir "server"
 $ServerScriptPath = Join-Path $ServerRoot "StaticFileServer.ps1"
 $ServerPidPath = Join-Path $ServerRoot "server.pid"
@@ -222,6 +224,11 @@ try {
         }
 
         New-Item -ItemType Directory -Force -Path $WebRoot | Out-Null
+        if (Test-Path $SourceAssetsRoot) {
+            New-Item -ItemType Directory -Force -Path $WebAssetsRoot | Out-Null
+            Copy-Item -Path (Join-Path $SourceAssetsRoot "*") -Destination $WebAssetsRoot -Recurse -Force
+        }
+
         $BindgenCommand = @(
             "--target", "web",
             "--out-dir", $WebRoot,

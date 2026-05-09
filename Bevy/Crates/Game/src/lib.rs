@@ -7,7 +7,7 @@ use bevy_inspector_egui::{
 pub mod runtime;
 
 use runtime::plugins::CoreGamePlugin;
-use runtime::systems::inspector_ui;
+use runtime::systems::{card_ui, inspector_ui};
 
 pub struct GamePlugin;
 
@@ -16,6 +16,6 @@ impl Plugin for GamePlugin {
         app.add_plugins(CoreGamePlugin)
             .add_plugins(EguiPlugin::default())
             .add_plugins(DefaultInspectorConfigPlugin)
-            .add_systems(EguiPrimaryContextPass, inspector_ui);
+            .add_systems(EguiPrimaryContextPass, (inspector_ui, card_ui));
     }
 }
