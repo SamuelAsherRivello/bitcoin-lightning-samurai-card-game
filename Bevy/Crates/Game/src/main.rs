@@ -1,5 +1,6 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy_card_game::{
@@ -32,15 +33,22 @@ fn main() {
 
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Bevy Card Game".to_string(),
-            resolution: window_resolution,
-            position: window_position,
-            ..default()
-        }),
-        ..default()
-    }));
+    app.add_plugins(
+        DefaultPlugins
+            .set(AssetPlugin {
+                file_path: asset_root_path().to_string(),
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Card Game".to_string(),
+                    resolution: window_resolution,
+                    position: window_position,
+                    ..default()
+                }),
+                ..default()
+            }),
+    );
 
     if let Some(store) = window_placement_store {
         app.insert_resource(store);
@@ -55,9 +63,20 @@ fn main() {
 fn connect_desktop_hot_reload() {
     subsecond::register_handler(Arc::new(|| {
         info!("Desktop hot reload patch applied");
+        bevy_card_game::runtime::resources::record_desktop_hot_reload_patch();
     }));
     connect_subsecond();
 }
 
 #[cfg(not(feature = "desktop-hot-reload"))]
 fn connect_desktop_hot_reload() {}
+
+#[cfg(target_arch = "wasm32")]
+fn asset_root_path() -> &'static str {
+    "assets"
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn asset_root_path() -> &'static str {
+    "bevy/crates/game/assets"
+}

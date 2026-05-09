@@ -7,22 +7,47 @@ pub struct Player;
 pub struct PrimarySceneCamera;
 
 #[derive(Component, Debug, Default)]
+pub struct AppSceneRoot;
+
+#[derive(Component, Debug, Default)]
+pub struct AppSceneEntity;
+
+#[derive(Component, Debug, Default)]
+pub struct CardBrowserSceneRoot;
+
+#[derive(Component, Debug, Default)]
+pub struct CardBrowserSceneEntity;
+
+#[derive(Component, Debug, Default)]
 pub struct CardPlaceholder;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CardLayerRole {
+    Background,
+    Frame,
+    Foreground,
+    Title,
+}
 
 #[derive(Component, Debug)]
 pub struct CardParallaxLayer {
+    pub role: CardLayerRole,
     pub apparent_depth: f32,
     pub neutral_translation: Vec3,
 }
 
 impl CardParallaxLayer {
-    pub const fn new(apparent_depth: f32, neutral_translation: Vec3) -> Self {
+    pub const fn new(role: CardLayerRole, apparent_depth: f32, neutral_translation: Vec3) -> Self {
         Self {
+            role,
             apparent_depth,
             neutral_translation,
         }
     }
 }
+
+#[derive(Component, Debug)]
+pub struct CardFrameLayer;
 
 #[derive(Component, Debug)]
 pub struct DebugHudText;

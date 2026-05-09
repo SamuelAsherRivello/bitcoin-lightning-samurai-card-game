@@ -35,6 +35,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep Codex guidance, reusable skills, rules, and memory under `.codex/`.
 - Keep reusable non-game project assets under `bevy/crates/game/assets/`.
 - Keep Bevy runtime assets under `bevy/crates/game/assets/`.
+- Keep card structure assets under `bevy/crates/game/assets/cards/CardStructure/`, card theme assets under `bevy/crates/game/assets/cards/CardThemes/CardTheme_<ThemeName>/`, and custom shaders under `bevy/crates/game/assets/shaders/`.
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.
 - Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
@@ -42,7 +43,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/004-card-inspection-poc/plan.md`
+Active implementation plan: `specs/005-card-polish/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules

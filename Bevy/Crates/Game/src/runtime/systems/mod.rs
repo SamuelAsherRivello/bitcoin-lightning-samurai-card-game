@@ -1,5 +1,7 @@
 use bevy::{
+    asset::RenderAssetUsages,
     ecs::system::SystemParam,
+    mesh::{Indices, PrimitiveTopology},
     prelude::*,
     render::view::NoIndirectDrawing,
     text::{Underline, UnderlineColor},
@@ -20,14 +22,22 @@ use bevy_inspector_egui::{
 use bevy_persistent::prelude::Persistent;
 
 use crate::runtime::components::{
-    CardParallaxLayer, CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText,
-    InspectorState, Player, PrimarySceneCamera,
+    AppSceneEntity, AppSceneRoot, CardBrowserSceneEntity, CardBrowserSceneRoot, CardFrameLayer,
+    CardLayerRole, CardParallaxLayer, CardPlaceholder, DebugHudFpsText, DebugHudKeyText,
+    DebugHudText, InspectorState, Player, PrimarySceneCamera,
 };
 use crate::runtime::resources::{
-    CardInspectionDefaults, CardInspectionState, DebugHudState, GameTicks, PrimaryCameraDefaults,
-    WindowPlacement, WindowPlacementState, WindowPlacementStore, load_window_placement,
-    valid_window_placement,
+    ActiveCardTheme, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CardInspectionDefaults,
+    CardInspectionState, CardTheme, CardThemeRegistry, CardUiState, DebugHudInputStore,
+    DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacement, WindowPlacementState,
+    WindowPlacementStore, load_window_placement, valid_window_placement,
 };
+
+#[cfg(feature = "desktop-hot-reload")]
+use crate::runtime::resources::desktop_hot_reload_patch_count;
+
+#[cfg(test)]
+use bevy::mesh::VertexAttributeValues;
 
 const FPS_UPDATE_INTERVAL_SECONDS: f32 = 0.5;
 const SCREEN_PADDING_TOP: f32 = 24.0;
@@ -36,26 +46,36 @@ const TARGET_WIDTH: f32 = DEFAULT_WINDOW_WIDTH as f32;
 const TARGET_HEIGHT: f32 = DEFAULT_WINDOW_HEIGHT as f32;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
-const BACKGROUND_DOT_COLUMNS: u32 = 10;
-const BACKGROUND_DOT_ROWS: u32 = 14;
-const FOREGROUND_DOT_COLUMNS: u32 = 6;
-const FOREGROUND_DOT_ROWS: u32 = 8;
-const BACKGROUND_DOT_SIZE_RATIO: f32 = 0.035;
-const FOREGROUND_DOT_SIZE_RATIO: f32 = 0.052;
 const BACKGROUND_APPARENT_DEPTH: f32 = -1.0;
 const FRAME_APPARENT_DEPTH: f32 = 0.0;
 const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
+const TITLE_APPARENT_DEPTH: f32 = 2.0;
 const LAYER_RENDER_Z_STEP: f32 = 0.0001;
+const BACKGROUND_DEPTH_BIAS: f32 = 0.0;
+const FRAME_DEPTH_BIAS: f32 = 8.0;
+const FOREGROUND_DEPTH_BIAS: f32 = 16.0;
+const TITLE_DEPTH_BIAS: f32 = 24.0;
 const PARALLAX_OFFSET_RATIO: f32 = 0.065;
+const FRAME_THICKNESS_RATIO: f32 = 0.05;
+const BACKGROUND_APERTURE_SCALE: f32 = 1.5;
+const FOREGROUND_WIDTH_RATIO: f32 = 0.72;
+const TITLE_WIDTH_RATIO: f32 = 0.92;
+const TITLE_HEIGHT_RATIO: f32 = 0.22;
+const FRAME_SHINE_STRENGTH: f32 = 0.22;
 
 pub fn setup_game(mut commands: Commands) {
     commands.spawn((Player, Name::new(GameTitle::DISPLAY)));
 }
 
 pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<PrimaryCameraDefaults>) {
+    spawn_primary_camera(&mut commands, &camera_defaults);
+}
+
+fn spawn_primary_camera(commands: &mut Commands, camera_defaults: &PrimaryCameraDefaults) {
     commands.spawn((
         Name::new("Primary 3D Camera"),
         PrimarySceneCamera,
+        AppSceneEntity,
         Camera3d::default(),
         NoIndirectDrawing,
         Projection::Perspective(PerspectiveProjection {
@@ -68,164 +88,351 @@ pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<Primary
     ));
 }
 
-pub fn setup_card_placeholder(
+pub fn setup_app_scene(mut commands: Commands, camera_defaults: Res<PrimaryCameraDefaults>) {
+    commands.spawn((
+        Name::new("AppScene"),
+        AppSceneRoot,
+        AppSceneEntity,
+        Transform::default(),
+        Visibility::default(),
+    ));
+    spawn_primary_camera(&mut commands, &camera_defaults);
+    spawn_app_light(&mut commands);
+    spawn_debug_hud(&mut commands);
+}
+
+fn spawn_app_light(commands: &mut Commands) {
+    commands.spawn((
+        Name::new("AppScene Key Light"),
+        AppSceneEntity,
+        DirectionalLight {
+            illuminance: 1500.0,
+            ..Default::default()
+        },
+        Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.45, -0.35, 0.0)),
+    ));
+}
+
+pub fn setup_card_browser_scene(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
+    theme_registry: Res<CardThemeRegistry>,
+    active_theme: Res<ActiveCardTheme>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let background_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.12, 0.46, 0.58),
-        unlit: true,
-        ..Default::default()
-    });
-    let frame_material = materials.add(StandardMaterial {
-        base_color: Color::WHITE,
-        unlit: true,
-        ..Default::default()
-    });
-    let foreground_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 0.62, 0.16),
-        unlit: true,
-        ..Default::default()
-    });
-    let background_dot_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.72, 0.90, 0.95),
-        unlit: true,
-        ..Default::default()
-    });
-    let foreground_dot_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.42, 0.19, 0.04),
-        unlit: true,
-        ..Default::default()
-    });
+    spawn_card_structure(
+        &mut commands,
+        &asset_server,
+        &card_defaults,
+        &theme_registry,
+        &active_theme,
+        &mut meshes,
+        &mut materials,
+    );
+}
 
-    let frame_thickness_x = card_defaults.width * 0.1;
-    let frame_thickness_y = card_defaults.height * 0.1;
-    let hole_width = card_defaults.width - (frame_thickness_x * 2.0);
-    let hole_height = card_defaults.height - (frame_thickness_y * 2.0);
+pub fn setup_card_placeholder(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    theme_registry: Res<CardThemeRegistry>,
+    active_theme: Res<ActiveCardTheme>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    spawn_card_structure(
+        &mut commands,
+        &asset_server,
+        &card_defaults,
+        &theme_registry,
+        &active_theme,
+        &mut meshes,
+        &mut materials,
+    );
+}
+
+fn spawn_card_structure(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    card_defaults: &CardInspectionDefaults,
+    theme_registry: &CardThemeRegistry,
+    active_theme: &ActiveCardTheme,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    let theme = theme_registry
+        .active_theme(&active_theme)
+        .cloned()
+        .unwrap_or_else(CardTheme::skybolt);
+    let background_material = themed_material(
+        asset_server,
+        materials,
+        theme.background_texture,
+        AlphaMode::Opaque,
+        BACKGROUND_DEPTH_BIAS,
+    );
+    let frame_material = themed_material(
+        asset_server,
+        materials,
+        theme.frame_texture,
+        AlphaMode::Opaque,
+        FRAME_DEPTH_BIAS,
+    );
+    let foreground_material = themed_material(
+        asset_server,
+        materials,
+        theme.foreground_texture,
+        AlphaMode::AlphaToCoverage,
+        FOREGROUND_DEPTH_BIAS,
+    );
+    let title_material = themed_material(
+        asset_server,
+        materials,
+        theme.title_texture,
+        AlphaMode::AlphaToCoverage,
+        TITLE_DEPTH_BIAS,
+    );
+
+    let frame_dimensions = frame_dimensions(&card_defaults);
     let card_front_z = (card_defaults.thickness * 0.5) + LAYER_RENDER_Z_STEP;
     let background_z = card_front_z;
-    let background_detail_z = card_front_z + LAYER_RENDER_Z_STEP;
     let frame_z = card_front_z + (LAYER_RENDER_Z_STEP * 3.0);
     let foreground_z = card_front_z + (LAYER_RENDER_Z_STEP * 5.0);
-    let background_width = hole_width;
-    let background_height = hole_height;
-    let background_dot_size = background_width * BACKGROUND_DOT_SIZE_RATIO;
-    let background_dot_field_width = background_width;
-    let background_dot_field_height = background_height;
+    let title_z = card_front_z + (LAYER_RENDER_Z_STEP * 7.0);
 
-    let background_mesh = meshes.add(Rectangle::new(background_width, background_height));
-    let vertical_frame_mesh = meshes.add(Rectangle::new(frame_thickness_x, card_defaults.height));
-    let horizontal_frame_mesh = meshes.add(Rectangle::new(hole_width, frame_thickness_y));
-    let foreground_width = card_defaults.width * 0.5;
-    let foreground_height = card_defaults.height * 0.5;
+    let background_mesh = meshes.add(background_aperture_mesh(&frame_dimensions, Vec2::ZERO));
+    let frame_mesh = meshes.add(frame_cutout_mesh(card_defaults, &frame_dimensions));
+    let foreground_width = card_defaults.width * FOREGROUND_WIDTH_RATIO;
+    let foreground_height = card_defaults.height * theme.foreground_height_ratio;
     let foreground_mesh = meshes.add(Rectangle::new(foreground_width, foreground_height));
-    let background_dot_mesh = meshes.add(Rectangle::new(background_dot_size, background_dot_size));
-    let foreground_dot_mesh = meshes.add(Rectangle::new(
-        foreground_width * FOREGROUND_DOT_SIZE_RATIO,
-        foreground_width * FOREGROUND_DOT_SIZE_RATIO,
+    let title_mesh = meshes.add(Rectangle::new(
+        card_defaults.width * TITLE_WIDTH_RATIO,
+        card_defaults.height * TITLE_HEIGHT_RATIO,
     ));
 
     commands
         .spawn((
-            Name::new("Poker Card Placeholder"),
+            Name::new(format!("CardStructure {}", theme.display_name)),
             CardPlaceholder,
+            CardBrowserSceneRoot,
+            CardBrowserSceneEntity,
             Transform::default(),
             Visibility::default(),
         ))
         .with_children(|parent| {
             spawn_parallax_plane(
                 parent,
-                Name::new("Card Background Aperture Fill"),
+                Name::new(format!("Card Background {}", theme.display_name)),
                 background_mesh,
                 background_material,
-                FRAME_APPARENT_DEPTH,
-                Vec3::new(0.0, 0.0, background_z),
-            );
-            spawn_dot_pattern(
-                parent,
-                "Card Background Dot",
-                background_dot_field_width,
-                background_dot_field_height,
-                BACKGROUND_DOT_COLUMNS,
-                BACKGROUND_DOT_ROWS,
-                background_detail_z,
-                background_dot_mesh,
-                background_dot_material,
+                CardLayerRole::Background,
                 BACKGROUND_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, background_z),
+                false,
             );
 
             spawn_parallax_plane(
                 parent,
-                Name::new("Card Frame Left"),
-                vertical_frame_mesh.clone(),
+                Name::new("Card Frame Cutout"),
+                frame_mesh,
                 frame_material.clone(),
+                CardLayerRole::Frame,
                 FRAME_APPARENT_DEPTH,
-                Vec3::new(
-                    -(card_defaults.width * 0.5) + (frame_thickness_x * 0.5),
-                    0.0,
-                    frame_z,
-                ),
-            );
-            spawn_parallax_plane(
-                parent,
-                Name::new("Card Frame Right"),
-                vertical_frame_mesh,
-                frame_material.clone(),
-                FRAME_APPARENT_DEPTH,
-                Vec3::new(
-                    (card_defaults.width * 0.5) - (frame_thickness_x * 0.5),
-                    0.0,
-                    frame_z,
-                ),
-            );
-            spawn_parallax_plane(
-                parent,
-                Name::new("Card Frame Top"),
-                horizontal_frame_mesh.clone(),
-                frame_material.clone(),
-                FRAME_APPARENT_DEPTH,
-                Vec3::new(
-                    0.0,
-                    (card_defaults.height * 0.5) - (frame_thickness_y * 0.5),
-                    frame_z,
-                ),
-            );
-            spawn_parallax_plane(
-                parent,
-                Name::new("Card Frame Bottom"),
-                horizontal_frame_mesh,
-                frame_material,
-                FRAME_APPARENT_DEPTH,
-                Vec3::new(
-                    0.0,
-                    -(card_defaults.height * 0.5) + (frame_thickness_y * 0.5),
-                    frame_z,
-                ),
+                Vec3::new(0.0, 0.0, frame_z),
+                true,
             );
 
             spawn_parallax_plane(
                 parent,
-                Name::new("Card Foreground Rectangle"),
+                Name::new(format!("Card Foreground {} Character", theme.display_name)),
                 foreground_mesh,
                 foreground_material,
+                CardLayerRole::Foreground,
                 FOREGROUND_APPARENT_DEPTH,
-                Vec3::new(0.0, 0.0, foreground_z),
+                Vec3::new(
+                    card_defaults.width * theme.foreground_x_ratio,
+                    card_defaults.height * theme.foreground_y_ratio,
+                    foreground_z,
+                ),
+                false,
             );
-            spawn_dot_pattern(
+            spawn_parallax_plane(
                 parent,
-                "Card Foreground Dot",
-                foreground_width,
-                foreground_height,
-                FOREGROUND_DOT_COLUMNS,
-                FOREGROUND_DOT_ROWS,
-                foreground_z + LAYER_RENDER_Z_STEP,
-                foreground_dot_mesh,
-                foreground_dot_material,
-                FOREGROUND_APPARENT_DEPTH,
+                Name::new(format!("Card Title {}", theme.display_name)),
+                title_mesh,
+                title_material,
+                CardLayerRole::Title,
+                TITLE_APPARENT_DEPTH,
+                Vec3::new(0.0, card_defaults.height * theme.title_y_ratio, title_z),
+                false,
             );
         });
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FrameDimensions {
+    frame_thickness_x: f32,
+    frame_thickness_y: f32,
+    hole_width: f32,
+    hole_height: f32,
+}
+
+fn frame_dimensions(card_defaults: &CardInspectionDefaults) -> FrameDimensions {
+    let frame_thickness = card_defaults.width * FRAME_THICKNESS_RATIO;
+
+    FrameDimensions {
+        frame_thickness_x: frame_thickness,
+        frame_thickness_y: frame_thickness,
+        hole_width: card_defaults.width - (frame_thickness * 2.0),
+        hole_height: card_defaults.height - (frame_thickness * 2.0),
+    }
+}
+
+fn frame_cutout_mesh(
+    card_defaults: &CardInspectionDefaults,
+    frame_dimensions: &FrameDimensions,
+) -> Mesh {
+    let outer_left = -card_defaults.width * 0.5;
+    let outer_right = card_defaults.width * 0.5;
+    let outer_bottom = -card_defaults.height * 0.5;
+    let outer_top = card_defaults.height * 0.5;
+    let inner_left = outer_left + frame_dimensions.frame_thickness_x;
+    let inner_right = outer_right - frame_dimensions.frame_thickness_x;
+    let inner_bottom = outer_bottom + frame_dimensions.frame_thickness_y;
+    let inner_top = outer_top - frame_dimensions.frame_thickness_y;
+
+    let mut positions = Vec::with_capacity(16);
+    let mut normals = Vec::with_capacity(16);
+    let mut uvs = Vec::with_capacity(16);
+    let mut indices = Vec::with_capacity(24);
+
+    add_frame_quad(
+        &mut positions,
+        &mut normals,
+        &mut uvs,
+        &mut indices,
+        Vec2::new(outer_left, outer_bottom),
+        Vec2::new(inner_left, outer_top),
+        card_defaults,
+    );
+    add_frame_quad(
+        &mut positions,
+        &mut normals,
+        &mut uvs,
+        &mut indices,
+        Vec2::new(inner_right, outer_bottom),
+        Vec2::new(outer_right, outer_top),
+        card_defaults,
+    );
+    add_frame_quad(
+        &mut positions,
+        &mut normals,
+        &mut uvs,
+        &mut indices,
+        Vec2::new(inner_left, inner_top),
+        Vec2::new(inner_right, outer_top),
+        card_defaults,
+    );
+    add_frame_quad(
+        &mut positions,
+        &mut normals,
+        &mut uvs,
+        &mut indices,
+        Vec2::new(inner_left, outer_bottom),
+        Vec2::new(inner_right, inner_bottom),
+        card_defaults,
+    );
+
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_indices(Indices::U32(indices))
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+}
+
+fn background_aperture_mesh(frame_dimensions: &FrameDimensions, uv_offset: Vec2) -> Mesh {
+    let half_width = frame_dimensions.hole_width * 0.5;
+    let half_height = frame_dimensions.hole_height * 0.5;
+    let positions = vec![
+        [-half_width, -half_height, 0.0],
+        [half_width, -half_height, 0.0],
+        [half_width, half_height, 0.0],
+        [-half_width, half_height, 0.0],
+    ];
+    let normals = vec![[0.0, 0.0, 1.0]; 4];
+    let uvs = background_aperture_uvs(uv_offset);
+
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    )
+    .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+}
+
+fn background_aperture_uvs(uv_offset: Vec2) -> Vec<[f32; 2]> {
+    let visible_uv_size = 1.0 / BACKGROUND_APERTURE_SCALE;
+    let min = Vec2::splat((1.0 - visible_uv_size) * 0.5) + uv_offset;
+    let max = min + Vec2::splat(visible_uv_size);
+
+    vec![
+        [min.x, max.y],
+        [max.x, max.y],
+        [max.x, min.y],
+        [min.x, min.y],
+    ]
+}
+
+fn add_frame_quad(
+    positions: &mut Vec<[f32; 3]>,
+    normals: &mut Vec<[f32; 3]>,
+    uvs: &mut Vec<[f32; 2]>,
+    indices: &mut Vec<u32>,
+    min: Vec2,
+    max: Vec2,
+    card_defaults: &CardInspectionDefaults,
+) {
+    let start = positions.len() as u32;
+    let corners = [
+        Vec2::new(min.x, min.y),
+        Vec2::new(max.x, min.y),
+        Vec2::new(max.x, max.y),
+        Vec2::new(min.x, max.y),
+    ];
+
+    for corner in corners {
+        positions.push([corner.x, corner.y, 0.0]);
+        normals.push([0.0, 0.0, 1.0]);
+        uvs.push([
+            (corner.x / card_defaults.width) + 0.5,
+            1.0 - ((corner.y / card_defaults.height) + 0.5),
+        ]);
+    }
+
+    indices.extend_from_slice(&[start, start + 1, start + 2, start, start + 2, start + 3]);
+}
+
+fn themed_material(
+    asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
+    texture_path: &'static str,
+    alpha_mode: AlphaMode,
+    depth_bias: f32,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color_texture: Some(asset_server.load(texture_path)),
+        alpha_mode,
+        depth_bias,
+        unlit: true,
+        ..Default::default()
+    })
 }
 
 fn spawn_parallax_plane(
@@ -233,66 +440,21 @@ fn spawn_parallax_plane(
     name: Name,
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
+    role: CardLayerRole,
     apparent_depth: f32,
     neutral_translation: Vec3,
+    is_frame: bool,
 ) {
-    parent.spawn((
+    let mut entity = parent.spawn((
         name,
         Mesh3d(mesh),
-        MeshMaterial3d(material),
+        MeshMaterial3d(material.clone()),
         Transform::from_translation(neutral_translation),
-        CardParallaxLayer::new(apparent_depth, neutral_translation),
+        CardParallaxLayer::new(role, apparent_depth, neutral_translation),
     ));
-}
-
-fn spawn_dot_pattern(
-    parent: &mut ChildSpawnerCommands,
-    name_prefix: &'static str,
-    width: f32,
-    height: f32,
-    columns: u32,
-    rows: u32,
-    z: f32,
-    mesh: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-    apparent_depth: f32,
-) {
-    for (index, position) in dot_pattern_positions(width, height, columns, rows)
-        .into_iter()
-        .enumerate()
-    {
-        let neutral_translation = Vec3::new(position.x, position.y, z);
-        parent.spawn((
-            Name::new(format!("{name_prefix} {}", index + 1)),
-            Mesh3d(mesh.clone()),
-            MeshMaterial3d(material.clone()),
-            Transform::from_translation(neutral_translation),
-            CardParallaxLayer::new(apparent_depth, neutral_translation),
-        ));
+    if is_frame {
+        entity.insert(CardFrameLayer);
     }
-}
-
-fn dot_pattern_positions(width: f32, height: f32, columns: u32, rows: u32) -> Vec<Vec2> {
-    if columns == 0 || rows == 0 {
-        return Vec::new();
-    }
-
-    let x_step = width / columns as f32;
-    let y_step = height / rows as f32;
-    let x_start = (width * -0.5) + (x_step * 0.5);
-    let y_start = (height * -0.5) + (y_step * 0.5);
-    let mut positions = Vec::with_capacity((columns * rows) as usize);
-
-    for row in 0..rows {
-        for column in 0..columns {
-            positions.push(Vec2::new(
-                x_start + (column as f32 * x_step),
-                y_start + (row as f32 * y_step),
-            ));
-        }
-    }
-
-    positions
 }
 
 pub fn track_card_pointer_target(
@@ -337,8 +499,10 @@ pub fn smooth_card_rotation(
 
 pub fn update_card_parallax_layers(
     card_defaults: Res<CardInspectionDefaults>,
+    card_ui_state: Res<CardUiState>,
     card_query: Query<&Transform, (With<CardPlaceholder>, Without<CardParallaxLayer>)>,
-    mut layer_query: Query<(&CardParallaxLayer, &mut Transform)>,
+    mut layer_query: Query<(&CardParallaxLayer, &mut Transform, Option<&Mesh3d>)>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let Ok(card_transform) = card_query.single() else {
         return;
@@ -352,11 +516,192 @@ pub fn update_card_parallax_layers(
         card_defaults.width * PARALLAX_OFFSET_RATIO,
         card_defaults.height * PARALLAX_OFFSET_RATIO,
     );
+    let depth_multiplier = card_ui_state.depth_multiplier();
 
-    for (layer, mut transform) in &mut layer_query {
-        let offset = tilt * max_offset * layer.apparent_depth;
-        transform.translation = layer.neutral_translation + Vec3::new(offset.x, offset.y, 0.0);
+    let frame_dimensions = frame_dimensions(&card_defaults);
+    let background_virtual_size = Vec2::new(
+        frame_dimensions.hole_width * BACKGROUND_APERTURE_SCALE,
+        frame_dimensions.hole_height * BACKGROUND_APERTURE_SCALE,
+    );
+
+    for (layer, mut transform, mesh_handle) in &mut layer_query {
+        let offset = tilt * max_offset * layer.apparent_depth * depth_multiplier;
+        if layer.role == CardLayerRole::Background {
+            transform.translation = layer.neutral_translation;
+            if let Some(mesh_handle) = mesh_handle {
+                if let Some(mesh) = meshes.get_mut(&mesh_handle.0) {
+                    let uv_offset = Vec2::new(
+                        -offset.x / background_virtual_size.x,
+                        offset.y / background_virtual_size.y,
+                    );
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, background_aperture_uvs(uv_offset));
+                }
+            }
+        } else {
+            transform.translation = layer.neutral_translation + Vec3::new(offset.x, offset.y, 0.0);
+        }
     }
+}
+
+pub fn update_card_frame_shine(
+    card_defaults: Res<CardInspectionDefaults>,
+    card_query: Query<&Transform, (With<CardPlaceholder>, Without<CardFrameLayer>)>,
+    frame_query: Query<&MeshMaterial3d<StandardMaterial>, With<CardFrameLayer>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let Ok(card_transform) = card_query.single() else {
+        return;
+    };
+
+    let (yaw, pitch, _) = card_transform.rotation.to_euler(EulerRot::YXZ);
+    let max_tilt = card_defaults.max_tilt_radians.max(f32::EPSILON);
+    let tilt =
+        Vec2::new(yaw / max_tilt, -pitch / max_tilt).clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
+    let shine = ((tilt.x * 0.65) + (tilt.y * 0.35) + 1.0) * 0.5;
+    let lift = shine * FRAME_SHINE_STRENGTH;
+    let frame_tint = Color::srgb(0.82 + lift, 0.84 + lift, 0.88 + lift);
+
+    for material_handle in &frame_query {
+        if let Some(material) = materials.get_mut(&material_handle.0) {
+            material.base_color = frame_tint;
+        }
+    }
+}
+
+pub fn toggle_card_theme(
+    keys: Res<ButtonInput<KeyCode>>,
+    registry: Res<CardThemeRegistry>,
+    mut active_theme: ResMut<ActiveCardTheme>,
+    mut commands: Commands,
+    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut card_state: ResMut<CardInspectionState>,
+    mut ticks: ResMut<GameTicks>,
+) {
+    if keys.just_pressed(KeyCode::KeyT) {
+        let previous_index = active_theme.index;
+        active_theme.toggle(&registry);
+        if active_theme.index != previous_index {
+            reload_card_browser_scene(
+                &mut commands,
+                &scene_entities,
+                &asset_server,
+                &card_defaults,
+                &registry,
+                &active_theme,
+                &mut meshes,
+                &mut materials,
+                &mut card_state,
+                &mut ticks,
+            );
+        }
+    }
+}
+
+pub fn restart_card_browser_scene(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    theme_registry: Res<CardThemeRegistry>,
+    active_theme: Res<ActiveCardTheme>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut card_state: ResMut<CardInspectionState>,
+    mut ticks: ResMut<GameTicks>,
+) {
+    if !keys.just_pressed(KeyCode::KeyR) {
+        return;
+    }
+
+    reload_card_browser_scene(
+        &mut commands,
+        &scene_entities,
+        &asset_server,
+        &card_defaults,
+        &theme_registry,
+        &active_theme,
+        &mut meshes,
+        &mut materials,
+        &mut card_state,
+        &mut ticks,
+    );
+}
+
+#[cfg(feature = "desktop-hot-reload")]
+pub fn hot_reload_auto_restart_card_browser_scene(
+    mut last_seen_patch_count: Local<u64>,
+    hud_state: Res<DebugHudState>,
+    mut commands: Commands,
+    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    theme_registry: Res<CardThemeRegistry>,
+    active_theme: Res<ActiveCardTheme>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut card_state: ResMut<CardInspectionState>,
+    mut ticks: ResMut<GameTicks>,
+) {
+    let patch_count = desktop_hot_reload_patch_count();
+    if patch_count == *last_seen_patch_count {
+        return;
+    }
+
+    *last_seen_patch_count = patch_count;
+
+    if !hud_state.is_hot_reload_autorestart_enabled {
+        return;
+    }
+
+    reload_card_browser_scene(
+        &mut commands,
+        &scene_entities,
+        &asset_server,
+        &card_defaults,
+        &theme_registry,
+        &active_theme,
+        &mut meshes,
+        &mut materials,
+        &mut card_state,
+        &mut ticks,
+    );
+}
+
+#[cfg(not(feature = "desktop-hot-reload"))]
+pub fn hot_reload_auto_restart_card_browser_scene() {}
+
+fn reload_card_browser_scene(
+    commands: &mut Commands,
+    scene_entities: &Query<Entity, With<CardBrowserSceneEntity>>,
+    asset_server: &AssetServer,
+    card_defaults: &CardInspectionDefaults,
+    theme_registry: &CardThemeRegistry,
+    active_theme: &ActiveCardTheme,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    card_state: &mut CardInspectionState,
+    ticks: &mut GameTicks,
+) {
+    for entity in scene_entities.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    *card_state = CardInspectionState::default();
+    ticks.0 = 0;
+    spawn_card_structure(
+        commands,
+        asset_server,
+        card_defaults,
+        theme_registry,
+        active_theme,
+        meshes,
+        materials,
+    );
 }
 
 pub fn update_card_target_from_pointer(
@@ -401,18 +746,37 @@ pub fn load_saved_window_placement(
         .or_else(load_window_placement);
 }
 
+pub fn load_saved_debug_hud_input(
+    mut hud_state: ResMut<DebugHudState>,
+    persistent_input: Option<Res<Persistent<DebugHudInputStore>>>,
+) {
+    if let Some(persistent_input) = persistent_input {
+        persistent_input.apply_to_state(&mut hud_state);
+    }
+}
+
 pub fn advance_ticks(mut ticks: ResMut<GameTicks>) {
     ticks.0 += 1;
 }
 
-pub fn setup_inspector(mut commands: Commands) {
-    commands.spawn((Name::new("Bevy Inspector"), InspectorState::default()));
+pub fn setup_inspector(mut commands: Commands, hud_state: Res<DebugHudState>) {
+    commands.spawn((
+        Name::new("Bevy Inspector"),
+        InspectorState {
+            is_visible: hud_state.is_inspector_visible,
+            ..Default::default()
+        },
+    ));
 }
 
 pub fn setup_debug_hud(mut commands: Commands) {
+    spawn_debug_hud(&mut commands);
+}
+
+fn spawn_debug_hud(commands: &mut Commands) {
     commands
         .spawn((
-            Text::new("Card Inspection POC\nFrame: 0\nKEYS: "),
+            Text::new("Card Browser\nFrame: 0\nKEYS: "),
             TextFont {
                 font_size: DEBUG_HUD_FONT_SIZE,
                 ..Default::default()
@@ -422,7 +786,7 @@ pub fn setup_debug_hud(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 left: Val::Px(SCREEN_PADDING_LEFT),
                 top: Val::Px(SCREEN_PADDING_TOP),
-                width: Val::Px(210.0),
+                width: Val::Px(273.0),
                 align_items: AlignItems::Center,
                 padding: UiRect {
                     left: Val::Px(40.0),
@@ -434,6 +798,7 @@ pub fn setup_debug_hud(mut commands: Commands) {
                 ..Default::default()
             },
             BackgroundColor(Color::srgba(0.02, 0.02, 0.02, 0.72)),
+            AppSceneEntity,
             DebugHudText,
         ))
         .with_children(|parent| {
@@ -441,10 +806,16 @@ pub fn setup_debug_hud(mut commands: Commands) {
             spawn_key_span(parent, "A", KeyCode::KeyA, false);
             spawn_key_span(parent, "S", KeyCode::KeyS, false);
             spawn_key_span(parent, "D", KeyCode::KeyD, false);
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
+            spawn_key_span(parent, "R", KeyCode::KeyR, false);
             parent.spawn((TextSpan::new("\nKEYS: "), debug_hud_text_font()));
             spawn_key_span(parent, "F", KeyCode::KeyF, true);
-            parent.spawn((TextSpan::new(" "), debug_hud_text_font()));
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "I", KeyCode::KeyI, true);
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
+            spawn_key_span(parent, "H", KeyCode::KeyH, true);
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
+            spawn_key_span(parent, "T", KeyCode::KeyT, true);
             parent.spawn((TextSpan::new(""), debug_hud_text_font(), DebugHudFpsText));
         });
 }
@@ -462,10 +833,6 @@ pub struct DebugHudUpdateParams<'w, 's> {
 }
 
 pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
-    if params.keys.just_pressed(KeyCode::KeyF) {
-        params.hud_state.is_fps_visible = !params.hud_state.is_fps_visible;
-    }
-
     params.hud_state.fps_accumulated_seconds += params.time.delta_secs();
     params.hud_state.fps_accumulated_frames += 1;
 
@@ -493,6 +860,8 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
             match key_text.key_code {
                 KeyCode::KeyF => fps_on,
                 KeyCode::KeyI => inspector_on,
+                KeyCode::KeyH => params.hud_state.is_hot_reload_autorestart_enabled,
+                KeyCode::KeyT => true,
                 _ => false,
             }
         } else {
@@ -506,7 +875,7 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
         };
     }
 
-    let full_text = format!("Card Inspection POC\nFrame: {}\nKEYS: ", params.ticks.0);
+    let full_text = format!("Card Browser\nFrame: {}\nKEYS: ", params.ticks.0);
     for mut text in &mut params.text_query {
         *text = Text::new(full_text.clone());
     }
@@ -522,9 +891,39 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     }
 }
 
+pub fn toggle_debug_hud_inputs(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut hud_state: ResMut<DebugHudState>,
+    mut persistent_input: Option<ResMut<Persistent<DebugHudInputStore>>>,
+) {
+    let mut changed = false;
+
+    if keys.just_pressed(KeyCode::KeyF) {
+        hud_state.is_fps_visible = !hud_state.is_fps_visible;
+        changed = true;
+    }
+
+    if keys.just_pressed(KeyCode::KeyH) {
+        hud_state.is_hot_reload_autorestart_enabled = !hud_state.is_hot_reload_autorestart_enabled;
+        changed = true;
+    }
+
+    if !changed {
+        return;
+    }
+
+    if let Some(ref mut persistent_input) = persistent_input {
+        if let Err(error) = persistent_input.set(DebugHudInputStore::from_state(&hud_state)) {
+            warn!("Failed to save DebugHUD input state: {error}");
+        }
+    }
+}
+
 pub fn toggle_inspector(
     keys: Res<ButtonInput<KeyCode>>,
     mut inspector_query: Query<&mut InspectorState>,
+    mut hud_state: ResMut<DebugHudState>,
+    mut persistent_input: Option<ResMut<Persistent<DebugHudInputStore>>>,
 ) {
     if !keys.just_pressed(KeyCode::KeyI) {
         return;
@@ -535,6 +934,13 @@ pub fn toggle_inspector(
     };
 
     inspector.is_visible = !inspector.is_visible;
+    hud_state.is_inspector_visible = inspector.is_visible;
+
+    if let Some(ref mut persistent_input) = persistent_input {
+        if let Err(error) = persistent_input.set(DebugHudInputStore::from_state(&hud_state)) {
+            warn!("Failed to save DebugHUD input state: {error}");
+        }
+    }
 }
 
 pub fn scale_debug_hud(
@@ -752,10 +1158,41 @@ pub fn inspector_ui(world: &mut World) {
         .default_size(egui::vec2(width, height))
         .show(egui_context, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
-                ui.heading("Card Inspection POC");
+                ui.heading("Card Browser");
                 bevy_inspector::ui_for_entities_filtered(world, ui, true, &InspectorEntityFilter);
                 ui.allocate_space(ui.available_size());
             });
+        });
+}
+
+pub fn card_ui(world: &mut World) {
+    let Ok(mut egui_context) = world
+        .query_filtered::<&mut EguiContext, With<PrimaryEguiContext>>()
+        .single(world)
+        .cloned()
+    else {
+        return;
+    };
+
+    let egui_context = egui_context.get_mut();
+    use_matching_debug_window_text_style(egui_context);
+
+    let Some(mut card_ui_state) = world.get_resource_mut::<CardUiState>() else {
+        return;
+    };
+
+    egui::Window::new("Card UI")
+        .anchor(egui::Align2::RIGHT_CENTER, egui::vec2(-24.0, 0.0))
+        .default_width(260.0)
+        .resizable(false)
+        .show(egui_context, |ui| {
+            ui.add(
+                egui::Slider::new(
+                    &mut card_ui_state.depth_factor,
+                    CARD_DEPTH_FACTOR_MIN..=CARD_DEPTH_FACTOR_MAX,
+                )
+                .text("DepthFactor"),
+            );
         });
 }
 
@@ -978,6 +1415,52 @@ fn find_matching_monitor<'a>(
 mod tests {
     use super::*;
 
+    fn mesh_bounds(attribute: &VertexAttributeValues) -> (f32, f32) {
+        let VertexAttributeValues::Float32x3(positions) = attribute else {
+            panic!("expected Float32x3 mesh positions");
+        };
+
+        let (min_x, max_x) = positions
+            .iter()
+            .map(|position| position[0])
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), x| {
+                (min.min(x), max.max(x))
+            });
+        let (min_y, max_y) = positions
+            .iter()
+            .map(|position| position[1])
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), y| {
+                (min.min(y), max.max(y))
+            });
+
+        (max_x - min_x, max_y - min_y)
+    }
+
+    fn mesh_uv_bounds(attribute: &VertexAttributeValues) -> (f32, f32) {
+        let VertexAttributeValues::Float32x2(uvs) = attribute else {
+            panic!("expected Float32x2 mesh uvs");
+        };
+
+        let (min_u, max_u) = uvs
+            .iter()
+            .map(|uv| uv[0])
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), u| {
+                (min.min(u), max.max(u))
+            });
+        let (min_v, max_v) = uvs
+            .iter()
+            .map(|uv| uv[1])
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), v| {
+                (min.min(v), max.max(v))
+            });
+
+        (max_u - min_u, max_v - min_v)
+    }
+
+    fn assert_close(left: f32, right: f32) {
+        assert!((left - right).abs() < 0.000_001, "{left} != {right}");
+    }
+
     #[test]
     fn debug_window_text_styles_use_matching_font_face_and_size() {
         let context = egui::Context::default();
@@ -1020,45 +1503,340 @@ mod tests {
     }
 
     #[test]
-    fn dot_pattern_positions_fill_bounds_without_touching_edges() {
-        let positions = dot_pattern_positions(1.0, 2.0, 2, 4);
+    fn debug_hud_title_is_card_browser_without_theme_status() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
 
-        assert_eq!(positions.len(), 8);
-        assert_eq!(positions.first(), Some(&Vec2::new(-0.25, -0.75)));
-        assert_eq!(positions.last(), Some(&Vec2::new(0.25, 0.75)));
+        app.update();
+
+        let mut hud_query = app
+            .world_mut()
+            .query_filtered::<&Text, With<DebugHudText>>();
+        let hud_text = hud_query.single(app.world()).unwrap();
+
+        assert!(hud_text.0.starts_with("Card Browser\nFrame: 0"));
+        assert!(!hud_text.0.contains("Theme:"));
     }
 
     #[test]
-    fn polished_layers_use_flat_artwork_with_apparent_depth_offsets() {
+    fn app_scene_owns_camera_light_and_hud_without_card_browser_entities() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<PrimaryCameraDefaults>()
+            .add_systems(Startup, setup_app_scene);
+
+        app.update();
+
+        let mut camera_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimarySceneCamera>>();
+        assert_eq!(camera_query.iter(app.world()).count(), 1);
+
+        let mut light_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<DirectionalLight>>();
+        assert_eq!(light_query.iter(app.world()).count(), 1);
+
+        let mut hud_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<DebugHudText>>();
+        assert_eq!(hud_query.iter(app.world()).count(), 1);
+
+        let mut card_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<CardPlaceholder>>();
+        assert_eq!(card_query.iter(app.world()).count(), 0);
+    }
+
+    #[test]
+    fn polished_layers_use_flat_artwork_with_four_apparent_depth_offsets() {
         let card_defaults = CardInspectionDefaults::default();
-        let frame_thickness_x = card_defaults.width * 0.1;
-        let frame_thickness_y = card_defaults.height * 0.1;
-        let hole_width = card_defaults.width - (frame_thickness_x * 2.0);
-        let hole_height = card_defaults.height - (frame_thickness_y * 2.0);
-        let max_parallax_offset = Vec2::new(
-            card_defaults.width * PARALLAX_OFFSET_RATIO,
-            card_defaults.height * PARALLAX_OFFSET_RATIO,
-        );
-        let background_dot_size = hole_width * BACKGROUND_DOT_SIZE_RATIO;
-        let background_dot_field_width = hole_width;
-        let background_dot_field_height = hole_height;
+        let frame_dimensions = frame_dimensions(&card_defaults);
 
         assert_eq!(BACKGROUND_APPARENT_DEPTH, -1.0);
         assert_eq!(FRAME_APPARENT_DEPTH, 0.0);
         assert_eq!(FOREGROUND_APPARENT_DEPTH, 1.0);
+        assert_eq!(TITLE_APPARENT_DEPTH, 2.0);
         assert!(LAYER_RENDER_Z_STEP < card_defaults.thickness * 0.01);
         assert!(PARALLAX_OFFSET_RATIO > 0.0);
-        assert_eq!(hole_width + (frame_thickness_x * 2.0), card_defaults.width);
-        assert_eq!(hole_height + (frame_thickness_y * 2.0), card_defaults.height);
-        assert_eq!(background_dot_field_width, hole_width);
-        assert_eq!(background_dot_field_height, hole_height);
-        assert!(
-            background_dot_field_width + (max_parallax_offset.x * 2.0) + background_dot_size
-                <= card_defaults.width
+        assert_eq!(
+            frame_dimensions.frame_thickness_x,
+            card_defaults.width * FRAME_THICKNESS_RATIO
         );
+        assert_eq!(
+            frame_dimensions.frame_thickness_y,
+            frame_dimensions.frame_thickness_x
+        );
+        assert_eq!(
+            frame_dimensions.hole_width + (frame_dimensions.frame_thickness_x * 2.0),
+            card_defaults.width
+        );
+        assert_eq!(
+            frame_dimensions.hole_height + (frame_dimensions.frame_thickness_y * 2.0),
+            card_defaults.height
+        );
+        assert!(BACKGROUND_APERTURE_SCALE > 1.0);
+    }
+
+    #[test]
+    fn card_structure_uses_one_cutout_frame_entity() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut frame_query = app
+            .world_mut()
+            .query_filtered::<(&Name, &CardParallaxLayer), With<CardFrameLayer>>();
+        let frames: Vec<(String, CardLayerRole)> = frame_query
+            .iter(app.world())
+            .map(|(name, layer)| (name.to_string(), layer.role))
+            .collect();
+
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].0, "Card Frame Cutout");
+        assert_eq!(frames[0].1, CardLayerRole::Frame);
+    }
+
+    #[test]
+    fn background_geometry_is_clipped_to_frame_hole() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let card_defaults = CardInspectionDefaults::default();
+        let frame_dimensions = frame_dimensions(&card_defaults);
+        let mut background_query = app.world_mut().query::<(&CardParallaxLayer, &Mesh3d)>();
+        let background_mesh_handle = background_query
+            .iter(app.world())
+            .find_map(|(layer, mesh_handle)| {
+                (layer.role == CardLayerRole::Background).then_some(mesh_handle)
+            })
+            .unwrap();
+        let mesh = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .get(&background_mesh_handle.0)
+            .unwrap();
+
+        let (width, height) = mesh_bounds(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
+        let (uv_width, uv_height) = mesh_uv_bounds(mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap());
+
+        assert_close(width, frame_dimensions.hole_width);
+        assert_close(height, frame_dimensions.hole_height);
+        assert_close(uv_width, 1.0 / BACKGROUND_APERTURE_SCALE);
+        assert_close(uv_height, 1.0 / BACKGROUND_APERTURE_SCALE);
+    }
+
+    #[test]
+    fn layer_materials_have_stable_front_to_back_depth_biases() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut layer_query = app
+            .world_mut()
+            .query::<(&CardParallaxLayer, &MeshMaterial3d<StandardMaterial>)>();
+        let mut layer_biases: Vec<(CardLayerRole, f32, AlphaMode)> = layer_query
+            .iter(app.world())
+            .map(|(layer, material_handle)| {
+                let material = app
+                    .world()
+                    .resource::<Assets<StandardMaterial>>()
+                    .get(&material_handle.0)
+                    .unwrap();
+                (layer.role, material.depth_bias, material.alpha_mode)
+            })
+            .collect();
+
+        layer_biases.sort_by(|left, right| left.1.total_cmp(&right.1));
+
+        assert_eq!(
+            layer_biases,
+            vec![
+                (
+                    CardLayerRole::Background,
+                    BACKGROUND_DEPTH_BIAS,
+                    AlphaMode::Opaque
+                ),
+                (CardLayerRole::Frame, FRAME_DEPTH_BIAS, AlphaMode::Opaque),
+                (
+                    CardLayerRole::Foreground,
+                    FOREGROUND_DEPTH_BIAS,
+                    AlphaMode::AlphaToCoverage
+                ),
+                (
+                    CardLayerRole::Title,
+                    TITLE_DEPTH_BIAS,
+                    AlphaMode::AlphaToCoverage
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn debug_hud_includes_theme_toggle_key() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let key_codes: Vec<KeyCode> = app
+            .world_mut()
+            .query::<&DebugHudKeyText>()
+            .iter(app.world())
+            .map(|key_text| key_text.key_code)
+            .collect();
+
+        assert!(key_codes.contains(&KeyCode::KeyT));
+    }
+
+    #[test]
+    fn debug_hud_restart_key_is_not_toggle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
+        let restart_key = key_query
+            .iter(app.world())
+            .find(|key_text| key_text.key_code == KeyCode::KeyR)
+            .unwrap();
+
+        assert!(!restart_key.is_toggle);
+    }
+
+    #[test]
+    fn debug_hud_hot_reload_key_is_toggle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
+        let hot_reload_key = key_query
+            .iter(app.world())
+            .find(|key_text| key_text.key_code == KeyCode::KeyH)
+            .unwrap();
+
+        assert!(hot_reload_key.is_toggle);
+    }
+
+    #[test]
+    fn h_key_toggles_hot_reload_autorestart() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<DebugHudState>()
+            .add_systems(Update, toggle_debug_hud_inputs);
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyH);
+        app.update();
+
         assert!(
-            background_dot_field_height + (max_parallax_offset.y * 2.0) + background_dot_size
-                <= card_defaults.height
+            app.world()
+                .resource::<DebugHudState>()
+                .is_hot_reload_autorestart_enabled
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset(KeyCode::KeyH);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyH);
+        app.update();
+
+        assert!(
+            !app.world()
+                .resource::<DebugHudState>()
+                .is_hot_reload_autorestart_enabled
+        );
+    }
+
+    #[test]
+    fn restart_key_reloads_card_browser_scene_and_keeps_app_scene() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<GameTicks>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_app_scene)
+            .add_systems(Startup, setup_card_browser_scene)
+            .add_systems(Update, restart_card_browser_scene);
+
+        app.update();
+
+        app.world_mut().resource_mut::<GameTicks>().0 = 42;
+        app.world_mut()
+            .resource_mut::<CardInspectionState>()
+            .last_pointer_normalized = Vec2::ONE;
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyR);
+        app.update();
+
+        let mut camera_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimarySceneCamera>>();
+        assert_eq!(camera_query.iter(app.world()).count(), 1);
+
+        let mut hud_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<DebugHudText>>();
+        assert_eq!(hud_query.iter(app.world()).count(), 1);
+
+        let mut card_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<CardPlaceholder>>();
+        assert_eq!(card_query.iter(app.world()).count(), 1);
+        assert_eq!(app.world().resource::<GameTicks>().0, 0);
+        assert_eq!(
+            app.world()
+                .resource::<CardInspectionState>()
+                .last_pointer_normalized,
+            Vec2::ZERO
         );
     }
 
