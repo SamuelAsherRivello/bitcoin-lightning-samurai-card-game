@@ -21,6 +21,6 @@ Use this rule when planning, implementing, reviewing, or documenting work in thi
 | `.specify` | Specify templates, scripts, memory, and workflow state. |
 | `.specs` | Template/reference specifications. |
 | `specs` | Active project specifications. |
-| `Bevy/Crates/Game/Assets` | Runtime game assets and fixtures. |
+| `bevy/crates/game/assets` | Runtime game assets and fixtures. |
 | `scripts` | Repeatable project-local commands. |
 | `documentation` | Supporting documentation and README images. |

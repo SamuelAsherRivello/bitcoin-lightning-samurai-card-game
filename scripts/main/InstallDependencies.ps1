@@ -1,5 +1,6 @@
 param(
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$SkipHotReloadTools
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,7 @@ $TargetTriple = "x86_64-pc-windows-msvc"
 $Toolchain = "stable"
 $PackageName = "bevy-card-game"
 $RunAppDesktopTargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
+$DioxusCliVersion = "0.7.9"
 
 & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
 
@@ -39,6 +41,43 @@ function Install-Rustup {
     Add-CargoBinToPath
 }
 
+function Test-DioxusCliVersion {
+    param([Parameter(Mandatory = $true)][string]$VersionOutput)
+
+    return $VersionOutput -match "0\.7(\.|-|$)"
+}
+
+function Ensure-DioxusCli {
+    if ($SkipHotReloadTools) {
+        Write-Host "Skipping hot reload tool checks."
+        return
+    }
+
+    $DxCommand = Get-Command "dx" -ErrorAction SilentlyContinue
+    if ($DxCommand) {
+        $DxVersionOutput = (& dx --version | Out-String).Trim()
+        if (Test-DioxusCliVersion -VersionOutput $DxVersionOutput) {
+            Write-Host "Dioxus CLI:"
+            Write-Host $DxVersionOutput
+            return
+        }
+
+        if ($CheckOnly) {
+            throw "Dioxus CLI 0.7.x is required for hot reload. Detected: $DxVersionOutput"
+        }
+
+        Write-Warning "Detected '$DxVersionOutput'. Installing Dioxus CLI $DioxusCliVersion for hot reload."
+    } elseif ($CheckOnly) {
+        throw "Dioxus CLI is required for hot reload. Run this script without -CheckOnly or install it with: cargo install dioxus-cli --version $DioxusCliVersion --locked"
+    }
+
+    Write-Host "Installing Dioxus CLI $DioxusCliVersion for desktop hot reload..."
+    cargo install dioxus-cli --version $DioxusCliVersion --locked --force
+    if ($LASTEXITCODE -ne 0) {
+        throw "cargo install dioxus-cli failed with exit code $LASTEXITCODE."
+    }
+}
+
 Push-Location $RepositoryRoot
 try {
     Add-CargoBinToPath
@@ -54,6 +93,8 @@ try {
     if (-not (Test-CommandExists "cargo")) {
         throw "Cargo was not found after rustup setup. Restart the terminal and rerun this script."
     }
+
+    Ensure-DioxusCli
 
     if (-not $CheckOnly) {
         Write-Host "Installing Rust toolchain: $Toolchain"

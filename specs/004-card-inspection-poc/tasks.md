@@ -7,17 +7,17 @@
 
 **Purpose**: Confirm the existing Bevy runtime shape before card behavior is added.
 
-- [X] T001 Verify current runtime module boundaries in `Bevy/Crates/Game/src/runtime/`
+- [X] T001 Verify current runtime module boundaries in `bevy/crates/game/src/runtime/`
 - [X] T002 Verify the available test runner path in `scripts/other/RunTests.ps1`
 
 ---
 
 ## Phase 2: Foundational
 
-**Purpose**: Add shared ECS data needed by all card inspection stories.
+**Purpose**: Add game-specific ECS data needed by all card inspection stories.
 
-- [X] T003 Add card placeholder and pointer inspection components in `Bevy/Crates/Game/src/runtime/components/mod.rs`
-- [X] T004 Add card dimensions, tilt limits, smoothing, and pointer target resources in `Bevy/Crates/Game/src/runtime/resources/mod.rs`
+- [X] T003 Add card placeholder and pointer inspection components in `bevy/crates/game/src/runtime/components/mod.rs`
+- [X] T004 Add card dimensions, tilt limits, smoothing, and pointer target resources in `bevy/crates/game/src/runtime/resources/mod.rs`
 
 ---
 
@@ -27,9 +27,9 @@
 
 **Independent Test**: Startup query finds exactly one card placeholder, one primary camera, and the existing DebugHUD.
 
-- [X] T005 [US1] Add startup tests for one-card POC scene composition in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
-- [X] T006 [US1] Spawn one named card placeholder entity with mesh and material handles in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
-- [X] T007 [US1] Wire card startup resources and systems into `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
+- [X] T005 [US1] Add startup tests for one-card POC scene composition in `bevy/crates/game/src/runtime/plugins/mod.rs`
+- [X] T006 [US1] Spawn one named card placeholder entity with mesh and material handles in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T007 [US1] Wire card startup resources and systems into `bevy/crates/game/src/runtime/plugins/mod.rs`
 
 ---
 
@@ -39,8 +39,8 @@
 
 **Independent Test**: Automated test confirms the source dimensions produce an `88:63` ratio within 2%.
 
-- [X] T008 [US2] Add card proportion tests in `Bevy/Crates/Game/src/runtime/resources/mod.rs`
-- [X] T009 [US2] Use the card defaults to build a thin no-bevel cuboid mesh in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
+- [X] T008 [US2] Add card proportion tests in `bevy/crates/game/src/runtime/resources/mod.rs`
+- [X] T009 [US2] Use the card defaults to build a thin no-bevel cuboid mesh in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 ---
 
@@ -50,9 +50,9 @@
 
 **Independent Test**: Automated tests confirm pointer target mapping, smoothing behavior, and fixed camera stability.
 
-- [X] T010 [US3] Add pointer mapping and smoothing tests in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
-- [X] T011 [US3] Implement cursor-to-target-rotation tracking in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
-- [X] T012 [US3] Implement smoothed card transform rotation in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
+- [X] T010 [US3] Add pointer mapping and smoothing tests in `bevy/crates/game/src/runtime/plugins/mod.rs`
+- [X] T011 [US3] Implement cursor-to-target-rotation tracking in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T012 [US3] Implement smoothed card transform rotation in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 ---
 
@@ -62,8 +62,8 @@
 
 **Independent Test**: Source and startup tests show one white material, no asset texture, and no gameplay card systems.
 
-- [X] T013 [US4] Add material and V0.1 scope assertions in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
-- [X] T014 [US4] Keep placeholder material plain white and untextured in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
+- [X] T013 [US4] Add material and V0.1 scope assertions in `bevy/crates/game/src/runtime/plugins/mod.rs`
+- [X] T014 [US4] Keep placeholder material plain white and untextured in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 ---
 

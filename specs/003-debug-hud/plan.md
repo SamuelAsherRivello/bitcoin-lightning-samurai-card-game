@@ -18,7 +18,7 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 | Target Platform | Windows desktop now; browser WebGPU remains a required final verification target |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | HUD update is lightweight and frame-local; FPS text is sampled on a 0.5 second interval |
-| Constraints | Keep implementation under `Bevy/Crates/Game/src/runtime/`; keep scripts under `scripts/`; no gameplay HUD systems |
+| Constraints | Keep reusable DebugHUD, inspector, and diagnostic input behavior under `bevy/crates/shared`; keep scripts under `scripts/`; no gameplay HUD systems |
 | Scale/Scope | One HUD panel, one FPS toggle, one inspector toggle, automated tests for creation and input behavior |
 
 ## Constitution Check
@@ -26,7 +26,7 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 | Gate | Status | Notes |
 | ---- | ------ | ----- |
 | Active spec and repo guidance followed | ✅ | Implementation follows `003-debug-hud` and repo-local AGENTS guidance |
-| Source, scripts, and tests stay in approved locations | ✅ | Runtime code is under `Bevy/Crates/Game/src/runtime/`; scripts are under `scripts/` |
+| Source, scripts, and tests stay in approved locations | ✅ | Reusable DebugHUD runtime code is under `bevy/crates/shared`; game app code under `bevy/crates/game` only composes it |
 | Visible feedback requirements respected | ✅ | DebugHUD is visible by default; no unrelated loading/toast systems added |
 | Browser/local storage constraints | ✅ | No storage, SQLite, OPFS, or browser-only state added |
 | Real behavior verification path | ✅ | Desktop build and tests use repository scripts; browser WebGPU verification is documented in quickstart |
@@ -36,11 +36,14 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 ## Project Structure
 
 ```text
-Bevy/Crates/Game/src/runtime/
-├── components/mod.rs    # HUD, key legend, inspector, and player marker components
-├── plugins/mod.rs       # CoreGamePlugin wiring and automated tests
-├── resources/mod.rs     # Game tick and DebugHUD state resources
-└── systems/mod.rs       # HUD setup/update, inspector toggle/UI, scaling, and prototype setup
+bevy/crates/shared/src/runtime/
+├── components.rs        # DebugHUD, key legend, inspector, and diagnostic marker components
+├── plugins.rs           # Shared diagnostics plugin wiring and automated tests
+├── resources.rs         # Game tick and DebugHUD state resources
+└── systems.rs           # DebugHUD setup/update, inspector toggle/UI, input capture, and scaling
+
+bevy/crates/game/src/
+└── runtime/             # Game-specific card systems that compose shared diagnostics
 
 scripts/
 ├── main/
@@ -51,7 +54,7 @@ scripts/
     └── StopApp.ps1          # Stops running project app/build processes
 ```
 
-**Structure Decision**: Keep all behavior inside the existing Bevy runtime ECS layout. Do not add a separate UI framework, gameplay subsystem, asset pipeline, or persistence layer for this feature.
+**Structure Decision**: Keep DebugHUD, inspector, and diagnostic input capture in `bevy/crates/shared` because they are reusable system-level diagnostics. `bevy/crates/game` should only compose the shared diagnostics with card-specific systems. Do not add a separate UI framework, gameplay subsystem, asset pipeline, or persistence layer for this feature.
 
 ## Complexity Tracking
 

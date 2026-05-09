@@ -12,6 +12,7 @@
 - Q: What default 3D camera placement and projection should this feature use? -> A: Use a fixed perspective camera with typical FOV, positioned at `(0, 0, 5)` by default, looking down toward the world origin or toward a user-specified target object when one exists.
 - Q: What default scene background should camera setup use? -> A: Use a neutral dark gray background.
 - Q: Should the camera respond to input in this feature? -> A: The camera never moves or responds to input in this feature.
+- Q: Where should camera setup live? -> A: Camera marker/defaults/setup behavior is reusable system-level functionality and belongs in `bevy/crates/shared`; `bevy/crates/game` should compose it when building the card game scene.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -76,12 +77,14 @@ A reviewer can still see later overlay diagnostics, including the DebugHUD, afte
 - **FR-005**: The camera setup MUST allow later DebugHUD overlay content to remain visible.
 - **FR-006**: The camera setup MUST support Windows desktop and browser WebGPU targets.
 - **FR-007**: This feature MUST NOT include card geometry, card shaders, pointer-driven card rotation, DebugHUD controls, menus, or gameplay.
+- **FR-008**: Camera marker, defaults, setup, and input-stability behavior MUST be implemented as reusable shared runtime functionality under `bevy/crates/shared`; card-specific scene code in `bevy/crates/game` may consume the shared camera but MUST NOT own this feature.
 
 ### Key Entities
 
 - **Primary 3D Camera**: The scene camera used to frame future card content.
 - **Camera Defaults**: The agreed starting position `(0, 0, 5)`, target rule, perspective projection, typical FOV, clipping range, and neutral dark gray clear color.
 - **Overlay Compatibility**: The requirement that diagnostics can render visibly over the 3D scene in later features.
+- **Shared Camera Runtime**: Reusable camera marker, defaults, setup system, and tests owned by `bevy/crates/shared` for use by the game crate and future app surfaces.
 
 ## Success Criteria *(mandatory)*
 
@@ -98,3 +101,4 @@ A reviewer can still see later overlay diagnostics, including the DebugHUD, afte
 - The first visible 3D content will be origin-centered card content from `004-card-inspection-poc`.
 - The camera setup is a foundation feature and should stay minimal.
 - DebugHUD overlay rendering is owned by `003-debug-hud`, but this feature must not block it.
+- `bevy/crates/shared` owns reusable camera setup; `bevy/crates/game` owns card-specific scene content that uses the shared camera.

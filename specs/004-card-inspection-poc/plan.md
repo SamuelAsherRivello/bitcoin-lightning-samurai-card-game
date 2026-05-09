@@ -18,7 +18,7 @@ Add the V0.1 card inspection prototype to the existing Bevy runtime: one centere
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | One card mesh and material; pointer target updated from cursor data; smoothing reaches target orientation within 100 ms |
-| Constraints | Keep implementation under `Bevy/Crates/Game/src/runtime/`; keep exactly one card; preserve fixed camera; no gameplay, textures, bevels, rich materials, menus, or HUD beyond DebugHUD |
+| Constraints | Keep card-specific implementation under `bevy/crates/game/src/runtime/`; consume reusable window, camera, DebugHUD, inspector, and diagnostic input behavior from `bevy/crates/shared`; keep exactly one card; preserve fixed camera; no gameplay, textures, bevels, rich materials, menus, or HUD beyond DebugHUD |
 | Scale/Scope | V0.1 only: one centered white thin slab with pointer-responsive rotation |
 
 ## Constitution Check
@@ -26,7 +26,7 @@ Add the V0.1 card inspection prototype to the existing Bevy runtime: one centere
 | Gate | Status | Notes |
 | ---- | ------ | ----- |
 | Active spec and repo guidance followed | ✅ | Implements `004-card-inspection-poc` and keeps `003-debug-hud` visible by default |
-| Source, assets, scripts, docs, and tests stay in approved locations | ✅ | Runtime code stays under `Bevy/Crates/Game/src/runtime/`; no new runtime assets are needed |
+| Source, assets, scripts, docs, and tests stay in approved locations | ✅ | Card-specific runtime code stays under `bevy/crates/game/src/runtime/`; reusable system-level runtime behavior remains in `bevy/crates/shared`; no new runtime assets are needed |
 | Visible feedback requirements respected | ✅ | DebugHUD remains the only HUD and is visible by default; no async loading flow is added |
 | Local state remains explicit | ✅ | No persistence is added beyond existing window placement behavior |
 | Data changes are explicit | ✅ | No database, migration, or seed data changes |
@@ -52,7 +52,7 @@ specs/004-card-inspection-poc/
 ### Source Code (repository root)
 
 ```text
-Bevy/Crates/Game/src/runtime/
+bevy/crates/game/src/runtime/
 ├── components/mod.rs    # Card placeholder and camera marker components
 ├── plugins/mod.rs       # Startup/update system wiring and automated tests
 ├── resources/mod.rs     # Card dimensions, smoothing, and pointer target resources
@@ -67,7 +67,7 @@ scripts/
     └── StopApp.ps1
 ```
 
-**Structure Decision**: Extend the existing Bevy runtime ECS modules. Do not add a separate card plugin, rendering asset pipeline, shader file, gameplay module, or UI framework for V0.1.
+**Structure Decision**: Extend the game crate only for card-specific runtime ECS behavior. Reuse shared window, camera, DebugHUD, inspector, and diagnostic input systems from `bevy/crates/shared`. Do not add a separate card plugin, rendering asset pipeline, shader file, gameplay module, or UI framework for V0.1.
 
 ## Complexity Tracking
 

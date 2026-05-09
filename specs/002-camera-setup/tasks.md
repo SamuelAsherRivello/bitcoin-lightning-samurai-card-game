@@ -8,29 +8,29 @@
 
 ## Phase 2: Foundational
 
-- [X] T002 Add `PrimarySceneCamera` marker component in `Bevy/Crates/Game/src/runtime/components/mod.rs`
-- [X] T003 Add `PrimaryCameraDefaults` resource in `Bevy/Crates/Game/src/runtime/resources/mod.rs`
+- [X] T002 Add `PrimarySceneCamera` marker component in `bevy/crates/shared/src/runtime/components.rs`
+- [X] T003 Add `PrimaryCameraDefaults` resource in `bevy/crates/shared/src/runtime/resources.rs`
 
 ## Phase 3: User Story 1 - Show a 3D Scene View (P1)
 
 **Independent Test**: Launch startup systems and verify exactly one active primary 3D camera exists.
 
-- [X] T004 [US1] Add a startup test for exactly one primary camera in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
-- [X] T005 [US1] Implement `setup_primary_camera` in `Bevy/Crates/Game/src/runtime/systems/mod.rs`
-- [X] T006 [US1] Wire camera defaults and startup system in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
+- [X] T004 [US1] Add a startup test for exactly one primary camera in `bevy/crates/shared/src/runtime/plugins.rs`
+- [X] T005 [US1] Implement `setup_primary_camera` in `bevy/crates/shared/src/runtime/systems.rs`
+- [X] T006 [US1] Wire camera defaults and startup system in a shared runtime plugin in `bevy/crates/shared/src/runtime/plugins.rs`
 
 ## Phase 4: User Story 2 - Keep Camera Parameters Stable (P1)
 
 **Independent Test**: Inspect startup camera transform/projection and verify input does not mutate it.
 
-- [X] T007 [US2] Add tests for camera transform, projection, clear color, and input stability in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
-- [X] T008 [US2] Apply documented position, target, FOV, near/far, and clear color defaults in `Bevy/Crates/Game/src/runtime/resources/mod.rs` and `Bevy/Crates/Game/src/runtime/systems/mod.rs`
+- [X] T007 [US2] Add tests for camera transform, projection, clear color, and input stability in `bevy/crates/shared/src/runtime/plugins.rs`
+- [X] T008 [US2] Apply documented position, target, FOV, near/far, and clear color defaults in `bevy/crates/shared/src/runtime/resources.rs` and `bevy/crates/shared/src/runtime/systems.rs`
 
 ## Phase 5: User Story 3 - Preserve Overlay Compatibility (P2)
 
 **Independent Test**: Run combined startup and verify DebugHUD and inspector entities still exist with the 3D camera.
 
-- [X] T009 [US3] Extend combined startup coverage for camera, DebugHUD, and inspector coexistence in `Bevy/Crates/Game/src/runtime/plugins/mod.rs`
+- [X] T009 [US3] Extend combined startup coverage for camera, DebugHUD, and inspector coexistence in shared runtime tests under `bevy/crates/shared/src/runtime/`
 
 ## Final Phase: Polish & Cross-Cutting
 

@@ -16,9 +16,15 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 | `.agents/skills` | Specify workflow skills. |
 | `.specify` | Specify configuration, templates, scripts, and constitution. |
 | `specs` | Active feature specifications. |
-| `Bevy/Crates/Game/Assets` | Runtime game assets and fixtures. |
+| `bevy/crates/game/assets` | Runtime game assets and fixtures. |
 | `scripts` | Repeatable local project scripts. |
 | `documentation/images` | README-visible image assets. |
+
+## AI Maintenance Notes
+
+| Topic | Update Path |
+| ----- | ----------- |
+| Desktop window default size | Edit `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` in `bevy/crates/shared/src/window.rs`, then update `specs/001-project-setup/spec.md` if the approved launch/fallback size changes. |
 
 ## Default Workflow
 

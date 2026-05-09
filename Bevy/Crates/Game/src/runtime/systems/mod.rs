@@ -7,28 +7,32 @@ use bevy::{
         Monitor, PrimaryWindow, WindowCloseRequested, WindowMoved, WindowResized, WindowResolution,
     },
 };
-use bevy_card_game_shared::GameTitle;
+use bevy_card_game_shared::{
+    GameTitle,
+    window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH},
+};
 use bevy_inspector_egui::{
     bevy_egui::{EguiContext, PrimaryEguiContext, egui},
     bevy_inspector,
     bevy_inspector::EntityFilter,
 };
+use bevy_persistent::prelude::Persistent;
 
 use crate::runtime::components::{
     CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText, InspectorState, Player,
     PrimarySceneCamera,
 };
 use crate::runtime::resources::{
-    CardInspectionDefaults, CardInspectionState, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
-    DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacement, WindowPlacementState,
-    load_window_placement, save_window_placement,
+    CardInspectionDefaults, CardInspectionState, DebugHudState, GameTicks, PrimaryCameraDefaults,
+    WindowPlacement, WindowPlacementState, WindowPlacementStore, load_window_placement,
+    valid_window_placement,
 };
 
 const FPS_UPDATE_INTERVAL_SECONDS: f32 = 0.5;
 const SCREEN_PADDING_TOP: f32 = 24.0;
 const SCREEN_PADDING_LEFT: f32 = 24.0;
-const TARGET_WIDTH: f32 = 800.0;
-const TARGET_HEIGHT: f32 = 600.0;
+const TARGET_WIDTH: f32 = DEFAULT_WINDOW_WIDTH as f32;
+const TARGET_HEIGHT: f32 = DEFAULT_WINDOW_HEIGHT as f32;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
 
@@ -148,8 +152,15 @@ pub fn target_rotation_for_pointer(
     Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)
 }
 
-pub fn load_saved_window_placement(mut placement_state: ResMut<WindowPlacementState>) {
-    placement_state.current = load_window_placement();
+pub fn load_saved_window_placement(
+    mut placement_state: ResMut<WindowPlacementState>,
+    persistent_placement: Option<Res<Persistent<WindowPlacementStore>>>,
+) {
+    placement_state.current = persistent_placement
+        .and_then(|persistent_placement| {
+            valid_window_placement(persistent_placement.current.clone())
+        })
+        .or_else(load_window_placement);
 }
 
 pub fn advance_ticks(mut ticks: ResMut<GameTicks>) {
@@ -327,6 +338,9 @@ pub fn restore_window_placement_to_current_monitors(
     if placement_state.restored {
         return;
     }
+    if monitor_query.iter().next().is_none() {
+        return;
+    }
 
     let Some(saved_placement) = placement_state.current.clone() else {
         placement_state.restored = true;
@@ -339,7 +353,7 @@ pub fn restore_window_placement_to_current_monitors(
 
     if let Some(restored_position) = restored_position(&monitor_query, &saved_placement) {
         window.resolution =
-            WindowResolution::new(saved_placement.window_size.x, saved_placement.window_size.y);
+            restored_window_resolution(&window.resolution, saved_placement.window_size);
         window.position = WindowPosition::At(restored_position);
     } else {
         apply_primary_centered_fallback(&mut window);
@@ -368,6 +382,7 @@ pub fn track_window_placement(
 
         placement_state.current = placement_for_window(
             moved_event.position,
+            logical_window_size(primary_window),
             primary_window.resolution.physical_size(),
             &monitor_query,
         );
@@ -407,6 +422,7 @@ pub fn track_window_size(
 
         placement_state.current = placement_for_window(
             window_position,
+            logical_size_from_resize(resized_event),
             primary_window.resolution.physical_size(),
             &monitor_query,
         );
@@ -418,6 +434,7 @@ pub fn save_window_placement_on_close(
     primary_window_query: Query<(Entity, &Window), With<PrimaryWindow>>,
     monitor_query: Query<&Monitor>,
     placement_state: Res<WindowPlacementState>,
+    mut persistent_placement: Option<ResMut<Persistent<WindowPlacementStore>>>,
 ) {
     let Some(ref mut close_requested_events) = close_requested_events else {
         return;
@@ -435,21 +452,39 @@ pub fn save_window_placement_on_close(
     }
 
     let current_window_placement = match window.position {
-        WindowPosition::At(position) => {
-            placement_for_window(position, window.resolution.physical_size(), &monitor_query)
-        }
+        WindowPosition::At(position) => placement_for_window(
+            position,
+            logical_window_size(window),
+            window.resolution.physical_size(),
+            &monitor_query,
+        ),
         WindowPosition::Automatic | WindowPosition::Centered(_) => None,
     };
 
+    let placement_with_current_size = placement_state.current.as_ref().map(|placement| {
+        placement_with_current_window_size(
+            placement,
+            logical_window_size(window),
+            window.resolution.physical_size(),
+            &monitor_query,
+        )
+    });
     let placement = current_window_placement
-        .as_ref()
-        .or(placement_state.current.as_ref());
+        .or(placement_with_current_size)
+        .or_else(|| placement_state.current.clone());
 
     let Some(placement) = placement else {
         return;
     };
 
-    if let Err(error) = save_window_placement(placement) {
+    let Some(ref mut persistent_placement) = persistent_placement else {
+        warn!("Failed to save window placement: persistent store unavailable");
+        return;
+    };
+
+    if let Err(error) = persistent_placement.set(WindowPlacementStore {
+        current: Some(placement),
+    }) {
         warn!("Failed to save window placement: {error}");
     }
 }
@@ -543,17 +578,20 @@ fn inspector_window_settings(world: &mut World) -> Option<(bool, f32, f32, f32, 
 
 fn placement_for_window(
     window_position: IVec2,
-    window_size: UVec2,
+    logical_window_size: UVec2,
+    physical_window_size: UVec2,
     monitor_query: &Query<&Monitor>,
 ) -> Option<WindowPlacement> {
     let monitor = monitor_query
         .iter()
-        .find(|monitor| monitor_contains_point(monitor, window_position))
+        .max_by_key(|monitor| {
+            window_monitor_overlap_area(monitor, window_position, physical_window_size)
+        })
         .or_else(|| monitor_query.iter().next())?;
 
     Some(WindowPlacement {
         window_position,
-        window_size,
+        window_size: logical_window_size,
         monitor_name: monitor.name.clone(),
         monitor_position: monitor.physical_position,
         monitor_size: monitor.physical_size(),
@@ -561,21 +599,74 @@ fn placement_for_window(
     })
 }
 
-fn monitor_contains_point(monitor: &Monitor, point: IVec2) -> bool {
-    let min = monitor.physical_position;
-    let max = min + monitor.physical_size().as_ivec2();
-    point.x >= min.x && point.x < max.x && point.y >= min.y && point.y < max.y
+fn placement_with_current_window_size(
+    saved_placement: &WindowPlacement,
+    current_logical_window_size: UVec2,
+    current_physical_window_size: UVec2,
+    monitor_query: &Query<&Monitor>,
+) -> WindowPlacement {
+    placement_for_window(
+        saved_placement.window_position,
+        current_logical_window_size,
+        current_physical_window_size,
+        monitor_query,
+    )
+    .unwrap_or_else(|| {
+        saved_placement_with_current_window_size(saved_placement, current_logical_window_size)
+    })
 }
 
-fn monitor_contains_window(monitor: &Monitor, window_position: IVec2, window_size: UVec2) -> bool {
-    let min = monitor.physical_position;
-    let max = min + monitor.physical_size().as_ivec2();
-    let window_max = window_position + window_size.as_ivec2();
+fn saved_placement_with_current_window_size(
+    saved_placement: &WindowPlacement,
+    current_logical_window_size: UVec2,
+) -> WindowPlacement {
+    let mut placement = saved_placement.clone();
+    placement.window_size = current_logical_window_size;
+    placement
+}
 
-    window_position.x >= min.x
-        && window_position.y >= min.y
-        && window_max.x <= max.x
-        && window_max.y <= max.y
+fn window_monitor_overlap_area(
+    monitor: &Monitor,
+    window_position: IVec2,
+    physical_window_size: UVec2,
+) -> i64 {
+    let monitor_min = monitor.physical_position;
+    let monitor_max = monitor_min + monitor.physical_size().as_ivec2();
+    let window_max = window_position + physical_window_size.as_ivec2();
+
+    let overlap_width =
+        (window_max.x.min(monitor_max.x) - window_position.x.max(monitor_min.x)).max(0);
+    let overlap_height =
+        (window_max.y.min(monitor_max.y) - window_position.y.max(monitor_min.y)).max(0);
+
+    i64::from(overlap_width) * i64::from(overlap_height)
+}
+
+fn monitor_overlaps_window(monitor: &Monitor, window_position: IVec2, window_size: UVec2) -> bool {
+    window_monitor_overlap_area(monitor, window_position, window_size) > 0
+}
+
+fn logical_window_size(window: &Window) -> UVec2 {
+    UVec2::new(
+        window.resolution.width().round().max(1.0) as u32,
+        window.resolution.height().round().max(1.0) as u32,
+    )
+}
+
+fn logical_size_from_resize(resized_event: &WindowResized) -> UVec2 {
+    UVec2::new(
+        resized_event.width.round().max(1.0) as u32,
+        resized_event.height.round().max(1.0) as u32,
+    )
+}
+
+fn restored_window_resolution(
+    current_resolution: &WindowResolution,
+    saved_logical_size: UVec2,
+) -> WindowResolution {
+    let mut resolution = current_resolution.clone();
+    resolution.set(saved_logical_size.x as f32, saved_logical_size.y as f32);
+    resolution
 }
 
 fn restored_position(
@@ -583,10 +674,10 @@ fn restored_position(
     saved_placement: &WindowPlacement,
 ) -> Option<IVec2> {
     if monitor_query.iter().any(|monitor| {
-        monitor_contains_window(
+        monitor_overlaps_window(
             monitor,
             saved_placement.window_position,
-            saved_placement.window_size,
+            estimated_physical_window_size(saved_placement, monitor),
         )
     }) {
         return Some(saved_placement.window_position);
@@ -595,11 +686,27 @@ fn restored_position(
     let monitor = find_matching_monitor(monitor_query, saved_placement)?;
     let remapped_position = monitor.physical_position + saved_placement.relative_position;
 
-    if monitor_contains_window(monitor, remapped_position, saved_placement.window_size) {
+    if monitor_overlaps_window(
+        monitor,
+        remapped_position,
+        estimated_physical_window_size(saved_placement, monitor),
+    ) {
         Some(remapped_position)
     } else {
         None
     }
+}
+
+fn estimated_physical_window_size(placement: &WindowPlacement, monitor: &Monitor) -> UVec2 {
+    let scale_factor = monitor.scale_factor.max(1.0) as f32;
+    UVec2::new(
+        (placement.window_size.x as f32 * scale_factor)
+            .round()
+            .max(1.0) as u32,
+        (placement.window_size.y as f32 * scale_factor)
+            .round()
+            .max(1.0) as u32,
+    )
 }
 
 fn apply_primary_centered_fallback(window: &mut Window) {
@@ -672,5 +779,18 @@ mod tests {
             let child_font = app.world().get::<TextFont>(child).unwrap();
             assert_eq!(child_font.font_size, DEBUG_HUD_FONT_SIZE);
         }
+    }
+
+    #[test]
+    fn restored_resolution_applies_saved_size_as_logical_units() {
+        let mut current_resolution = WindowResolution::new(1024, 768);
+        current_resolution.set_scale_factor(1.5);
+
+        let restored = restored_window_resolution(&current_resolution, UVec2::new(512, 384));
+
+        assert_eq!(restored.width(), 512.0);
+        assert_eq!(restored.height(), 384.0);
+        assert_eq!(restored.physical_width(), 768);
+        assert_eq!(restored.physical_height(), 576);
     }
 }

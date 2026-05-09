@@ -1,12 +1,9 @@
 use bevy::prelude::*;
+use bevy_persistent::{error::PersistenceError, prelude::*};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-pub const DEFAULT_WINDOW_WIDTH: u32 = 800;
-pub const DEFAULT_WINDOW_HEIGHT: u32 = 600;
+const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
 
 pub const PRIMARY_CAMERA_FOV_RADIANS: f32 = std::f32::consts::FRAC_PI_4;
 pub const PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.5;
@@ -108,6 +105,11 @@ pub struct WindowPlacementState {
     pub restored: bool,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
+pub struct WindowPlacementStore {
+    pub current: Option<WindowPlacement>,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WindowPlacement {
     pub window_position: IVec2,
@@ -119,29 +121,38 @@ pub struct WindowPlacement {
 }
 
 pub fn window_placement_path() -> PathBuf {
-    Path::new("generated")
-        .join("runtime")
+    workspace_root_path()
+        .join("data")
+        .join("local_storage")
         .join("window-placement.json")
 }
 
-pub fn load_window_placement() -> Option<WindowPlacement> {
-    let content = fs::read_to_string(window_placement_path()).ok()?;
-    let placement: WindowPlacement = serde_json::from_str(&content).ok()?;
-    if !is_valid_window_placement(&placement) {
-        return None;
-    }
-
-    Some(placement)
+pub fn create_window_placement_store() -> Result<Persistent<WindowPlacementStore>, PersistenceError>
+{
+    Persistent::<WindowPlacementStore>::builder()
+        .name("window placement")
+        .format(StorageFormat::JsonPretty)
+        .path(window_placement_path())
+        .default(WindowPlacementStore::default())
+        .revertible(true)
+        .revert_to_default_on_deserialization_errors(true)
+        .build()
 }
 
-pub fn save_window_placement(placement: &WindowPlacement) -> std::io::Result<()> {
-    let path = window_placement_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
+pub fn load_window_placement() -> Option<WindowPlacement> {
+    valid_window_placement(create_window_placement_store().ok()?.current.clone())
+}
 
-    let content = serde_json::to_string_pretty(placement)?;
-    fs::write(path, content)
+pub fn valid_window_placement(placement: Option<WindowPlacement>) -> Option<WindowPlacement> {
+    placement.filter(is_valid_window_placement)
+}
+
+fn workspace_root_path() -> PathBuf {
+    let mut path = Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
+    for component in WORKSPACE_RELATIVE_FROM_GAME_CRATE {
+        path.push(component);
+    }
+    path
 }
 
 fn is_valid_window_placement(placement: &WindowPlacement) -> bool {
@@ -180,7 +191,22 @@ mod tests {
             relative_position: IVec2::new(100, 200),
         };
 
-        assert!(!is_valid_window_placement(&placement));
+        assert_eq!(valid_window_placement(Some(placement)), None);
+    }
+
+    #[test]
+    fn window_placement_uses_workspace_local_storage() {
+        let path = window_placement_path();
+        assert!(
+            path.ends_with(
+                Path::new("data")
+                    .join("local_storage")
+                    .join("window-placement.json")
+            )
+        );
+        assert!(!path.components().any(|component| {
+            component.as_os_str() == "game" && path.to_string_lossy().contains("game\\data")
+        }));
     }
 
     #[test]

@@ -18,7 +18,7 @@
 | Read HUD contents | The panel shows title/status text and labels for `W`, `A`, `S`, `D`, `F`, and `I` |
 | Press `F` repeatedly | FPS text toggles on each press; inspector visibility does not change |
 | Press `I` repeatedly | Inspector visibility toggles on each press; FPS visibility does not change |
-| Press `W`, `A`, `S`, `D` | No gameplay, camera, card, diagnostic toggle, or key legend feedback changes |
+| Press `W`, `A`, `S`, `D` | DebugHUD-only hold feedback may update; no gameplay, camera, card, or diagnostic toggle changes |
 | Resize the window | HUD remains anchored and scales consistently |
 
 ## Browser WebGPU Verification

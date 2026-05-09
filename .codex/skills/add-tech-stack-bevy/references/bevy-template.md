@@ -7,9 +7,9 @@ Reference repo: `https://github.com/SamuelAsherRivello/bevy-project-template`
 | Area | Reference Signal |
 | ---- | ---------------- |
 | Root purpose | Starting point for Bevy projects with hot reload and Rust coding standards. |
-| Source layout | `Bevy/Crates/Game` plus `Bevy/Crates/Shared`. |
+| Source layout | `bevy/crates/game` plus `bevy/crates/shared`. |
 | Runtime folders | `Runtime/Components`, `Runtime/Resources`, `Runtime/Systems`, `Runtime/Plugins`, `Runtime/Shaders`. |
-| Assets | `Assets/Audio`, `Assets/Shaders`, and game-facing asset folders under the game crate. |
+| Assets | `assets/audio`, `assets/shaders`, and game-facing asset folders under the game crate. |
 | Scripts | `Scripts/Common/InstallDependencies.ps1`, `RunGameWithHotReload.ps1`, plus build/run/test/stop scripts under `Scripts/Other`. |
 | Tooling | Workspace manifest, toolchain file, editor task settings, and hot reload support. |
 

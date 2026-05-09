@@ -4,11 +4,24 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy_card_game::{
     GamePlugin,
-    runtime::resources::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, load_window_placement},
+    runtime::resources::{
+        WindowPlacementStore, create_window_placement_store, valid_window_placement,
+    },
 };
+use bevy_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
+
+#[cfg(feature = "desktop-hot-reload")]
+use dioxus_devtools::{connect_subsecond, subsecond};
+#[cfg(feature = "desktop-hot-reload")]
+use std::sync::Arc;
 
 fn main() {
-    let saved_window_placement = load_window_placement();
+    connect_desktop_hot_reload();
+
+    let window_placement_store = create_window_placement_store().ok();
+    let saved_window_placement = window_placement_store
+        .as_ref()
+        .and_then(|store| valid_window_placement(store.current.clone()));
     let window_resolution = saved_window_placement
         .as_ref()
         .map(|placement| WindowResolution::new(placement.window_size.x, placement.window_size.y))
@@ -17,16 +30,34 @@ fn main() {
         .map(|placement| WindowPosition::At(placement.window_position))
         .unwrap_or(WindowPosition::Centered(MonitorSelection::Primary));
 
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Card Game".to_string(),
-                resolution: window_resolution,
-                position: window_position,
-                ..default()
-            }),
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bevy Card Game".to_string(),
+            resolution: window_resolution,
+            position: window_position,
             ..default()
-        }))
-        .add_plugins(GamePlugin)
-        .run();
+        }),
+        ..default()
+    }));
+
+    if let Some(store) = window_placement_store {
+        app.insert_resource(store);
+    } else {
+        app.insert_resource(WindowPlacementStore::default());
+    }
+
+    app.add_plugins(GamePlugin).run();
 }
+
+#[cfg(feature = "desktop-hot-reload")]
+fn connect_desktop_hot_reload() {
+    subsecond::register_handler(Arc::new(|| {
+        info!("Desktop hot reload patch applied");
+    }));
+    connect_subsecond();
+}
+
+#[cfg(not(feature = "desktop-hot-reload"))]
+fn connect_desktop_hot_reload() {}

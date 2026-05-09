@@ -21,6 +21,7 @@ description: "Task list template for feature implementation"
 ## Path Conventions
 
 - **Single project**: `src/`, `tests/` at repository root
+- **Rust workspace**: lowercase crate and module directories such as `bevy/crates/game/src/`
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure

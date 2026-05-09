@@ -15,6 +15,7 @@
 - Q: How should debug overlay scripts, tasks, docs, and source-facing labels be named? -> A: Rename all debug overlay scripts, tasks, docs, and source-facing labels to use `DebugHUD` so generic `HUD` remains available for a future user-facing HUD.
 - Q: Should `WASD` labels visually react to key presses? -> A: `WASD` labels may visually highlight while pressed through a DebugHUD/InputSystem key-state capture, but no gameplay, camera, card, or other non-DebugHUD system may consume those keys in this spec.
 - Q: Which approved DebugHUD keys are toggles? -> A: DebugHUD key labels are classified as toggle or non-toggle: `F` and `I` are toggles; `W`, `A`, `S`, and `D` are non-toggle hold indicators.
+- Q: Where should DebugHUD and its input capture live? -> A: DebugHUD UI, inspector toggling, diagnostic key classification, and the DebugHUD/InputSystem-style key-state capture are reusable system-level diagnostics and belong in `bevy/crates/shared`; `bevy/crates/game` should only compose them with card-specific features.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -106,6 +107,7 @@ A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, and those labels m
 - **FR-010B**: The feature MUST include an InputSystem-style key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, and `I`.
 - **FR-011**: This feature MUST NOT include bevy-jam-1 toast, minimap, reticle, autopilot, reset, shooting, health, score, or gameplay HUD behavior.
 - **FR-012**: The DebugHUD MUST support both Windows desktop and browser WebGPU before completion; during implementation iterations, desktop-only builds are acceptable for fast feedback.
+- **FR-013**: DebugHUD UI, inspector visibility, approved diagnostic input capture, and key classification MUST be implemented as reusable shared runtime functionality under `bevy/crates/shared`; game-specific code in `bevy/crates/game` may consume these diagnostics but MUST NOT own them.
 
 ### Key Entities
 
@@ -116,6 +118,7 @@ A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, and those labels m
 - **Non-Gameplay WASD Labels**: Visible `W`, `A`, `S`, and `D` key labels that preserve the copied HUD pattern and may show pressed state without adding gameplay controls.
 - **RunTests Script**: A repeatable project script for running the automated test suite.
 - **DebugHUD Naming**: The canonical naming convention for debug overlay scripts, tasks, docs, and source-facing labels.
+- **Shared Debug Runtime**: Reusable DebugHUD, inspector, and diagnostic input state owned by `bevy/crates/shared`.
 
 ## Success Criteria *(mandatory)*
 
@@ -139,3 +142,4 @@ A reviewer sees `W`, `A`, `S`, and `D` in the HUD key legend, and those labels m
 - `WASD` remains visible to preserve the copied HUD pattern and may provide DebugHUD-only pressed feedback; it is intentionally non-functional for gameplay, card, camera, and other non-DebugHUD systems in this card POC.
 - Toast, minimap, reticle, and gameplay HUD systems are intentionally excluded from this feature.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.
+- `bevy/crates/shared` owns reusable DebugHUD and diagnostic input behavior; `bevy/crates/game` owns card-specific behavior that may be inspected by those diagnostics.

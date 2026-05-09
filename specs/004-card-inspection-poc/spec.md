@@ -18,6 +18,7 @@
 - Q: What should pointer input affect during card inspection? -> A: Pointer input rotates only the card; the camera remains fixed according to `002-camera-setup`.
 - Q: What visual detail should the V0.1 card placeholder include? -> A: Plain white thin slab, no bevel, no art, no text, with only minimal visible lighting needed to see it.
 - Q: Should the existing pointer tilt and smoothing targets remain? -> A: Keep maximum 20 degrees tilt from neutral on each axis and a 100 ms smoothing target.
+- Q: Which crate owns card-specific POC behavior? -> A: `bevy/crates/game` owns card geometry, card resources, card pointer mapping, card smoothing, and future card/gameplay expansion. It may consume reusable window, camera, DebugHUD, inspector, and diagnostic input systems from `bevy/crates/shared`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -110,6 +111,7 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - **FR-013**: The prototype scope MUST preserve future room for V0.3 to explore multiple cards and gameplay, without including those behaviors in V0.1.
 - **FR-014**: The camera MUST remain stationary according to `002-camera-setup` during pointer-driven inspection; pointer input MUST rotate only the card placeholder, not the camera or scene framing.
 - **FR-015**: The card POC MUST support both Windows desktop and browser WebGPU before completion; during implementation iterations, desktop-only builds are acceptable for fast feedback.
+- **FR-016**: Card-specific placeholder geometry, card defaults, pointer-to-card rotation mapping, smoothing, and future card/gameplay expansion MUST live under `bevy/crates/game`; reusable system-level window, camera, DebugHUD, inspector, and diagnostic input behavior MUST remain under `bevy/crates/shared`.
 
 ### Key Entities
 
@@ -118,6 +120,7 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - **Viewing Area**: The visible application region used to map pointer positions to card orientation targets.
 - **Fixed Camera**: The stationary view used for V0.1 inspection; it frames the centered card and does not move, orbit, pan, or zoom in response to pointer input.
 - **POC Version Scope**: The agreed boundary for V0.1, V0.2, and V0.3 work so future rendering and gameplay expansion does not leak into the initial proof of concept.
+- **Game Card Runtime**: Card-specific runtime behavior owned by `bevy/crates/game`, composed with shared window, camera, DebugHUD, inspector, and diagnostic input systems from `bevy/crates/shared`.
 
 ## Success Criteria *(mandatory)*
 
@@ -142,3 +145,4 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - Keyboard, touch, controller, and mobile-specific interactions are out of scope for V0.1.
 - Accessibility and localization requirements are not evaluated in V0.1 because the only allowed text is reviewer-facing diagnostic HUD text from `003-debug-hud`, and no player-facing menu or gameplay flow is included.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.
+- `bevy/crates/game` owns card-specific POC behavior; `bevy/crates/shared` owns reusable system-level runtime behavior.

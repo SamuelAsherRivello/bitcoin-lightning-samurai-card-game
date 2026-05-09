@@ -22,7 +22,7 @@ $Processes = Get-CimInstance Win32_Process |
             -not $AppOnly -and
             $_.CommandLine -and
             $_.CommandLine -match $ProjectPathPattern -and
-            ($_.Name -in @("cargo.exe", "rustc.exe", "rust-lld.exe", "link.exe") -or $_.Name -in $AppProcessNames)
+            ($_.Name -in @("cargo.exe", "dx.exe", "rustc.exe", "rust-lld.exe", "link.exe") -or $_.Name -in $AppProcessNames)
         )
     }
 

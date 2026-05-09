@@ -2,6 +2,7 @@
 
 | Requirement | Contract |
 | ---- | ---- |
+| Source ownership | Card placeholder geometry, card defaults, pointer mapping, and smoothing live under `bevy/crates/game`; reusable window, camera, DebugHUD, inspector, and diagnostic input systems remain under `bevy/crates/shared` |
 | Card count | After startup, exactly one entity has `CardPlaceholder` |
 | Card name | The card entity is named `Poker Card Placeholder` |
 | Card dimensions | The card uses width `0.063`, height `0.088`, and slight positive thickness |

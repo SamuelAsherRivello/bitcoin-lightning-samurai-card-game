@@ -1,3 +1,18 @@
+<!--
+Sync Impact Report
+Version change: 1.2.0 -> 1.3.0
+Modified principles:
+- II. Clear Project Boundaries: updated Bevy paths to lowercase Rust-style layout.
+- VII. Implementation Standards: expanded to require typical Rust file and folder naming.
+Added sections: None
+Removed sections: None
+Templates requiring updates:
+- ✅ .specify/templates/plan-template.md
+- ✅ .specify/templates/tasks-template.md
+- ✅ .specify/templates/spec-template.md
+Follow-up TODOs: None
+-->
+
 # Bevy Card Game Constitution
 
 ## Core Principles
@@ -6,7 +21,7 @@
 All implementation work MUST follow the active specification, the project constitution, and the repo-local agent guidance. Bevy-specific rules belong in project specs, README guidance, and repo-local Codex memory.
 
 ### II. Clear Project Boundaries
-Project behavior belongs in the Bevy source tree under `Bevy/Crates`. Runtime assets belong under `Bevy/Crates/Game/Assets`; repeatable scripts belong under `scripts`.
+Project behavior belongs in the Bevy source tree under `bevy/crates`. Runtime assets belong under `bevy/crates/game/assets`; repeatable scripts belong under `scripts`.
 
 ### III. Visible User Feedback
 User-facing workflows SHOULD provide visible loading, progress, success, and failure feedback when work is asynchronous or can fail.
@@ -23,6 +38,8 @@ User-visible changes SHOULD be verified through the real target workflow when pr
 ### VII. Implementation Standards
 All implementation code MUST follow Rust and Bevy conventions, including explicit ECS ownership through components, resources, systems, and plugins.
 
+All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms.
+
 Specs and plans SHOULD record any framework-specific constraints before implementation begins.
 
 Generated projects SHOULD keep implementation, tests, documentation, scripts, and assets in clearly named locations.
@@ -35,7 +52,8 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 ## Project Constraints
 
 - Keep project-specific source layout documented in `README.md` and active specs.
-- Keep runtime assets under `Bevy/Crates/Game/Assets`.
+- Keep runtime assets under `bevy/crates/game/assets`.
+- Keep Rust workspace folders and files in typical Rust naming conventions, including lowercase crate and module directories.
 - Preserve the Codex and Specify workflow files unless a generated project intentionally replaces them.
 - Keep `documentation/` updated when README images or supporting docs change.
 - Keep `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` as replaceable README image slots.
@@ -55,4 +73,4 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.2.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-09
+**Version**: 1.3.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-09

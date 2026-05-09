@@ -23,6 +23,7 @@ build/
 dist/
 out/
 generated/
+data/local_storage/
 
 # OS and editor noise
 .DS_Store

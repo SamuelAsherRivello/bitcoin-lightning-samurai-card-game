@@ -2,6 +2,7 @@
 
 | Requirement | Contract |
 | ---- | ---- |
+| Source ownership | Camera marker, defaults, setup system, and camera input-stability tests live under `bevy/crates/shared`; the game crate composes this shared camera behavior |
 | Camera count | After startup, exactly one entity has the `PrimarySceneCamera` marker and `Camera3d` component |
 | Camera name | The primary camera entity is named `Primary 3D Camera` |
 | Transform | The camera starts at `(0, 0, 5)` and looks at `Vec3::ZERO` with `Vec3::Y` as up |

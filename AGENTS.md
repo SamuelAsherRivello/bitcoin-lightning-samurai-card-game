@@ -33,11 +33,12 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep active specs under `specs/`.
 - Keep Specify configuration and templates under `.specify/`.
 - Keep Codex guidance, reusable skills, rules, and memory under `.codex/`.
-- Keep reusable non-game project assets under `Bevy/Crates/Game/Assets/`.
-- Keep Bevy runtime assets under `Bevy/Crates/Game/Assets/`.
+- Keep reusable non-game project assets under `bevy/crates/game/assets/`.
+- Keep Bevy runtime assets under `bevy/crates/game/assets/`.
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.
-- Keep Bevy source organized by ECS role under `Bevy/Crates/Game/src/runtime/`.
+- Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
+- Keep desktop window defaults in `bevy/crates/shared/src/window.rs`; update `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` there when changing the project-approved launch/fallback size.
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
 
 <!-- SPECKIT START -->
