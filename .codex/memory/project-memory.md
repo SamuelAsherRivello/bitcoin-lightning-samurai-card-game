@@ -20,7 +20,8 @@
 | Shared crate | `Bevy/Crates/Shared` for reusable non-Bevy game constants and logic. |
 | ECS layout | Keep components, resources, systems, and plugins under `Bevy/Crates/Game/src/runtime`. |
 | Verification | Use `scripts/main/InstallDependencies.ps1` once per machine, then `scripts/main/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1`. |
-| Desktop warm builds | `RunAppDesktop.ps1` uses the host target cache by default and enables the `fast-dev` feature for Bevy dynamic linking on non-release runs. |
+| Desktop warm builds | `RunAppDesktop.ps1` uses a dedicated `target/run-app-desktop` cache and enables the `fast-dev` feature for Bevy dynamic linking on non-release runs. |
+| Dependency install | `InstallDependencies.ps1` warms the `target/run-app-desktop` cache with `cargo build -p bevy-card-game --features fast-dev`. |
 
 ## Notes
 

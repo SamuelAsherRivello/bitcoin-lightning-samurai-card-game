@@ -1,7 +1,8 @@
-# Research: Basic Setup
+# Research: Project Setup
 
 | Decision | Rationale | Alternatives Considered |
 | -------- | --------- | ----------------------- |
+| Use `scripts/other/CompileApp.ps1` for headless Cargo work | Desktop, web, tests, and dependency warmup share target-dir, feature, target triple, linker, and incremental setup instead of duplicating compile logic | Keeping separate Cargo command construction in each script was rejected because the scripts had started to drift |
 | Store placement as ignored local JSON | Human-readable local runtime state is easy to inspect and keep out of source control under `generated/` | Registry or global app data was rejected because project guidance keeps generated local state inside the repo unless explicitly asked otherwise |
 | Save placement only on normal close | Matches clarification and avoids unnecessary file writes during every drag or resize | Continuous save was rejected because it contradicts the clarified save timing |
 | Restore exact placement when same screen is available | Supports repeated two-screen review workflows with minimal friction | OS automatic placement was rejected because it does not meet exact restore requirements |

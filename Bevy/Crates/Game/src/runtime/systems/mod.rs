@@ -15,11 +15,13 @@ use bevy_inspector_egui::{
 };
 
 use crate::runtime::components::{
-    DebugHudFpsText, DebugHudKeyText, DebugHudText, InspectorState, Player,
+    CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText, InspectorState, Player,
+    PrimarySceneCamera,
 };
 use crate::runtime::resources::{
-    DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH, DebugHudState, GameTicks, WindowPlacement,
-    WindowPlacementState, load_window_placement, save_window_placement,
+    CardInspectionDefaults, CardInspectionState, DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH,
+    DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacement, WindowPlacementState,
+    load_window_placement, save_window_placement,
 };
 
 const FPS_UPDATE_INTERVAL_SECONDS: f32 = 0.5;
@@ -27,9 +29,123 @@ const SCREEN_PADDING_TOP: f32 = 24.0;
 const SCREEN_PADDING_LEFT: f32 = 24.0;
 const TARGET_WIDTH: f32 = 800.0;
 const TARGET_HEIGHT: f32 = 600.0;
+const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
+const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
 
 pub fn setup_game(mut commands: Commands) {
     commands.spawn((Player, Name::new(GameTitle::DISPLAY)));
+}
+
+pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<PrimaryCameraDefaults>) {
+    commands.spawn((
+        Name::new("Primary 3D Camera"),
+        PrimarySceneCamera,
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection {
+            fov: camera_defaults.fov_radians,
+            near: camera_defaults.near,
+            far: camera_defaults.far,
+            ..Default::default()
+        }),
+        camera_defaults.transform(),
+    ));
+}
+
+pub fn setup_card_placeholder(
+    mut commands: Commands,
+    card_defaults: Res<CardInspectionDefaults>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mesh = meshes.add(Cuboid::new(
+        card_defaults.width,
+        card_defaults.height,
+        card_defaults.thickness,
+    ));
+    let material = materials.add(StandardMaterial {
+        base_color: card_defaults.material_color,
+        unlit: true,
+        ..Default::default()
+    });
+
+    commands.spawn((
+        Name::new("Poker Card Placeholder"),
+        CardPlaceholder,
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::default(),
+    ));
+}
+
+pub fn track_card_pointer_target(
+    primary_window_query: Query<&Window, With<PrimaryWindow>>,
+    card_defaults: Res<CardInspectionDefaults>,
+    mut card_state: ResMut<CardInspectionState>,
+) {
+    let Ok(primary_window) = primary_window_query.single() else {
+        return;
+    };
+    let Some(cursor_position) = primary_window.cursor_position() else {
+        return;
+    };
+
+    let window_size = Vec2::new(
+        primary_window.resolution.width(),
+        primary_window.resolution.height(),
+    );
+    update_card_target_from_pointer(
+        cursor_position,
+        window_size,
+        &card_defaults,
+        &mut card_state,
+    );
+}
+
+pub fn smooth_card_rotation(
+    time: Res<Time>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_state: Res<CardInspectionState>,
+    mut card_query: Query<&mut Transform, With<CardPlaceholder>>,
+) {
+    let Ok(mut transform) = card_query.single_mut() else {
+        return;
+    };
+
+    let response_seconds = card_defaults.smoothing_response_seconds.max(f32::EPSILON);
+    let blend = 1.0 - 0.01_f32.powf(time.delta_secs() / response_seconds);
+    transform.rotation = transform.rotation.slerp(card_state.target_rotation, blend);
+    transform.translation = Vec3::ZERO;
+}
+
+pub fn update_card_target_from_pointer(
+    pointer_position: Vec2,
+    window_size: Vec2,
+    card_defaults: &CardInspectionDefaults,
+    card_state: &mut CardInspectionState,
+) {
+    if window_size.x <= 0.0 || window_size.y <= 0.0 {
+        return;
+    }
+
+    let normalized = Vec2::new(
+        (pointer_position.x / window_size.x) * 2.0 - 1.0,
+        (pointer_position.y / window_size.y) * 2.0 - 1.0,
+    )
+    .clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
+
+    card_state.last_pointer_normalized = normalized;
+    card_state.target_rotation = target_rotation_for_pointer(normalized, card_defaults);
+}
+
+pub fn target_rotation_for_pointer(
+    pointer_normalized: Vec2,
+    card_defaults: &CardInspectionDefaults,
+) -> Quat {
+    let clamped = pointer_normalized.clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
+    let yaw = clamped.x * card_defaults.max_tilt_radians;
+    let pitch = clamped.y * card_defaults.max_tilt_radians;
+
+    Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0)
 }
 
 pub fn load_saved_window_placement(mut placement_state: ResMut<WindowPlacementState>) {
@@ -49,7 +165,7 @@ pub fn setup_debug_hud(mut commands: Commands) {
         .spawn((
             Text::new("Card Inspection POC\nFrame: 0\nKEYS: "),
             TextFont {
-                font_size: 22.0,
+                font_size: DEBUG_HUD_FONT_SIZE,
                 ..Default::default()
             },
             TextColor(Color::WHITE),
@@ -76,11 +192,11 @@ pub fn setup_debug_hud(mut commands: Commands) {
             spawn_key_span(parent, "A", KeyCode::KeyA, false);
             spawn_key_span(parent, "S", KeyCode::KeyS, false);
             spawn_key_span(parent, "D", KeyCode::KeyD, false);
-            parent.spawn(TextSpan::new("\nKEYS: "));
+            parent.spawn((TextSpan::new("\nKEYS: "), debug_hud_text_font()));
             spawn_key_span(parent, "F", KeyCode::KeyF, true);
-            parent.spawn(TextSpan::new(" "));
+            parent.spawn((TextSpan::new(" "), debug_hud_text_font()));
             spawn_key_span(parent, "I", KeyCode::KeyI, true);
-            parent.spawn((TextSpan::new(""), DebugHudFpsText));
+            parent.spawn((TextSpan::new(""), debug_hud_text_font(), DebugHudFpsText));
         });
 }
 
@@ -355,16 +471,30 @@ pub fn inspector_ui(world: &mut World) {
         return;
     };
 
+    let egui_context = egui_context.get_mut();
+    use_matching_debug_window_text_style(egui_context);
+
     egui::Window::new("Bevy Inspector")
         .default_pos(egui::pos2(x, y))
         .default_size(egui::vec2(width, height))
-        .show(egui_context.get_mut(), |ui| {
+        .show(egui_context, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
                 ui.heading("Card Inspection POC");
                 bevy_inspector::ui_for_entities_filtered(world, ui, true, &InspectorEntityFilter);
                 ui.allocate_space(ui.available_size());
             });
         });
+}
+
+fn use_matching_debug_window_text_style(context: &egui::Context) {
+    let mut style = (*context.style()).clone();
+    let font_id = egui::FontId::proportional(DEBUG_WINDOW_FONT_SIZE);
+
+    for text_style in style.text_styles.values_mut() {
+        *text_style = font_id.clone();
+    }
+
+    context.set_style(style);
 }
 
 fn spawn_key_span(
@@ -375,10 +505,18 @@ fn spawn_key_span(
 ) {
     parent.spawn((
         TextSpan::new(text),
+        debug_hud_text_font(),
         Underline,
         UnderlineColor(Color::srgba(1.0, 1.0, 1.0, 0.0)),
         DebugHudKeyText::new(key_code, is_toggle),
     ));
+}
+
+fn debug_hud_text_font() -> TextFont {
+    TextFont {
+        font_size: DEBUG_HUD_FONT_SIZE,
+        ..Default::default()
+    }
 }
 
 struct InspectorEntityFilter;
@@ -489,4 +627,50 @@ fn find_matching_monitor<'a>(
                 .iter()
                 .find(|monitor| monitor.physical_position == saved_placement.monitor_position)
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_window_text_styles_use_matching_font_face_and_size() {
+        let context = egui::Context::default();
+
+        use_matching_debug_window_text_style(&context);
+
+        let style = context.style();
+        let expected_font_id = egui::FontId::proportional(DEBUG_WINDOW_FONT_SIZE);
+
+        assert!(
+            style
+                .text_styles
+                .values()
+                .all(|font_id| font_id.family == expected_font_id.family
+                    && font_id.size == expected_font_id.size)
+        );
+    }
+
+    #[test]
+    fn debug_hud_text_spans_use_matching_font_size() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let mut hud_query = app
+            .world_mut()
+            .query_filtered::<(Entity, &TextFont), With<DebugHudText>>();
+        let (hud_entity, hud_font) = hud_query.single(app.world()).unwrap();
+        assert_eq!(hud_font.font_size, DEBUG_HUD_FONT_SIZE);
+
+        let children = app.world().get::<Children>(hud_entity).unwrap();
+        assert!(!children.is_empty());
+
+        for child in children.iter() {
+            let child_font = app.world().get::<TextFont>(child).unwrap();
+            assert_eq!(child_font.font_size, DEBUG_HUD_FONT_SIZE);
+        }
+    }
 }

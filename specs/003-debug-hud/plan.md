@@ -14,7 +14,7 @@ Add a reviewer-facing DebugHUD to the Bevy card inspection prototype. The implem
 | Language/Version | Rust 2024 workspace |
 | Primary Dependencies | Bevy 0.18.1, bevy-inspector-egui 0.36.0 |
 | Storage | N/A |
-| Testing | `scripts/main/RunTests.ps1` runs `cargo test --workspace` |
+| Testing | `scripts/other/RunTests.ps1` runs `cargo test --workspace` |
 | Target Platform | Windows desktop now; browser WebGPU remains a required final verification target |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | HUD update is lightweight and frame-local; FPS text is sampled on a 0.5 second interval |

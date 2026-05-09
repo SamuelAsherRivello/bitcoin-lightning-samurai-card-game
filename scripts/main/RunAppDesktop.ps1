@@ -1,6 +1,8 @@
 param(
+    [switch]$CheckOnly,
     [switch]$Release,
     [switch]$UseSccache,
+    [switch]$UseFastLinker,
     [switch]$NoFastLinker,
     [switch]$NoFastDevFeature,
     [string]$TargetTriple,
@@ -12,74 +14,75 @@ $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $PackageName = "bevy-card-game"
+$TargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
 
-& (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
-
-$env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target"
-$env:WGPU_BACKEND = "dx12"
-
-if ($UseSccache) {
-    $Sccache = Get-Command "sccache" -ErrorAction SilentlyContinue
-    if ($Sccache) {
-        $env:CARGO_INCREMENTAL = "0"
-        $env:RUSTC_WRAPPER = $Sccache.Source
-        $env:SCCACHE_DIR = Join-Path $env:CARGO_TARGET_DIR "sccache"
-        Write-Host "Using sccache: $($Sccache.Source)"
-    } else {
-        throw "sccache was requested but was not found on PATH."
-    }
+if ($CheckOnly) {
+    & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -AppOnly -Quiet
 } else {
-    $env:CARGO_INCREMENTAL = "1"
-    if ($env:RUSTC_WRAPPER -like "*sccache*") {
-        Remove-Item Env:\RUSTC_WRAPPER
-    }
-    Write-Host "Using Cargo incremental compilation. Pass -UseSccache to use sccache instead."
+    & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
 }
 
-if (-not $NoFastLinker) {
-    $RustLld = Get-Command "rust-lld" -ErrorAction SilentlyContinue
-    if ($RustLld) {
-        $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = $RustLld.Source
-        Write-Host "Using fast linker: $($RustLld.Source)"
-    } else {
-        Write-Host "rust-lld not found; using the default Windows linker."
-    }
+$CompileParams = @{
+    Action = if ($CheckOnly) { "check" } else { "build" }
+    PackageName = $PackageName
+    TargetDir = $TargetDir
+    WgpuBackend = "dx12"
 }
-
-$CargoCommand = @(
-    "run",
-    "--package", $PackageName
-)
-
 if ($TargetTriple) {
-    $CargoCommand += @("--target", $TargetTriple)
+    $CompileParams.TargetTriple = $TargetTriple
 }
-
 if ($Release) {
-    $CargoCommand += "--release"
+    $CompileParams.Release = $true
 } elseif (-not $NoFastDevFeature) {
-    $CargoCommand += @("--features", "fast-dev")
+    $CompileParams.Features = @("fast-dev")
 }
-
-if ($CargoArgs) {
-    $CargoCommand += $CargoArgs
+if ($UseSccache) {
+    $CompileParams.UseSccache = $true
 }
-
-if ($TargetTriple) {
-    Write-Host "Target: $TargetTriple"
-} else {
-    Write-Host "Target: host default (shared target/debug cache)"
+if ($UseFastLinker) {
+    $CompileParams.UseFastLinker = $true
 }
-Write-Host "WGPU backend: $env:WGPU_BACKEND"
-Write-Host "Incremental builds: $env:CARGO_INCREMENTAL"
-if (-not $Release -and -not $NoFastDevFeature) {
-    Write-Host "Fast dev feature: enabled"
+if ($NoFastLinker) {
+    $CompileParams.NoFastLinker = $true
 }
-Write-Host "Cargo target dir: $env:CARGO_TARGET_DIR"
 
 Push-Location $RepositoryRoot
 try {
-    cargo @CargoCommand
+    & (Join-Path $PSScriptRoot "..\other\CompileApp.ps1") @CompileParams @CargoArgs
+
+    if (-not $CheckOnly) {
+        $ProfileName = if ($Release) { "release" } else { "debug" }
+        $TargetRoot = if ($TargetTriple) {
+            Join-Path $TargetDir $TargetTriple
+        } else {
+            $TargetDir
+        }
+        $ExecutablePath = Join-Path $TargetRoot (Join-Path $ProfileName "$PackageName.exe")
+        $ProfilePath = Join-Path $TargetRoot $ProfileName
+        $DependencyPath = Join-Path $TargetRoot (Join-Path $ProfileName "deps")
+        $RustSysroot = (rustc --print sysroot).Trim()
+        $RustBinPath = Join-Path $RustSysroot "bin"
+
+        if (-not (Test-Path $ExecutablePath)) {
+            throw "Expected executable was not found: $ExecutablePath"
+        }
+
+        if (Test-Path $RustBinPath) {
+            $env:PATH = "$RustBinPath;$env:PATH"
+        }
+        if (Test-Path $ProfilePath) {
+            $env:PATH = "$ProfilePath;$env:PATH"
+        }
+        if (Test-Path $DependencyPath) {
+            $env:PATH = "$DependencyPath;$env:PATH"
+        }
+
+        Write-Host "Opening desktop app: $ExecutablePath"
+        Start-Process -FilePath $ExecutablePath -WorkingDirectory $RepositoryRoot
+    }
 } finally {
     Pop-Location
+    if ($CheckOnly) {
+        & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -AppOnly -Quiet
+    }
 }

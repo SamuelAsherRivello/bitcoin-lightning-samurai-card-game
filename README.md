@@ -7,16 +7,35 @@ A Bevy ECS card game project built from the Codex Project Template.
 | Task | Command |
 | ---- | ------- |
 | Install dependencies once | `scripts/main/InstallDependencies.ps1` |
-| Run tests | `scripts/main/RunTests.ps1` |
+| Run tests | `scripts/other/RunTests.ps1` |
 | Run desktop | `scripts/main/RunAppDesktop.ps1` |
+| Check desktop | `scripts/main/RunAppDesktop.ps1 -CheckOnly` |
+| Run web | `scripts/main/RunAppWeb.ps1` |
+| Check web | `scripts/main/RunAppWeb.ps1 -CheckOnly` |
 | Stop app | `scripts/other/StopApp.ps1` |
+
+## Requirements
+
+| Requirement | Purpose |
+| ----------- | ------- |
+| Windows package manager | `InstallDependencies.ps1` can install rustup through `winget` when Rust is not already installed. If `winget` is unavailable, install rustup manually from <https://rustup.rs/>. |
+| Rust toolchain | `InstallDependencies.ps1` installs and verifies the `stable` Rust toolchain. |
+| Rust target | `InstallDependencies.ps1` installs and verifies `x86_64-pc-windows-msvc`. |
+| Cargo | `InstallDependencies.ps1` verifies `cargo` is available after rustup setup. If it is not found, restart the terminal and rerun the script. |
+| MSVC linker | Desktop builds may require `link.exe`. Install Build Tools for Visual Studio from <https://visualstudio.microsoft.com/visual-cpp-build-tools/> with the `Desktop development with C++` workload. |
+| Fast linker | `rust-lld` is optional. When available, the scripts use it for faster desktop linking; otherwise they fall back to the default Windows linker. |
 
 ## Build Speed
 
 | Setting | Behavior |
 | ------- | -------- |
-| Desktop target | `scripts/main/RunAppDesktop.ps1` uses the host target by default so warm builds reuse `target/debug`. |
+| Desktop target | `scripts/main/RunAppDesktop.ps1` uses the host target with a dedicated `target/run-app-desktop` cache so other Cargo tasks do not invalidate warm runs. |
+| First checkout | `scripts/main/InstallDependencies.ps1` warms the same desktop cache once, so later `RunAppDesktop.ps1` calls only rebuild changed code. |
+| Default run | `scripts/main/RunAppDesktop.ps1` compiles only changed artifacts, then opens the cached desktop executable. |
+| Headless compile helper | `scripts/other/CompileApp.ps1` centralizes Cargo build, check, and test setup for the main run scripts. |
+| Fast validation | `scripts/main/RunAppDesktop.ps1 -CheckOnly` runs `cargo check -p bevy-card-game --features fast-dev` without launching the app. |
 | Fast dev feature | Non-release desktop runs enable `fast-dev`, which turns on Bevy dynamic linking for faster edit-run cycles after the first build. |
+| Web target | `scripts/main/RunAppWeb.ps1` builds `wasm32-unknown-unknown` into `target/run-app-web`, runs `wasm-bindgen`, serves the generated page on localhost, and opens the browser. |
 | Explicit target | Pass `-TargetTriple x86_64-pc-windows-msvc` only when a separate target cache is required. |
 
 ## Structure

@@ -1,3 +1,5 @@
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy_card_game::{

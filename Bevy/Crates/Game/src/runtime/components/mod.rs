@@ -3,6 +3,12 @@ use bevy::prelude::*;
 #[derive(Component, Debug, Default)]
 pub struct Player;
 
+#[derive(Component, Debug, Default)]
+pub struct PrimarySceneCamera;
+
+#[derive(Component, Debug, Default)]
+pub struct CardPlaceholder;
+
 #[derive(Component, Debug)]
 pub struct DebugHudText;
 
@@ -39,7 +45,7 @@ impl Default for InspectorState {
             is_visible: false,
             x: 24.0,
             y: 156.0,
-            width: 520.0,
+            width: 676.0,
             height: 620.0,
         }
     }

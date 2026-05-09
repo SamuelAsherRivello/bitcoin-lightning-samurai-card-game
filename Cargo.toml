@@ -16,8 +16,18 @@ bevy-inspector-egui = "0.36.0"
 bevy_card_game_shared = { path = "Bevy/Crates/Shared" }
 
 [profile.dev]
-debug = 1
+debug = 0
 incremental = true
+codegen-units = 16
+lto = false
+opt-level = 1
 
 [profile.dev.package."*"]
 debug = 0
+codegen-units = 16
+opt-level = 3
+
+[profile.dev.build-override]
+debug = 0
+codegen-units = 16
+opt-level = 0

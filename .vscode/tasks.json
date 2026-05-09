@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Bevy Card Game: Run Desktop",
+      "label": "Bevy Card Game: RunAppDesktop",
       "type": "shell",
       "command": "${workspaceFolder}/scripts/main/RunAppDesktop.ps1",
       "options": {
@@ -18,25 +18,9 @@
       "problemMatcher": []
     },
     {
-      "label": "Bevy Card Game: Build",
+      "label": "Bevy Card Game: RunTests",
       "type": "shell",
-      "command": "${workspaceFolder}/scripts/main/Build.ps1",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "clear": true
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "Bevy Card Game: Run Tests",
-      "type": "shell",
-      "command": "${workspaceFolder}/scripts/main/RunTests.ps1",
+      "command": "${workspaceFolder}/scripts/other/RunTests.ps1",
       "options": {
         "cwd": "${workspaceFolder}"
       },

@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Basic Setup
+# Specification Quality Checklist: Project Setup
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-05-09  

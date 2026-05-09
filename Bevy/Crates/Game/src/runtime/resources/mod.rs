@@ -8,8 +8,91 @@ use std::{
 pub const DEFAULT_WINDOW_WIDTH: u32 = 800;
 pub const DEFAULT_WINDOW_HEIGHT: u32 = 600;
 
+pub const PRIMARY_CAMERA_FOV_RADIANS: f32 = std::f32::consts::FRAC_PI_4;
+pub const PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.5;
+pub const PRIMARY_CAMERA_NEAR: f32 = 0.1;
+pub const PRIMARY_CAMERA_FAR: f32 = 1000.0;
+pub const CARD_WIDTH_WORLD_UNITS: f32 = 63.0 / 88.0;
+pub const CARD_HEIGHT_WORLD_UNITS: f32 = 1.0;
+pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
+pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
+pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
+
 #[derive(Resource, Debug, Default)]
 pub struct GameTicks(pub u64);
+
+#[derive(Clone, Debug, Resource)]
+pub struct PrimaryCameraDefaults {
+    pub position: Vec3,
+    pub target: Vec3,
+    pub fov_radians: f32,
+    pub near: f32,
+    pub far: f32,
+    pub clear_color: Color,
+}
+
+impl Default for PrimaryCameraDefaults {
+    fn default() -> Self {
+        Self {
+            position: Vec3::new(0.0, 0.0, PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN),
+            target: Vec3::ZERO,
+            fov_radians: PRIMARY_CAMERA_FOV_RADIANS,
+            near: PRIMARY_CAMERA_NEAR,
+            far: PRIMARY_CAMERA_FAR,
+            clear_color: Color::srgb(0.08, 0.08, 0.08),
+        }
+    }
+}
+
+impl PrimaryCameraDefaults {
+    pub fn transform(&self) -> Transform {
+        Transform::from_translation(self.position).looking_at(self.target, Vec3::Y)
+    }
+}
+
+#[derive(Clone, Debug, Resource)]
+pub struct CardInspectionDefaults {
+    pub width: f32,
+    pub height: f32,
+    pub thickness: f32,
+    pub max_tilt_radians: f32,
+    pub smoothing_response_seconds: f32,
+    pub material_color: Color,
+}
+
+impl Default for CardInspectionDefaults {
+    fn default() -> Self {
+        Self {
+            width: CARD_WIDTH_WORLD_UNITS,
+            height: CARD_HEIGHT_WORLD_UNITS,
+            thickness: CARD_THICKNESS_WORLD_UNITS,
+            max_tilt_radians: CARD_MAX_TILT_DEGREES.to_radians(),
+            smoothing_response_seconds: CARD_SMOOTHING_RESPONSE_SECONDS,
+            material_color: Color::WHITE,
+        }
+    }
+}
+
+impl CardInspectionDefaults {
+    pub fn height_width_ratio(&self) -> f32 {
+        self.height / self.width
+    }
+}
+
+#[derive(Debug, Resource)]
+pub struct CardInspectionState {
+    pub last_pointer_normalized: Vec2,
+    pub target_rotation: Quat,
+}
+
+impl Default for CardInspectionState {
+    fn default() -> Self {
+        Self {
+            last_pointer_normalized: Vec2::ZERO,
+            target_rotation: Quat::IDENTITY,
+        }
+    }
+}
 
 #[derive(Resource, Debug, Default)]
 pub struct DebugHudState {
@@ -98,5 +181,32 @@ mod tests {
         };
 
         assert!(!is_valid_window_placement(&placement));
+    }
+
+    #[test]
+    fn card_defaults_match_poker_card_ratio() {
+        let defaults = CardInspectionDefaults::default();
+        let expected_ratio = 88.0 / 63.0;
+        let tolerance = expected_ratio * 0.02;
+
+        assert!((defaults.height_width_ratio() - expected_ratio).abs() <= tolerance);
+        assert_eq!(
+            defaults.max_tilt_radians,
+            CARD_MAX_TILT_DEGREES.to_radians()
+        );
+        assert_eq!(
+            defaults.smoothing_response_seconds,
+            CARD_SMOOTHING_RESPONSE_SECONDS
+        );
+    }
+
+    #[test]
+    fn card_defaults_fit_inside_unit_bounds() {
+        let defaults = CardInspectionDefaults::default();
+
+        assert!(defaults.width <= 1.0);
+        assert!(defaults.height <= 1.0);
+        assert!(defaults.thickness <= 1.0);
+        assert_eq!(defaults.height, 1.0);
     }
 }

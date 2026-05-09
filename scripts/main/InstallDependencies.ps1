@@ -7,6 +7,8 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $TargetTriple = "x86_64-pc-windows-msvc"
 $Toolchain = "stable"
+$PackageName = "bevy-card-game"
+$RunAppDesktopTargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
 
 & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
 
@@ -85,6 +87,21 @@ try {
 
     Write-Host "Checking Cargo workspace metadata..."
     cargo metadata --no-deps --format-version 1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cargo metadata failed with exit code $LASTEXITCODE."
+    }
+
+    if (-not $CheckOnly) {
+        Write-Host "Using the default Windows linker for RunAppDesktop cache warmup."
+        Write-Host "Warming RunAppDesktop cache..."
+        & (Join-Path $PSScriptRoot "..\other\CompileApp.ps1") `
+            -Action build `
+            -PackageName $PackageName `
+            -TargetDir $RunAppDesktopTargetDir `
+            -Features fast-dev `
+            -WgpuBackend dx12 `
+            -NoFastLinker
+    }
 
     Write-Host "Dependencies are ready."
 } finally {
