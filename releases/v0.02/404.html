@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bevy Card Game</title>
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            background: #111;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import init from "./bevy_card_game.js";
+
+        init().catch((error) => {
+            console.error(error);
+            document.body.textContent = `Failed to start Bevy Card Game: ${error}`;
+        });
+    </script>
+</body>
+</html>
