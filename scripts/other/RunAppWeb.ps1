@@ -2,6 +2,7 @@ param(
     [switch]$CheckOnly,
     [switch]$Release,
     [switch]$NoOpen,
+    [switch]$ExportOnly,
     [int]$Port = 8080,
     [string]$TargetTriple = "wasm32-unknown-unknown",
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -10,11 +11,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$RepositoryRoot = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot "..") "..")).Path
 $PackageName = "bevy-card-game"
-$TargetDir = Join-Path $RepositoryRoot "target\run-app-web"
+$TargetDir = Join-Path (Join-Path $RepositoryRoot "target") "run-app-web"
 $WebRoot = Join-Path $TargetDir "site"
-$SourceAssetsRoot = Join-Path $RepositoryRoot "bevy\crates\game\assets"
+$SourceAssetsRoot = Join-Path (Join-Path (Join-Path (Join-Path $RepositoryRoot "Bevy") "Crates") "Game") "Assets"
 $WebAssetsRoot = Join-Path $WebRoot "assets"
 $ServerRoot = Join-Path $TargetDir "server"
 $ServerScriptPath = Join-Path $ServerRoot "StaticFileServer.ps1"
@@ -125,29 +126,37 @@ Write-ServerLog "Serving $ResolvedRoot at http://127.0.0.1:$Port/"
 try {
     while ($Listener.IsListening) {
         $Context = $Listener.GetContext()
-        $RequestPath = [System.Uri]::UnescapeDataString($Context.Request.Url.AbsolutePath.TrimStart("/"))
-        if ([string]::IsNullOrWhiteSpace($RequestPath)) {
-            $RequestPath = "index.html"
-        }
+        try {
+            $RequestPath = [System.Uri]::UnescapeDataString($Context.Request.Url.AbsolutePath.TrimStart("/"))
+            if ([string]::IsNullOrWhiteSpace($RequestPath)) {
+                $RequestPath = "index.html"
+            }
 
-        $CandidatePath = [System.IO.Path]::GetFullPath((Join-Path $ResolvedRoot $RequestPath))
-        if (-not $CandidatePath.StartsWith($ResolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-            $Context.Response.StatusCode = 403
+            $CandidatePath = [System.IO.Path]::GetFullPath((Join-Path $ResolvedRoot $RequestPath))
+            if (-not $CandidatePath.StartsWith($ResolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $Context.Response.StatusCode = 403
+                $Context.Response.Close()
+                continue
+            }
+
+            if (-not (Test-Path $CandidatePath -PathType Leaf)) {
+                $Context.Response.StatusCode = 404
+                $Context.Response.Close()
+                continue
+            }
+
+            $Bytes = [System.IO.File]::ReadAllBytes($CandidatePath)
+            $Context.Response.ContentType = Get-ContentType -Path $CandidatePath
+            $Context.Response.ContentLength64 = $Bytes.Length
+            $Context.Response.OutputStream.Write($Bytes, 0, $Bytes.Length)
             $Context.Response.Close()
-            continue
+        } catch {
+            Write-ServerLog "Request failed: $($_.Exception.Message)"
+            try {
+                $Context.Response.Close()
+            } catch {
+            }
         }
-
-        if (-not (Test-Path $CandidatePath -PathType Leaf)) {
-            $Context.Response.StatusCode = 404
-            $Context.Response.Close()
-            continue
-        }
-
-        $Bytes = [System.IO.File]::ReadAllBytes($CandidatePath)
-        $Context.Response.ContentType = Get-ContentType -Path $CandidatePath
-        $Context.Response.ContentLength64 = $Bytes.Length
-        $Context.Response.OutputStream.Write($Bytes, 0, $Bytes.Length)
-        $Context.Response.Close()
     }
 } catch {
     Write-ServerLog $_.Exception.Message
@@ -161,8 +170,10 @@ try {
 '@ | Set-Content -Path $ServerScriptPath -Encoding UTF8
 }
 
-& (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
-Stop-WebServer
+if (-not $ExportOnly) {
+    & (Join-Path $PSScriptRoot "StopApp.ps1") -Quiet
+    Stop-WebServer
+}
 
 if ($TargetTriple -ne "wasm32-unknown-unknown") {
     Write-Warning "RunAppWeb is intended for wasm32-unknown-unknown. Current target: $TargetTriple"
@@ -196,13 +207,17 @@ if ($Release) {
 
 if ($CheckOnly) {
     Write-Host "Mode: check only"
+} elseif ($ExportOnly) {
+    Write-Host "Mode: build web bundle"
+} elseif ($NoOpen) {
+    Write-Host "Mode: build web bundle and serve"
 } else {
     Write-Host "Mode: build web bundle and open browser"
 }
 
 Push-Location $RepositoryRoot
 try {
-    & (Join-Path $PSScriptRoot "..\other\CompileApp.ps1") @CompileParams @CargoArgs
+    & (Join-Path $PSScriptRoot "CompileApp.ps1") @CompileParams @CargoArgs
 
     if (-not $CheckOnly) {
         $ProfileName = if ($Release) { "release" } else { "debug" }
@@ -277,6 +292,11 @@ try {
 </body>
 </html>
 '@ | Set-Content -Path (Join-Path $WebRoot "index.html") -Encoding UTF8
+
+        if ($ExportOnly) {
+            Write-Host "Exported web app: $WebRoot"
+            return
+        }
 
         Write-StaticServerScript
         if (Test-Path $ServerLogPath) {

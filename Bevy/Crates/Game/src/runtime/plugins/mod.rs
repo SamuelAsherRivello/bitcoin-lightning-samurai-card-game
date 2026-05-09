@@ -3,8 +3,9 @@ use bevy::prelude::*;
 use crate::runtime::resources::{
     ActiveCardTheme, CardInspectionDefaults, CardInspectionState, CardThemeRegistry, CardUiState,
     DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacementState,
-    create_debug_hud_input_store,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use crate::runtime::resources::create_debug_hud_input_store;
 use crate::runtime::systems::{
     advance_ticks, hot_reload_auto_restart_card_browser_scene, load_saved_debug_hud_input,
     load_saved_window_placement, restart_card_browser_scene,
@@ -71,6 +72,7 @@ impl Plugin for CoreGamePlugin {
                 ),
             );
 
+        #[cfg(not(target_arch = "wasm32"))]
         if let Ok(store) = create_debug_hud_input_store() {
             app.insert_resource(store);
         }

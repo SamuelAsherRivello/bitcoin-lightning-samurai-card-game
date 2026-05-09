@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$RepositoryRoot = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot "..") "..")).Path
 $ResolvedTargetDir = if ([System.IO.Path]::IsPathRooted($TargetDir)) {
     $TargetDir
 } else {

@@ -329,7 +329,15 @@ pub fn create_debug_hud_input_store() -> Result<Persistent<DebugHudInputStore>, 
 }
 
 pub fn load_window_placement() -> Option<WindowPlacement> {
-    valid_window_placement(create_window_placement_store().ok()?.current.clone())
+    #[cfg(target_arch = "wasm32")]
+    {
+        None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        valid_window_placement(create_window_placement_store().ok()?.current.clone())
+    }
 }
 
 #[cfg(feature = "desktop-hot-reload")]

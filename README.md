@@ -17,7 +17,14 @@ A Bevy ECS card game project built from the Codex Project Template.
 | Check desktop | `scripts/other/RunAppDesktop.ps1 -CheckOnly` |
 | Run web | `scripts/other/RunAppWeb.ps1` |
 | Check web | `scripts/other/RunAppWeb.ps1 -CheckOnly` |
+| Export web | `scripts/other/RunAppWeb.ps1 -Release -NoOpen -ExportOnly` |
 | Stop app | `scripts/other/StopApp.ps1` |
+
+## Live Demo
+
+https://samuelasherrivello.github.io/bevy-card-game/latest/
+
+The static web build is exported and hosted when a GitHub Release is published. Versioned releases live under `/releases/<version>/`, and `/latest/` points at the newest release.
 
 ## Requirements
 
@@ -49,6 +56,7 @@ A Bevy ECS card game project built from the Codex Project Template.
 
 | Path | Purpose |
 | ---- | ------- |
+| `.github` | GitHub Actions and repository automation, including release and web export workflows. |
 | `bevy/crates/game` | Main Bevy game crate and executable for card-specific runtime behavior. |
 | `bevy/crates/game/src/runtime/components` | Card-specific ECS data attached to entities. |
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
@@ -75,6 +83,56 @@ A Bevy ECS card game project built from the Codex Project Template.
 ## Development Notes
 
 Keep gameplay changes small and spec-driven. Reusable window, camera, DebugHUD, inspector, and diagnostic input behavior belongs in `bevy/crates/shared`; card-specific geometry, pointer mapping, smoothing, and gameplay behavior belongs in `bevy/crates/game`.
+
+## GitHub Features
+
+| Related tech | Link |
+| ------------ | ---- |
+| GitHub Actions | [GitHub Actions docs](https://docs.github.com/en/actions) |
+| GitHub Pages | [Custom GitHub Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages) |
+
+Keep [`.github/workflows/export-web-build-to-github-pages.yml`](./.github/workflows/export-web-build-to-github-pages.yml) as the only GitHub Pages deployment workflow. Do not create a branch-based Pages action; it can fight with this custom export workflow.
+
+Choose one setup option:
+
+| Option | Instructions |
+| ------ | ------------ |
+| Enable Pages manually | In GitHub, open `Settings > Pages` and set `Source` to `GitHub Actions`. Do not select a branch source. |
+| Add `PAGES_ADMIN_TOKEN` | Add a repository secret named `PAGES_ADMIN_TOKEN` with Pages write permission so the workflow can enable or repair Pages setup without creating another action. |
+
+The GitHub Actions display names are:
+
+| Workflow | Purpose |
+| -------- | ------- |
+| `PerformRelease` | Manually increments `VERSION.txt`, updates Cargo package versions, commits, tags, and creates a GitHub Release. |
+| `ReleaseWebBuildToGithubPages` | Builds the release web app and publishes `/releases/<version>/` plus `/latest/` to GitHub Pages. |
+
+## Release Deployment
+
+Use GitHub Releases as the publishing boundary. Normal commits do not publish the project. To publish, run the `PerformRelease` workflow manually.
+
+[`VERSION.txt`](./VERSION.txt) is the release source of truth. It stores the public project version without the tag prefix, such as `0.01`. Release tags add `v`, such as `v0.01`.
+
+The release workflow uses this version style:
+
+| `VERSION.txt` | Git tag | Cargo package version |
+| ------------- | ------- | --------------------- |
+| `0.01` | `v0.01` | `0.1.0` |
+| `0.02` | `v0.02` | `0.2.0` |
+| `0.03` | `v0.03` | `0.3.0` |
+
+Each published release builds the public Bevy web target for GitHub Pages.
+
+If the Pages workflow is run manually, leave the release version input blank to use the current `VERSION.txt`. Enter a value like `v0.01` only when redeploying a specific release folder.
+
+## GitHub Pages URLs
+
+| URL | Purpose |
+| --- | ------- |
+| `/latest/` | Newest published release. |
+| `/releases/v0.01/` | Specific immutable release folder. |
+
+The Pages workflow stores release folders on the `pages-releases` branch, then deploys them through GitHub Pages Actions. Keep the repository Pages source set to `GitHub Actions`, not a branch.
 
 ## Credits
 
