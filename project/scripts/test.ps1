@@ -1,3 +1,3 @@
 $ErrorActionPreference = "Stop"
 
-cargo test --workspace
+& (Join-Path $PSScriptRoot "RunTests.ps1") @args

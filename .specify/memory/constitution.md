@@ -27,6 +27,11 @@ Specs and plans SHOULD record any framework-specific constraints before implemen
 
 Generated projects SHOULD keep implementation, tests, documentation, scripts, and assets in clearly named locations.
 
+### VIII. Windows Desktop And Browser WebGPU Parity
+The project and all user-visible capabilities MUST work on Windows desktop and in a browser through WebGPU unless a spec explicitly narrows the target for a temporary experiment. Rendering features, shaders, assets, UI overlays, input behavior, diagnostics, and tests SHOULD be designed with both targets in mind before implementation starts.
+
+Plans and tasks MUST call out any target-specific risk, fallback, or verification gap for Windows desktop or browser WebGPU. A feature is not complete until the relevant desktop and browser workflows are both verified, or the unverified target is explicitly documented as blocked with the reason.
+
 ## Project Constraints
 
 - Keep project-specific source layout documented in `README.md` and active specs.
@@ -35,6 +40,7 @@ Generated projects SHOULD keep implementation, tests, documentation, scripts, an
 - Keep `documentation/` updated when README images or supporting docs change.
 - Keep `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` as replaceable README image slots.
 - Do not introduce unrelated refactors while implementing a feature spec.
+- Do not introduce rendering, shader, asset, UI, or input capabilities that only work on one target unless the active spec documents the temporary limitation and follow-up path.
 
 ## Development Workflow
 
@@ -43,9 +49,10 @@ Generated projects SHOULD keep implementation, tests, documentation, scripts, an
 3. For framework or dependency guidance, use official documentation and the project-local Codex rules before changing code.
 4. If a port or build artifact is stale or locked, diagnose the actual process or path instead of assuming a clean environment.
 5. Treat build output, dependency caches, runtime data, and test output as generated artifacts unless a spec explicitly says otherwise.
+6. Verify Windows desktop and browser WebGPU workflows for user-visible features when practical; if one target cannot be verified, record the exact blocker.
 
 ## Governance
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.1.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-02
+**Version**: 1.2.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-09

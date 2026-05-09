@@ -1,3 +1,3 @@
 $ErrorActionPreference = "Stop"
 
-cargo run -p bevy-card-game
+& (Join-Path $PSScriptRoot "RunAppDesktop.ps1") @args

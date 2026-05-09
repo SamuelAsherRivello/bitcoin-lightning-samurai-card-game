@@ -8,7 +8,9 @@ A Bevy ECS card game project built from the Codex Project Template.
 | ---- | ------- |
 | Build | `project/scripts/build.ps1` |
 | Test | `project/scripts/test.ps1` |
+| Run tests | `project/scripts/RunTests.ps1` |
 | Run | `project/scripts/run.ps1` |
+| Run desktop | `project/scripts/RunAppDesktop.ps1` |
 
 ## Structure
 
