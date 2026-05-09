@@ -6,6 +6,7 @@
 | Run automated tests | `scripts/main/RunTests.ps1` |
 | Run Windows desktop app | `scripts/main/RunAppDesktop.ps1` |
 | Run Windows desktop app in release mode | `scripts/main/RunAppDesktop.ps1 -Release` |
+| Run Windows desktop app with explicit Windows target cache | `scripts/main/RunAppDesktop.ps1 -TargetTriple x86_64-pc-windows-msvc` |
 | Stop desktop app and project build processes | `scripts/other/StopApp.ps1` |
 
 ## Manual Acceptance

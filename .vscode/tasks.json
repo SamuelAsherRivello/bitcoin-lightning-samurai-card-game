@@ -20,7 +20,7 @@
     {
       "label": "Bevy Card Game: Build",
       "type": "shell",
-      "command": "cargo build --workspace",
+      "command": "${workspaceFolder}/scripts/main/Build.ps1",
       "options": {
         "cwd": "${workspaceFolder}"
       },

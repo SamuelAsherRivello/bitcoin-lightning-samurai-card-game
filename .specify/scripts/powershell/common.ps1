@@ -362,6 +362,8 @@ function Resolve-Template {
     )
 
     $base = Join-Path $RepoRoot '.specify/templates'
+    $layerPaths = @()
+    $layerStrategies = @()
 
     # Priority 1: Project overrides
     $override = Join-Path $base "overrides/$TemplateName.md"
@@ -432,7 +434,7 @@ function Resolve-Template {
     # If the top (highest-priority) layer is replace, it wins entirely —
     # lower layers are irrelevant regardless of their strategies.
     if ($layerStrategies[0] -eq 'replace') {
-        return (Get-Content $layerPaths[0] -Raw)
+        return $layerPaths[0]
     }
 
     # Check if any layer uses a non-replace strategy
@@ -442,7 +444,7 @@ function Resolve-Template {
     }
 
     if (-not $hasComposition) {
-        return (Get-Content $layerPaths[0] -Raw)
+        return $layerPaths[0]
     }
 
     # Find the effective base: scan from highest priority (index 0) downward

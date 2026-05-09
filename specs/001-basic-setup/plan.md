@@ -29,7 +29,7 @@ Provide repeatable build, test, and desktop run entry points; support VS Code ta
 | Source, scripts, and state stay in approved locations | ✅ | Runtime code under `Bevy/Crates/Game`; scripts under `scripts`; local state under ignored `generated/` |
 | Visible feedback requirements respected | ✅ | Script output remains visible in terminal workflows |
 | Browser/local storage constraints | ✅ | Desktop placement state is file-based and does not introduce browser persistence |
-| Real behavior verification path | ✅ | Build/test scripts and desktop build are verified locally |
+| Real behavior verification path | ✅ | Test script and desktop run script are verified locally |
 | Rust and Bevy ECS standards | ✅ | Placement tracking is implemented as resources and systems |
 | Target parity risk documented | ✅ | Desktop placement applies only to desktop; browser startup must not depend on it |
 
@@ -44,13 +44,13 @@ Bevy/Crates/Game/src/
     └── systems/mod.rs              # Window restore, tracking, and close-save systems
 
 scripts/
-├── build.ps1
-├── InstallDependencies.ps1
-├── run.ps1
-├── RunAppDesktop.ps1
-├── RunTests.ps1
-├── StopApp.ps1
-└── test.ps1
+├── main/
+│   ├── InstallDependencies.ps1
+│   ├── RunAppDesktop.ps1
+│   └── RunTests.ps1
+└── other/
+    ├── RunTests.ps1
+    └── StopApp.ps1
 
 .vscode/
 └── tasks.json                      # Local VS Code task entries

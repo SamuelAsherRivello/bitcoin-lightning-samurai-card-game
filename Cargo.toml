@@ -14,3 +14,10 @@ repository = "https://github.com/SamuelAsherRivello/bevy-card-game"
 bevy = "0.18.1"
 bevy-inspector-egui = "0.36.0"
 bevy_card_game_shared = { path = "Bevy/Crates/Shared" }
+
+[profile.dev]
+debug = 1
+incremental = true
+
+[profile.dev.package."*"]
+debug = 0

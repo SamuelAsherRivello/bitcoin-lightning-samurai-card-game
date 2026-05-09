@@ -2,6 +2,8 @@ param(
     [switch]$Release,
     [switch]$UseSccache,
     [switch]$NoFastLinker,
+    [switch]$NoFastDevFeature,
+    [string]$TargetTriple,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CargoArgs
 )
@@ -9,7 +11,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$TargetTriple = "x86_64-pc-windows-msvc"
 $PackageName = "bevy-card-game"
 
 & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
@@ -47,21 +48,33 @@ if (-not $NoFastLinker) {
 
 $CargoCommand = @(
     "run",
-    "--package", $PackageName,
-    "--target", $TargetTriple
+    "--package", $PackageName
 )
+
+if ($TargetTriple) {
+    $CargoCommand += @("--target", $TargetTriple)
+}
 
 if ($Release) {
     $CargoCommand += "--release"
+} elseif (-not $NoFastDevFeature) {
+    $CargoCommand += @("--features", "fast-dev")
 }
 
 if ($CargoArgs) {
     $CargoCommand += $CargoArgs
 }
 
-Write-Host "Target: $TargetTriple"
+if ($TargetTriple) {
+    Write-Host "Target: $TargetTriple"
+} else {
+    Write-Host "Target: host default (shared target/debug cache)"
+}
 Write-Host "WGPU backend: $env:WGPU_BACKEND"
 Write-Host "Incremental builds: $env:CARGO_INCREMENTAL"
+if (-not $Release -and -not $NoFastDevFeature) {
+    Write-Host "Fast dev feature: enabled"
+}
 Write-Host "Cargo target dir: $env:CARGO_TARGET_DIR"
 
 Push-Location $RepositoryRoot

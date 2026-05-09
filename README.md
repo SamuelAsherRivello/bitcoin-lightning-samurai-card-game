@@ -11,6 +11,14 @@ A Bevy ECS card game project built from the Codex Project Template.
 | Run desktop | `scripts/main/RunAppDesktop.ps1` |
 | Stop app | `scripts/other/StopApp.ps1` |
 
+## Build Speed
+
+| Setting | Behavior |
+| ------- | -------- |
+| Desktop target | `scripts/main/RunAppDesktop.ps1` uses the host target by default so warm builds reuse `target/debug`. |
+| Fast dev feature | Non-release desktop runs enable `fast-dev`, which turns on Bevy dynamic linking for faster edit-run cycles after the first build. |
+| Explicit target | Pass `-TargetTriple x86_64-pc-windows-msvc` only when a separate target cache is required. |
+
 ## Structure
 
 | Path | Purpose |

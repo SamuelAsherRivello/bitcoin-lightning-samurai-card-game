@@ -5,6 +5,7 @@
 | Install dependencies once | `scripts/main/InstallDependencies.ps1` |
 | Run automated tests | `scripts/main/RunTests.ps1` |
 | Run desktop app | `scripts/main/RunAppDesktop.ps1` |
+| Run desktop app with explicit Windows target cache | `scripts/main/RunAppDesktop.ps1 -TargetTriple x86_64-pc-windows-msvc` |
 | Stop desktop app and project build processes | `scripts/other/StopApp.ps1` |
 | Run desktop app through VS Code | `Terminal > Run Task... > Bevy Card Game: Run Desktop` |
 
