@@ -4,8 +4,8 @@ Use this file as the first rename checklist when turning this template into a ge
 
 | Purpose | Current Value | Format |
 | ------- | ------------- | ------ |
-| Repository slug | `codex-project-template` | lowercase kebab-case |
-| Display project name | `Codex Project Template` | title case |
+| Repository slug | `bevy-card-game` | lowercase kebab-case |
+| Display project name | `Bevy Card Game` | title case |
 
 ## Rename Surfaces
 

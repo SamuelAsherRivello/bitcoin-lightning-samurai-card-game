@@ -1,12 +1,12 @@
-# Codex Project Template Constitution
+# Bevy Card Game Constitution
 
 ## Core Principles
 
 ### I. Project Intent Is The Contract
-All implementation work MUST follow the active specification, the project constitution, and the repo-local agent guidance. Framework-specific rules belong in project specs, not in this generic template.
+All implementation work MUST follow the active specification, the project constitution, and the repo-local agent guidance. Bevy-specific rules belong in project specs, README guidance, and repo-local Codex memory.
 
 ### II. Clear Project Boundaries
-Project behavior belongs in the project-specific source tree chosen by the implementation spec. Shared assets and repeatable scripts belong under `project/assets` and `project/scripts` unless a generated project defines a different convention.
+Project behavior belongs in the Bevy source tree under `Bevy/Crates`. Game runtime assets belong under `Bevy/Crates/Game/Assets`; non-game seed assets and repeatable scripts belong under `project/assets` and `project/scripts`.
 
 ### III. Visible User Feedback
 User-facing workflows SHOULD provide visible loading, progress, success, and failure feedback when work is asynchronous or can fail.
@@ -21,7 +21,7 @@ Schema changes, migrations, seed data, and destructive data operations MUST be e
 User-visible changes SHOULD be verified through the real target workflow when practical. Prefer project-local scripts in `project/scripts` after a generated project defines them.
 
 ### VII. Implementation Standards
-All implementation code MUST follow the language, framework, formatting, naming, and error-handling standards chosen by the generated project.
+All implementation code MUST follow Rust and Bevy conventions, including explicit ECS ownership through components, resources, systems, and plugins.
 
 Specs and plans SHOULD record any framework-specific constraints before implementation begins.
 

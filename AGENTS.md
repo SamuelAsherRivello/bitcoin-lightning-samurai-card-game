@@ -1,6 +1,6 @@
-# Codex Project Template Agent Instructions
+# Bevy Card Game Agent Instructions
 
-This repository is a project-neutral Codex and Specify template. Keep it free of stack-specific assumptions until a generated project intentionally adds them.
+This repository is a Bevy ECS card game built from the Codex Project Template. Keep Codex and Specify infrastructure at the root, and keep game implementation under the Bevy workspace.
 
 ## Git Safety
 
@@ -33,10 +33,12 @@ This repository is a project-neutral Codex and Specify template. Keep it free of
 - Keep active specs under `specs/`.
 - Keep Specify configuration and templates under `.specify/`.
 - Keep Codex guidance, reusable skills, rules, and memory under `.codex/`.
-- Keep reusable project assets under `project/assets/`.
+- Keep reusable non-game project assets under `project/assets/`.
+- Keep Bevy runtime assets under `Bevy/Crates/Game/Assets/`.
 - Keep repeatable project scripts under `project/scripts/`.
 - Keep README-visible images under `documentation/images/`.
-- Do not add stack-specific tooling, dependencies, or generated outputs to this template unless the request explicitly changes the template scope.
+- Keep Bevy source organized by ECS role under `Bevy/Crates/Game/src/runtime/`.
+- Use `project/scripts/build.ps1`, `project/scripts/test.ps1`, and `project/scripts/run.ps1` for repeatable local workflows.
 
 ## Markdown Format Rules
 
