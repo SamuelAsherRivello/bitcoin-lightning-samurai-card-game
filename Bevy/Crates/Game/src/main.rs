@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy_card_game::{
     GamePlugin,
-    runtime::resources::{
-        WindowPlacementStore, create_window_placement_store, valid_window_placement,
-    },
+    runtime::resources::{WindowPlacementStore, valid_window_placement},
 };
 use bevy_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_card_game::runtime::resources::create_window_placement_store;
 #[cfg(feature = "desktop-hot-reload")]
 use dioxus_devtools::{connect_subsecond, subsecond};
 #[cfg(feature = "desktop-hot-reload")]
@@ -19,7 +19,7 @@ use std::sync::Arc;
 fn main() {
     connect_desktop_hot_reload();
 
-    let window_placement_store = create_window_placement_store().ok();
+    let window_placement_store = create_startup_window_placement_store();
     let saved_window_placement = window_placement_store
         .as_ref()
         .and_then(|store| valid_window_placement(store.current.clone()));
@@ -57,6 +57,18 @@ fn main() {
     }
 
     app.add_plugins(GamePlugin).run();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn create_startup_window_placement_store()
+-> Option<bevy_persistent::prelude::Persistent<WindowPlacementStore>> {
+    create_window_placement_store().ok()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn create_startup_window_placement_store()
+-> Option<bevy_persistent::prelude::Persistent<WindowPlacementStore>> {
+    None
 }
 
 #[cfg(feature = "desktop-hot-reload")]
