@@ -105,6 +105,9 @@ jobs:
       - name: Install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.121 --locked
 
+      - name: Test release assets
+        run: cargo test --workspace --features fast-dev
+
       - name: Export web bundle
         shell: pwsh
         run: ./scripts/other/RunAppWeb.ps1 -Release -NoOpen -ExportOnly
@@ -116,6 +119,8 @@ jobs:
           cp target/run-app-web/site/index.html target/run-app-web/site/404.html
           grep -q "Bevy Card Game" target/run-app-web/site/index.html
           find target/run-app-web/site -maxdepth 1 -name 'bevy_card_game_bg.wasm' -print -quit | grep -q .
+          test -f target/run-app-web/site/assets/cards/CardThemes/CardTheme_SkyBolt/title_skybolt.png
+          test -f target/run-app-web/site/assets/cards/CardThemes/CardTheme_Tar/title_tar.png
 
       - name: Copy versioned release
         shell: bash

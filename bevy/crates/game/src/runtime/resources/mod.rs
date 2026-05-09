@@ -107,10 +107,10 @@ impl CardTheme {
         Self {
             id: SKYBOLT_THEME_ID,
             display_name: SKYBOLT_THEME_NAME,
-            background_texture: "Cards/CardThemes/CardTheme_SkyBolt/background_clouds.png",
-            frame_texture: "Cards/CardThemes/CardTheme_SkyBolt/frame_pinstripe.png",
-            foreground_texture: "Cards/CardThemes/CardTheme_SkyBolt/foreground_character.png",
-            title_texture: "Cards/CardThemes/CardTheme_SkyBolt/title_skybolt.png",
+            background_texture: "cards/CardThemes/CardTheme_SkyBolt/background_clouds.png",
+            frame_texture: "cards/CardThemes/CardTheme_SkyBolt/frame_pinstripe.png",
+            foreground_texture: "cards/CardThemes/CardTheme_SkyBolt/foreground_character.png",
+            title_texture: "cards/CardThemes/CardTheme_SkyBolt/title_skybolt.png",
             foreground_x_ratio: 0.02,
             foreground_y_ratio: 0.05,
             foreground_height_ratio: 0.82,
@@ -122,10 +122,10 @@ impl CardTheme {
         Self {
             id: TAR_THEME_ID,
             display_name: TAR_THEME_NAME,
-            background_texture: "Cards/CardThemes/CardTheme_Tar/background_cafe.png",
-            frame_texture: "Cards/CardThemes/CardTheme_Tar/frame_tar.png",
-            foreground_texture: "Cards/CardThemes/CardTheme_Tar/foreground_minotaur.png",
-            title_texture: "Cards/CardThemes/CardTheme_Tar/title_tar.png",
+            background_texture: "cards/CardThemes/CardTheme_Tar/background_cafe.png",
+            frame_texture: "cards/CardThemes/CardTheme_Tar/frame_tar.png",
+            foreground_texture: "cards/CardThemes/CardTheme_Tar/foreground_minotaur.png",
+            title_texture: "cards/CardThemes/CardTheme_Tar/title_tar.png",
             foreground_x_ratio: 0.0,
             foreground_y_ratio: -0.03,
             foreground_height_ratio: 0.98,
@@ -475,6 +475,31 @@ mod tests {
             registry.active_theme(&active_theme).map(|theme| theme.id),
             Some(SKYBOLT_THEME_ID)
         );
+    }
+
+    #[test]
+    fn card_theme_textures_match_asset_directory_casing() {
+        let registry = CardThemeRegistry::default();
+        let asset_root = workspace_root_path()
+            .join("bevy")
+            .join("crates")
+            .join("game")
+            .join("assets");
+
+        for theme in registry.slots.iter().flatten() {
+            for texture_path in [
+                theme.background_texture,
+                theme.frame_texture,
+                theme.foreground_texture,
+                theme.title_texture,
+            ] {
+                assert!(
+                    asset_root.join(texture_path).is_file(),
+                    "missing theme texture at {}",
+                    texture_path
+                );
+            }
+        }
     }
 
     #[test]
