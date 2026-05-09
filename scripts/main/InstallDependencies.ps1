@@ -27,6 +27,42 @@ function Add-CargoBinToPath {
     }
 }
 
+function Add-MsvcLinkerToPath {
+    if (Test-CommandExists "link") {
+        return
+    }
+
+    $CandidateDirectories = @()
+    $VsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $VsWhere) {
+        $InstallPaths = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+        foreach ($InstallPath in $InstallPaths) {
+            $MsvcToolsRoot = Join-Path $InstallPath "VC\Tools\MSVC"
+            if (Test-Path $MsvcToolsRoot) {
+                $ToolVersion = Get-ChildItem -Path $MsvcToolsRoot -Directory |
+                    Sort-Object -Property Name -Descending |
+                    Select-Object -First 1
+
+                if ($ToolVersion) {
+                    $CandidateDirectories += Join-Path $ToolVersion.FullName "bin\Hostx64\x64"
+                }
+            }
+        }
+    }
+
+    foreach ($CandidateDirectory in $CandidateDirectories) {
+        $LinkerPath = Join-Path $CandidateDirectory "link.exe"
+        if (Test-Path $LinkerPath) {
+            if ($env:PATH -notlike "*$CandidateDirectory*") {
+                $env:PATH = "$CandidateDirectory;$env:PATH"
+            }
+            Write-Host "MSVC linker:"
+            Write-Host $LinkerPath
+            return
+        }
+    }
+}
+
 function Install-Rustup {
     if ($CheckOnly) {
         throw "Rust was not found. Install rustup from https://rustup.rs/ or run this script without -CheckOnly."
@@ -118,6 +154,7 @@ try {
     Write-Host "Rust targets:"
     $InstalledTargets
 
+    Add-MsvcLinkerToPath
     if (-not (Test-CommandExists "link")) {
         Write-Warning "MSVC linker 'link.exe' was not found on PATH. If builds fail, install Visual Studio Build Tools with the Desktop development with C++ workload."
     }

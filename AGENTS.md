@@ -35,6 +35,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep Codex guidance, reusable skills, rules, and memory under `.codex/`.
 - Keep reusable non-game project assets under `bevy/crates/game/assets/`.
 - Keep Bevy runtime assets under `bevy/crates/game/assets/`.
+- Keep the Bevy workspace directory casing lowercase as `bevy/crates/...`; do not introduce `Bevy/Crates/...` paths.
 - Keep card structure assets under `bevy/crates/game/assets/cards/CardStructure/`, card theme assets under `bevy/crates/game/assets/cards/CardThemes/CardTheme_<ThemeName>/`, and custom shaders under `bevy/crates/game/assets/shaders/`.
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.

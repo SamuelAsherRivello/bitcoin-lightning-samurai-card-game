@@ -808,14 +808,14 @@ fn spawn_debug_hud(commands: &mut Commands) {
             spawn_key_span(parent, "D", KeyCode::KeyD, false);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "R", KeyCode::KeyR, false);
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
+            spawn_key_span(parent, "T", KeyCode::KeyT, false);
             parent.spawn((TextSpan::new("\nKEYS: "), debug_hud_text_font()));
             spawn_key_span(parent, "F", KeyCode::KeyF, true);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "I", KeyCode::KeyI, true);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "H", KeyCode::KeyH, true);
-            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
-            spawn_key_span(parent, "T", KeyCode::KeyT, true);
             parent.spawn((TextSpan::new(""), debug_hud_text_font(), DebugHudFpsText));
         });
 }
@@ -861,7 +861,6 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
                 KeyCode::KeyF => fps_on,
                 KeyCode::KeyI => inspector_on,
                 KeyCode::KeyH => params.hud_state.is_hot_reload_autorestart_enabled,
-                KeyCode::KeyT => true,
                 _ => false,
             }
         } else {
@@ -1520,6 +1519,16 @@ mod tests {
     }
 
     #[test]
+    fn inspector_defaults_are_compact_and_below_hud() {
+        let inspector = InspectorState::default();
+
+        assert_eq!(inspector.x, 24.0);
+        assert_eq!(inspector.y, 132.0);
+        assert_eq!(inspector.width, 338.0);
+        assert_eq!(inspector.height, 310.0);
+    }
+
+    #[test]
     fn app_scene_owns_camera_light_and_hud_without_card_browser_entities() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -1734,6 +1743,23 @@ mod tests {
             .unwrap();
 
         assert!(!restart_key.is_toggle);
+    }
+
+    #[test]
+    fn debug_hud_theme_key_is_not_toggle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
+        let theme_key = key_query
+            .iter(app.world())
+            .find(|key_text| key_text.key_code == KeyCode::KeyT)
+            .unwrap();
+
+        assert!(!theme_key.is_toggle);
     }
 
     #[test]

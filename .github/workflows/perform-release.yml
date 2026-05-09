@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -53,8 +53,8 @@ jobs:
           version_path.write_text(version + "\n", encoding="utf-8")
           cargo_version = f"0.{release_number}.0"
           for cargo_path in [
-              Path("Bevy/Crates/Game/Cargo.toml"),
-              Path("Bevy/Crates/Shared/Cargo.toml"),
+              Path("bevy/crates/game/Cargo.toml"),
+              Path("bevy/crates/shared/Cargo.toml"),
           ]:
               text = cargo_path.read_text(encoding="utf-8")
               text = re.sub(r'(?m)^version = "[^"]+"', f'version = "{cargo_version}"', text, count=1)
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add VERSION.txt Bevy/Crates/Game/Cargo.toml Bevy/Crates/Shared/Cargo.toml
+          git add VERSION.txt bevy/crates/game/Cargo.toml bevy/crates/shared/Cargo.toml
           git commit -m "Release ${RELEASE_VERSION}"
           git tag "${RELEASE_VERSION}"
           git push origin HEAD

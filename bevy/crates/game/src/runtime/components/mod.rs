@@ -84,9 +84,9 @@ impl Default for InspectorState {
         Self {
             is_visible: false,
             x: 24.0,
-            y: 156.0,
-            width: 676.0,
-            height: 620.0,
+            y: 132.0,
+            width: 338.0,
+            height: 310.0,
         }
     }
 }

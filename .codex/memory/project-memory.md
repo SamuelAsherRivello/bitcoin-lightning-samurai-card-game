@@ -18,6 +18,7 @@
 | Topic | Decision |
 | ----- | -------- |
 | Workspace | Rust workspace at the repository root. |
+| Path casing | Bevy workspace paths are lowercase `bevy/crates/...`; do not use `Bevy/Crates/...` in code, scripts, workflows, or docs. |
 | Game crate | `bevy/crates/game` with package name `bevy-card-game`. |
 | Shared crate | `bevy/crates/shared` for reusable non-Bevy game constants and logic. |
 | ECS layout | Keep components, resources, systems, and plugins under `bevy/crates/game/src/runtime`. |
