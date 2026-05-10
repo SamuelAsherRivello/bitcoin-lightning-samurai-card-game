@@ -141,6 +141,50 @@ jobs:
             "${VPS_USER}@${VPS_HOST}" \
             "printf '%s\n' vps-preflight-ok"
 
+          ssh -p "${VPS_SSH_PORT}" \
+            -i "${HOME}/.ssh/vps_deploy_key" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o IdentitiesOnly=yes \
+            -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" \
+            bash -s -- \
+              "${REMOTE_APP_DIR}" \
+              "${REMOTE_RELEASES_DIR}" <<'REMOTE_PREFLIGHT'
+          set -euo pipefail
+
+          remote_app_dir="$1"
+          remote_releases_dir="$2"
+          release_parent="${remote_app_dir%/}/${remote_releases_dir}"
+
+          case "${release_parent}" in
+            "${remote_app_dir%/}"/*) ;;
+            *)
+              echo "Release path must stay under the remote app directory." >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -d "${release_parent}" ]; then
+            test -w "${release_parent}" || {
+              echo "Deploy user cannot write to existing release folder: ${release_parent}" >&2
+              exit 1
+            }
+          elif [ -d "${remote_app_dir}" ]; then
+            test -w "${remote_app_dir}" || {
+              echo "Deploy user cannot create releases under app folder: ${remote_app_dir}" >&2
+              exit 1
+            }
+          else
+            remote_parent="$(dirname "${remote_app_dir}")"
+            test -d "${remote_parent}" && test -w "${remote_parent}" || {
+              echo "Deploy app folder is missing and deploy user cannot create it under: ${remote_parent}" >&2
+              exit 1
+            }
+          fi
+          REMOTE_PREFLIGHT
+
       - name: Install Rust wasm target
         run: rustup target add wasm32-unknown-unknown
 
