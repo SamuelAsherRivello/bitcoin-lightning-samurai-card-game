@@ -1,19 +1,20 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::{
-    ActiveCardTheme, CardInspectionDefaults, CardInspectionState, CardThemeRegistry, CardUiState,
-    DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacementState,
-};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::create_debug_hud_input_store;
+use crate::runtime::resources::{
+    ActiveCardTheme, CardFlipState, CardInspectionDefaults, CardInspectionState, CardThemeRegistry,
+    CardUiState, DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacementState,
+};
 use crate::runtime::systems::{
     advance_ticks, hot_reload_auto_restart_card_browser_scene, load_saved_debug_hud_input,
     load_saved_window_placement, restart_card_browser_scene,
     restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
     setup_app_scene, setup_card_browser_scene, setup_game, setup_inspector, smooth_card_rotation,
     toggle_card_theme, toggle_debug_hud_inputs, toggle_inspector, track_card_pointer_target,
-    track_window_placement, track_window_size, update_card_frame_shine,
-    update_card_parallax_layers, update_debug_hud,
+    track_window_placement, track_window_size, update_card_face_visibility,
+    update_card_flip_animation, update_card_frame_shine, update_card_parallax_layers,
+    update_debug_hud,
 };
 
 pub struct CoreGamePlugin;
@@ -29,6 +30,7 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<GameTicks>()
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
             .init_resource::<CardThemeRegistry>()
             .init_resource::<ActiveCardTheme>()
             .init_resource::<CardUiState>()
@@ -57,7 +59,9 @@ impl Plugin for CoreGamePlugin {
                     save_window_placement_on_close.before(bevy::window::close_when_requested),
                     toggle_debug_hud_inputs,
                     track_card_pointer_target,
+                    update_card_flip_animation,
                     smooth_card_rotation.after(track_card_pointer_target),
+                    update_card_face_visibility.after(update_card_flip_animation),
                     update_card_parallax_layers.after(smooth_card_rotation),
                     update_card_frame_shine.after(smooth_card_rotation),
                     toggle_card_theme,
