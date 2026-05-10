@@ -35,9 +35,18 @@ server {
 }
 NGINX
 
-if [ -e /etc/nginx/sites-enabled/default ] && [ ! -e /etc/nginx/sites-enabled/default.disabled-by-static-apps ]; then
-  mv /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/default.disabled-by-static-apps
-fi
+timestamp="$(date +%Y%m%d%H%M%S)"
+for enabled_site in /etc/nginx/sites-enabled/*; do
+  if [ ! -e "${enabled_site}" ]; then
+    continue
+  fi
+  if [ "$(basename "${enabled_site}")" = "static-apps" ]; then
+    continue
+  fi
+  if grep -qs "default_server" "${enabled_site}"; then
+    mv "${enabled_site}" "${enabled_site}.disabled-by-static-apps-${timestamp}"
+  fi
+done
 
 ln -sfn /etc/nginx/sites-available/static-apps /etc/nginx/sites-enabled/static-apps
 nginx -t
