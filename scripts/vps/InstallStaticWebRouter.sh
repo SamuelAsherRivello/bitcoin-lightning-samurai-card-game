@@ -56,7 +56,12 @@ for enabled_site in /etc/nginx/sites-enabled/*; do
 done
 
 ln -sfn /etc/nginx/sites-available/static-apps /etc/nginx/sites-enabled/static-apps
-nginx -t
+if ! nginx -t; then
+  echo
+  echo "Nginx still has a conflicting default port-80 site. Matching files:" >&2
+  grep -R "default_server" /etc/nginx/sites-enabled /etc/nginx/conf.d /etc/nginx/nginx.conf 2>/dev/null || true
+  exit 1
+fi
 systemctl enable --now nginx
 systemctl reload nginx
 
