@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
 
-          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES PUBLIC_WEB_ROOT PUBLIC_APP_PATH PUBLIC_HEALTHCHECK_PATH "
+          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT DEPLOY_STATIC_PATHS REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES PUBLIC_WEB_ROOT PUBLIC_APP_PATH PUBLIC_HEALTHCHECK_PATH "
           while IFS= read -r line || [ -n "${line}" ]; do
             line="${line%$'\r'}"
             if [ -z "${line}" ] || [[ "${line}" == \#* ]]; then
@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for key in APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK DEPLOY_KEEP_RELEASES; do
+          for key in APP_NAME WEB_RELEASE_SCRIPT DEPLOY_STATIC_PATHS REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK DEPLOY_KEEP_RELEASES; do
             if [ -z "${!key:-}" ]; then
               echo "::error::${key} must be set in deploy.vps.env."
               exit 1
@@ -107,6 +107,23 @@ jobs:
             echo "::error::PUBLIC_HEALTHCHECK_PATH must start with '/' and must not contain '..'."
             exit 1
           fi
+          IFS=',' read -ra static_path_entries <<< "${DEPLOY_STATIC_PATHS}"
+          for entry in "${static_path_entries[@]}"; do
+            source_path="${entry%%|*}"
+            public_path="${entry#*|}"
+            if [ -z "${source_path}" ] || [ -z "${public_path}" ] || [ "${source_path}" = "${entry}" ]; then
+              echo "::error::Each DEPLOY_STATIC_PATHS entry must look like local/source|/public/path/."
+              exit 1
+            fi
+            if [[ "${source_path}" == /* ]] || [[ "${source_path}" == *..* ]]; then
+              echo "::error::DEPLOY_STATIC_PATHS source paths must be relative paths without '..'."
+              exit 1
+            fi
+            if [[ "${public_path}" != /* ]] || [[ "${public_path}" == *..* ]]; then
+              echo "::error::DEPLOY_STATIC_PATHS public paths must start with '/' and must not contain '..'."
+              exit 1
+            fi
+          done
 
       - name: Validate VPS SSH secrets and connectivity
         shell: bash
@@ -239,20 +256,41 @@ jobs:
               exit $LASTEXITCODE
           }
 
-      - name: Validate web bundle path
+      - name: Prepare static deploy payload
         shell: bash
         run: |
           set -euo pipefail
-          test -d "${BUILD_OUTPUT}"
-          test -f "${BUILD_OUTPUT}/index.html"
-          test -f "${BUILD_OUTPUT}/404.html"
-          find "${BUILD_OUTPUT}" -maxdepth 1 -name 'bevy_card_game_bg.wasm' -print -quit | grep -q .
+          staging_dir="target/vps-static-deploy"
+          rm -rf "${staging_dir}"
+          mkdir -p "${staging_dir}"
+
+          IFS=',' read -ra static_path_entries <<< "${DEPLOY_STATIC_PATHS}"
+          for entry in "${static_path_entries[@]}"; do
+            source_path="${entry%%|*}"
+            public_path="${entry#*|}"
+            public_path="${public_path#/}"
+            public_path="${public_path%/}"
+
+            test -d "${source_path}"
+            if [ -z "${public_path}" ]; then
+              destination_path="${staging_dir}"
+            else
+              destination_path="${staging_dir}/${public_path}"
+              mkdir -p "${destination_path}"
+            fi
+            cp -a "${source_path}/." "${destination_path}/"
+          done
+
+          test -f "${staging_dir}/index.html"
+          test -f "${staging_dir}/404.html"
+          find "${staging_dir}" -maxdepth 1 -name 'bevy_card_game_bg.wasm' -print -quit | grep -q .
+          echo "STATIC_DEPLOY_STAGING=${staging_dir}" >> "${GITHUB_ENV}"
 
       - name: Create release archive
         shell: bash
         run: |
           set -euo pipefail
-          tar -C "${BUILD_OUTPUT}" -czf web-release.tar.gz .
+          tar -C "${STATIC_DEPLOY_STAGING}" -czf web-release.tar.gz .
 
       - name: Upload release archive
         shell: bash
@@ -293,6 +331,7 @@ jobs:
               "${REMOTE_ARCHIVE}" \
               "${PUBLIC_WEB_ROOT:-}" \
               "${PUBLIC_APP_PATH:-}" \
+              "${RELEASE_VERSION}" \
               "${REMOTE_SERVICE_NAME}" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
@@ -304,7 +343,8 @@ jobs:
           remote_archive="$6"
           public_web_root="${7-}"
           public_app_path="${8-}"
-          remote_service_name="${9-}"
+          release_version="${9-}"
+          remote_service_name="${10-}"
 
           release_parent="${remote_app_dir%/}/${remote_releases_dir}"
           release_dir="${release_parent}/${release_id}"
@@ -329,16 +369,26 @@ jobs:
           rm -f "${remote_archive}"
 
           if [ -n "${public_web_root}" ] && [ -n "${public_app_path}" ]; then
-            public_link="${public_web_root%/}/${public_app_path}"
-            case "${public_link}" in
+            public_app_dir="${public_web_root%/}/${public_app_path}"
+            case "${public_app_dir}" in
               "${public_web_root%/}"/*) ;;
               *)
-                echo "Public link path must stay under the public web root." >&2
+                echo "Public app path must stay under the public web root." >&2
                 exit 1
                 ;;
             esac
-            mkdir -p "$(dirname "${public_link}")"
-            ln -sfn "${current_link}" "${public_link}"
+
+            if [ -L "${public_app_dir}" ]; then
+              rm -f "${public_app_dir}"
+            fi
+            mkdir -p "${public_app_dir}"
+            find "${public_app_dir}" -mindepth 1 -maxdepth 1 \
+              ! -name latest \
+              ! -name 'v*' \
+              -exec rm -rf {} +
+            cp -a "${release_dir}/." "${public_app_dir}/"
+            ln -sfn "${release_dir}" "${public_app_dir}/latest"
+            ln -sfn "${release_dir}" "${public_app_dir}/${release_version}"
           fi
 
           if [ -n "${remote_service_name}" ]; then
@@ -372,26 +422,31 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           set -euo pipefail
-          public_path="/${PUBLIC_APP_PATH%/}${PUBLIC_HEALTHCHECK_PATH}"
-          http_url="http://${VPS_HOST}${public_path}"
+          latest_root_path="/${PUBLIC_APP_PATH%/}${PUBLIC_HEALTHCHECK_PATH}"
+          latest_alias_path="/${PUBLIC_APP_PATH%/}/latest${PUBLIC_HEALTHCHECK_PATH}"
+          version_path="/${PUBLIC_APP_PATH%/}/${RELEASE_VERSION}${PUBLIC_HEALTHCHECK_PATH}"
 
-          status_code="$(
-            curl \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --output /dev/null \
-              --silent \
-              --show-error \
-              --write-out '%{http_code}' \
-              "${http_url}"
-          )"
+          for public_path in "${latest_root_path}" "${latest_alias_path}" "${version_path}"; do
+            status_code="$(
+              curl \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --output /dev/null \
+                --silent \
+                --show-error \
+                --write-out '%{http_code}' \
+                "http://${VPS_HOST}${public_path}"
+            )"
 
-          if [ "${status_code}" != "200" ]; then
-            echo "::error::Public VPS URL returned HTTP ${status_code} for path ${public_path}."
-            exit 1
-          fi
+            if [ "${status_code}" != "200" ]; then
+              echo "::error::Public VPS URL returned HTTP ${status_code} for path ${public_path}."
+              exit 1
+            fi
+          done
 
-          echo "PUBLIC_URL_PATH=${public_path}" >> "${GITHUB_ENV}"
+          echo "PUBLIC_URL_PATH=${latest_root_path}" >> "${GITHUB_ENV}"
+          echo "PUBLIC_LATEST_URL_PATH=${latest_alias_path}" >> "${GITHUB_ENV}"
+          echo "PUBLIC_VERSION_URL_PATH=${version_path}" >> "${GITHUB_ENV}"
 
       - name: Write deployment summary
         shell: bash
@@ -404,5 +459,7 @@ jobs:
             if [ -n "${PUBLIC_APP_PATH:-}" ]; then
               echo ""
               echo "Public path: \`${PUBLIC_URL_PATH:-/${PUBLIC_APP_PATH%/}/}\`"
+              echo "Latest alias: \`${PUBLIC_LATEST_URL_PATH:-/${PUBLIC_APP_PATH%/}/latest/}\`"
+              echo "Version path: \`${PUBLIC_VERSION_URL_PATH:-/${PUBLIC_APP_PATH%/}/${RELEASE_VERSION}/}\`"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"

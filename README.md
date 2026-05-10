@@ -163,7 +163,7 @@ Public deployment settings:
 | ------- | ------- |
 | `APP_NAME` | Short app name used for release archive names. |
 | `WEB_RELEASE_SCRIPT` | Repo script that builds and validates the release web bundle. |
-| `BUILD_OUTPUT` | Local folder uploaded to the VPS after the release build. |
+| `DEPLOY_STATIC_PATHS` | Comma-separated `local/source|/public/path/` mappings for browser-visible files. |
 | `REMOTE_APP_DIR` | VPS app root containing releases and the active symlink. |
 | `REMOTE_RELEASES_DIR` | Folder under `REMOTE_APP_DIR` for timestamped release directories. |
 | `REMOTE_CURRENT_LINK` | Symlink under `REMOTE_APP_DIR` that points to the active release. |
@@ -182,6 +182,16 @@ sudo bash scripts/vps/InstallStaticWebRouter.sh <deploy-user>
 This installs Nginx, serves `/srv/www` publicly on HTTP port `80`, and lets each project expose its active release through a symlink like `/srv/www/bevy-card-game -> /srv/apps/bevy-card-game/current`. The public URL for this repo is `http://<vps-host>/bevy-card-game/`.
 
 Port `80` is public web traffic. Do not place private admin tools, API credentials, wallet files, server notes, or other secrets under `/srv/www` or deployed app bundles.
+
+For this static Bevy game, `DEPLOY_STATIC_PATHS=target/run-app-web/site|/` means the exported web bundle is the only folder packaged for deployment, and it is served at `/bevy-card-game/`. Additional browser-visible folders can be mapped with comma-separated entries, such as `target/docs|/docs/`. Do not map server binaries or private files into `DEPLOY_STATIC_PATHS`.
+
+The VPS deploy publishes three browser URL shapes for public static builds:
+
+| URL | Purpose |
+| --- | ------- |
+| `/bevy-card-game/` | Newest deployed release. |
+| `/bevy-card-game/latest/` | Alias for the newest deployed release. |
+| `/bevy-card-game/v0.02/` | Versioned release path using the resolved release tag. |
 
 Required GitHub repository secrets:
 
