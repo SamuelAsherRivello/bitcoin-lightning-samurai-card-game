@@ -171,6 +171,7 @@ Public deployment settings:
 | `DEPLOY_KEEP_RELEASES` | Number of previous VPS release folders to keep. |
 | `PUBLIC_WEB_ROOT` | Optional Nginx-served public folder for browser access. |
 | `PUBLIC_APP_PATH` | Optional public URL path below `PUBLIC_WEB_ROOT`. |
+| `PUBLIC_HEALTHCHECK_PATH` | Public path checked after deploy, relative to `PUBLIC_APP_PATH`. |
 
 To make VPS deployments immediately browser-visible, install the shared static app router once on the VPS:
 

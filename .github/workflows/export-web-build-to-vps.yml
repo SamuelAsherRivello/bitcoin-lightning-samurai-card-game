@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
 
-          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES PUBLIC_WEB_ROOT PUBLIC_APP_PATH "
+          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES PUBLIC_WEB_ROOT PUBLIC_APP_PATH PUBLIC_HEALTHCHECK_PATH "
           while IFS= read -r line || [ -n "${line}" ]; do
             line="${line%$'\r'}"
             if [ -z "${line}" ] || [[ "${line}" == \#* ]]; then
@@ -100,6 +100,12 @@ jobs:
               echo "::error::PUBLIC_APP_PATH must be a relative path without '..'."
               exit 1
             fi
+          fi
+          if [ -z "${PUBLIC_HEALTHCHECK_PATH:-}" ]; then
+            echo "PUBLIC_HEALTHCHECK_PATH=/" >> "${GITHUB_ENV}"
+          elif [[ "${PUBLIC_HEALTHCHECK_PATH}" != /* ]] || [[ "${PUBLIC_HEALTHCHECK_PATH}" == *..* ]]; then
+            echo "::error::PUBLIC_HEALTHCHECK_PATH must start with '/' and must not contain '..'."
+            exit 1
           fi
 
       - name: Validate VPS SSH secrets and connectivity
@@ -359,6 +365,34 @@ jobs:
           echo "Activated ${release_id} at ${current_link}"
           REMOTE_SCRIPT
 
+      - name: Verify public browser URL
+        if: ${{ env.PUBLIC_APP_PATH != '' }}
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          public_path="/${PUBLIC_APP_PATH%/}${PUBLIC_HEALTHCHECK_PATH}"
+          http_url="http://${VPS_HOST}${public_path}"
+
+          status_code="$(
+            curl \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output /dev/null \
+              --silent \
+              --show-error \
+              --write-out '%{http_code}' \
+              "${http_url}"
+          )"
+
+          if [ "${status_code}" != "200" ]; then
+            echo "::error::Public VPS URL returned HTTP ${status_code} for path ${public_path}."
+            exit 1
+          fi
+
+          echo "PUBLIC_URL_PATH=${public_path}" >> "${GITHUB_ENV}"
+
       - name: Write deployment summary
         shell: bash
         run: |
@@ -369,6 +403,6 @@ jobs:
             echo "Activated release \`${RELEASE_ID}\`."
             if [ -n "${PUBLIC_APP_PATH:-}" ]; then
               echo ""
-              echo "Public path: \`/${PUBLIC_APP_PATH%/}/\`"
+              echo "Public path: \`${PUBLIC_URL_PATH:-/${PUBLIC_APP_PATH%/}/}\`"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
