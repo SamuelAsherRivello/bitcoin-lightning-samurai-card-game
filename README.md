@@ -18,6 +18,7 @@ A Bevy ECS card game project built from the Codex Project Template.
 | Run web | `scripts/other/RunAppWeb.ps1` |
 | Check web | `scripts/other/RunAppWeb.ps1 -CheckOnly` |
 | Export web | `scripts/other/RunAppWeb.ps1 -Release -NoOpen -ExportOnly` |
+| Export release web | `scripts/other/ExportWebRelease.ps1` |
 | Stop app | `scripts/other/StopApp.ps1` |
 
 ## Live Demo
@@ -68,6 +69,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | Path | Purpose |
 | ---- | ------- |
 | `.github` | GitHub Actions and repository automation, including release and web export workflows. |
+| `deploy.vps.env` | Public, non-secret VPS deployment defaults used by `ReleaseWebBuildToVps`. |
 | `bevy/crates/game` | Main Bevy game crate and executable for card-specific runtime behavior. |
 | `bevy/crates/game/src/runtime/components` | Card-specific ECS data attached to entities. |
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
@@ -120,6 +122,7 @@ The GitHub Actions display names are:
 | -------- | ------- |
 | `PerformRelease` | Manually increments `VERSION.txt`, updates Cargo package versions, commits, tags, and creates a GitHub Release. |
 | `ReleaseWebBuildToGithubPages` | Builds the release web app and publishes `/releases/<version>/` plus `/latest/` to GitHub Pages. |
+| `ReleaseWebBuildToVps` | Builds the release web app and publishes it to the configured VPS app directory. |
 
 ## Release Deployment
 
@@ -139,6 +142,8 @@ Each published release builds the public Bevy web target for GitHub Pages.
 
 If the Pages workflow is run manually, leave the release version input blank to use the current `VERSION.txt`. Enter a value like `v0.01` only when redeploying a specific release folder.
 
+The reusable release web export script is [`scripts/other/ExportWebRelease.ps1`](./scripts/other/ExportWebRelease.ps1). It calls the standard web build, writes `404.html`, and validates the expected web bundle and card theme assets before deployment workflows upload the result.
+
 ## GitHub Pages URLs
 
 | URL | Purpose |
@@ -147,6 +152,35 @@ If the Pages workflow is run manually, leave the release version input blank to 
 | `/releases/v0.01/` | Specific immutable release folder. |
 
 The Pages workflow stores release folders on the `pages-releases` branch, then deploys them through GitHub Pages Actions. Keep the repository Pages source set to `GitHub Actions`, not a branch.
+
+## VPS Deployment
+
+The VPS workflow uses [`deploy.vps.env`](./deploy.vps.env) for public, reusable deployment settings and GitHub repository secrets for private SSH access. The default remote app path is `/srv/apps/bevy-card-game`, with release folders under `/srv/apps/bevy-card-game/releases` and a `current` symlink pointing at the active release.
+
+Public deployment settings:
+
+| Setting | Purpose |
+| ------- | ------- |
+| `APP_NAME` | Short app name used for release archive names. |
+| `WEB_RELEASE_SCRIPT` | Repo script that builds and validates the release web bundle. |
+| `BUILD_OUTPUT` | Local folder uploaded to the VPS after the release build. |
+| `REMOTE_APP_DIR` | VPS app root containing releases and the active symlink. |
+| `REMOTE_RELEASES_DIR` | Folder under `REMOTE_APP_DIR` for timestamped release directories. |
+| `REMOTE_CURRENT_LINK` | Symlink under `REMOTE_APP_DIR` that points to the active release. |
+| `REMOTE_SERVICE_NAME` | Optional systemd service to restart after deploy. Leave blank for static-file deployments. |
+| `DEPLOY_KEEP_RELEASES` | Number of previous VPS release folders to keep. |
+
+Required GitHub repository secrets:
+
+| Secret | Purpose |
+| ------ | ------- |
+| `VPS_HOST` | VPS hostname or IP address. |
+| `VPS_USER` | Limited deploy user on the VPS. |
+| `VPS_SSH_PORT` | SSH port for the VPS. |
+| `VPS_SSH_PRIVATE_KEY` | Private deploy key for the limited VPS deploy user. |
+| `VPS_KNOWN_HOSTS` | Pinned SSH host key entry for the VPS. |
+
+The deploy user should only have write access to the configured app directory. If `REMOTE_SERVICE_NAME` is set, allow that user to restart only that one service with `sudo systemctl restart <service>`.
 
 ## Credits
 

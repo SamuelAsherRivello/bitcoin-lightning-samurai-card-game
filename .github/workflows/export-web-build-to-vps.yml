@@ -1,0 +1,254 @@
+name: ReleaseWebBuildToVps
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Optional release folder name. Leave blank to use VERSION.txt.
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy release web app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.release_version || github.ref }}
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_version="${{ github.event.release.tag_name || inputs.release_version }}"
+          if [ -z "${release_version}" ]; then
+            if [ ! -f VERSION.txt ]; then
+              echo "::error::Release version was blank and VERSION.txt does not exist."
+              exit 1
+            fi
+            version="$(tr -d '[:space:]' < VERSION.txt)"
+            release_version="v${version}"
+          fi
+          if ! [[ "${release_version}" =~ ^v0[.][0-9]{2}$ ]]; then
+            echo "::error::Release version must look like v0.01."
+            exit 1
+          fi
+          release_id="${release_version}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          echo "RELEASE_VERSION=${release_version}" >> "${GITHUB_ENV}"
+          echo "RELEASE_ID=${release_id}" >> "${GITHUB_ENV}"
+
+      - name: Load VPS deploy config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f deploy.vps.env ]; then
+            echo "::error::deploy.vps.env does not exist."
+            exit 1
+          fi
+
+          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES "
+          while IFS= read -r line || [ -n "${line}" ]; do
+            line="${line%$'\r'}"
+            if [ -z "${line}" ] || [[ "${line}" == \#* ]]; then
+              continue
+            fi
+            key="${line%%=*}"
+            value="${line#*=}"
+            if [[ ! "${key}" =~ ^[A-Z0-9_]+$ ]]; then
+              echo "::error::Invalid deploy config key: ${key}"
+              exit 1
+            fi
+            if [[ "${allowed_keys}" != *" ${key} "* ]]; then
+              echo "::error::Unsupported deploy config key: ${key}"
+              exit 1
+            fi
+            printf '%s=%s\n' "${key}" "${value}" >> "${GITHUB_ENV}"
+          done < deploy.vps.env
+
+      - name: Validate VPS deploy config
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK DEPLOY_KEEP_RELEASES; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::${key} must be set in deploy.vps.env."
+              exit 1
+            fi
+          done
+          if ! [[ "${DEPLOY_KEEP_RELEASES}" =~ ^[0-9]+$ ]]; then
+            echo "::error::DEPLOY_KEEP_RELEASES must be a non-negative integer."
+            exit 1
+          fi
+
+      - name: Install Rust wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.121 --locked
+
+      - name: Validate source asset casing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f bevy/crates/game/assets/cards/CardThemes/CardTheme_SkyBolt/title_skybolt.png
+          test -f bevy/crates/game/assets/cards/CardThemes/CardTheme_Tar/title_tar.png
+          if grep -R "Cards/CardThemes" bevy/crates/game/src; then
+            echo "::error::Card theme asset paths must use assets/cards/... casing for web release builds."
+            exit 1
+          fi
+
+      - name: Export release web bundle
+        shell: pwsh
+        run: |
+          & $env:WEB_RELEASE_SCRIPT
+          if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+          }
+
+      - name: Validate web bundle path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${BUILD_OUTPUT}"
+          test -f "${BUILD_OUTPUT}/index.html"
+          test -f "${BUILD_OUTPUT}/404.html"
+          find "${BUILD_OUTPUT}" -maxdepth 1 -name 'bevy_card_game_bg.wasm' -print -quit | grep -q .
+
+      - name: Create release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C "${BUILD_OUTPUT}" -czf web-release.tar.gz .
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_KNOWN_HOSTS VPS_SSH_PRIVATE_KEY VPS_SSH_PORT VPS_USER; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Repository secret ${key} must be set."
+              exit 1
+            fi
+          done
+
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          printf '%s\n' "${VPS_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/vps_deploy_key"
+          chmod 600 "${HOME}/.ssh/vps_deploy_key"
+          printf '%s\n' "${VPS_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
+
+      - name: Upload release archive
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          archive_name="${APP_NAME}-${RELEASE_ID}.tar.gz"
+          scp -P "${VPS_SSH_PORT}" \
+            -i "${HOME}/.ssh/vps_deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            web-release.tar.gz \
+            "${VPS_USER}@${VPS_HOST}:/tmp/${archive_name}"
+          echo "REMOTE_ARCHIVE=/tmp/${archive_name}" >> "${GITHUB_ENV}"
+
+      - name: Activate VPS release
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -p "${VPS_SSH_PORT}" \
+            -i "${HOME}/.ssh/vps_deploy_key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" \
+            bash -s -- \
+              "${REMOTE_APP_DIR}" \
+              "${REMOTE_RELEASES_DIR}" \
+              "${REMOTE_CURRENT_LINK}" \
+              "${REMOTE_SERVICE_NAME}" \
+              "${DEPLOY_KEEP_RELEASES}" \
+              "${RELEASE_ID}" \
+              "${REMOTE_ARCHIVE}" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          remote_app_dir="$1"
+          remote_releases_dir="$2"
+          remote_current_link="$3"
+          remote_service_name="$4"
+          deploy_keep_releases="$5"
+          release_id="$6"
+          remote_archive="$7"
+
+          release_parent="${remote_app_dir%/}/${remote_releases_dir}"
+          release_dir="${release_parent}/${release_id}"
+          current_link="${remote_app_dir%/}/${remote_current_link}"
+
+          case "${release_parent}" in
+            "${remote_app_dir%/}"/*) ;;
+            *)
+              echo "Release path must stay under the remote app directory." >&2
+              exit 1
+              ;;
+          esac
+
+          mkdir -p "${release_parent}"
+          if [ -e "${release_dir}" ]; then
+            echo "Release already exists: ${release_dir}" >&2
+            exit 1
+          fi
+          mkdir -p "${release_dir}"
+          tar -xzf "${remote_archive}" -C "${release_dir}"
+          ln -sfn "${remote_releases_dir}/${release_id}" "${current_link}"
+          rm -f "${remote_archive}"
+
+          if [ -n "${remote_service_name}" ]; then
+            sudo systemctl restart "${remote_service_name}"
+          fi
+
+          if [ "${deploy_keep_releases}" -gt 0 ]; then
+            mapfile -t old_releases < <(
+              find "${release_parent}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' |
+                sort -rn |
+                awk -v keep="${deploy_keep_releases}" 'NR > keep { first = index($0, " "); print substr($0, first + 1) }'
+            )
+            for old_release in "${old_releases[@]}"; do
+              case "${old_release}" in
+                "${release_parent}"/*) rm -rf "${old_release}" ;;
+                *)
+                  echo "Refusing to prune unexpected path: ${old_release}" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+          fi
+
+          echo "Activated ${release_id} at ${current_link}"
+          REMOTE_SCRIPT
