@@ -58,7 +58,7 @@ jobs:
             exit 1
           fi
 
-          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES "
+          allowed_keys=" APP_NAME WEB_RELEASE_SCRIPT BUILD_OUTPUT REMOTE_APP_DIR REMOTE_RELEASES_DIR REMOTE_CURRENT_LINK REMOTE_SERVICE_NAME DEPLOY_KEEP_RELEASES PUBLIC_WEB_ROOT PUBLIC_APP_PATH "
           while IFS= read -r line || [ -n "${line}" ]; do
             line="${line%$'\r'}"
             if [ -z "${line}" ] || [[ "${line}" == \#* ]]; then
@@ -90,6 +90,16 @@ jobs:
           if ! [[ "${DEPLOY_KEEP_RELEASES}" =~ ^[0-9]+$ ]]; then
             echo "::error::DEPLOY_KEEP_RELEASES must be a non-negative integer."
             exit 1
+          fi
+          if [ -n "${PUBLIC_WEB_ROOT:-}" ] || [ -n "${PUBLIC_APP_PATH:-}" ]; then
+            if [ -z "${PUBLIC_WEB_ROOT:-}" ] || [ -z "${PUBLIC_APP_PATH:-}" ]; then
+              echo "::error::PUBLIC_WEB_ROOT and PUBLIC_APP_PATH must either both be set or both be blank."
+              exit 1
+            fi
+            if [[ "${PUBLIC_APP_PATH}" == /* ]] || [[ "${PUBLIC_APP_PATH}" == *..* ]]; then
+              echo "::error::PUBLIC_APP_PATH must be a relative path without '..'."
+              exit 1
+            fi
           fi
 
       - name: Validate VPS SSH secrets and connectivity
@@ -151,11 +161,13 @@ jobs:
             "${VPS_USER}@${VPS_HOST}" \
             bash -s -- \
               "${REMOTE_APP_DIR}" \
-              "${REMOTE_RELEASES_DIR}" <<'REMOTE_PREFLIGHT'
+              "${REMOTE_RELEASES_DIR}" \
+              "${PUBLIC_WEB_ROOT:-}" <<'REMOTE_PREFLIGHT'
           set -euo pipefail
 
           remote_app_dir="$1"
           remote_releases_dir="$2"
+          public_web_root="$3"
           release_parent="${remote_app_dir%/}/${remote_releases_dir}"
 
           case "${release_parent}" in
@@ -180,6 +192,14 @@ jobs:
             remote_parent="$(dirname "${remote_app_dir}")"
             test -d "${remote_parent}" && test -w "${remote_parent}" || {
               echo "Deploy app folder is missing and deploy user cannot create it under: ${remote_parent}" >&2
+              exit 1
+            }
+          fi
+
+          if [ -n "${public_web_root}" ]; then
+            test -d "${public_web_root}" && test -w "${public_web_root}" || {
+              echo "Public web root is missing or not writable by deploy user: ${public_web_root}" >&2
+              echo "Run scripts/vps/InstallStaticWebRouter.sh once on the VPS." >&2
               exit 1
             }
           fi
@@ -265,7 +285,9 @@ jobs:
               "${DEPLOY_KEEP_RELEASES}" \
               "${RELEASE_ID}" \
               "${REMOTE_ARCHIVE}" \
-              "${REMOTE_SERVICE_NAME}" <<'REMOTE_SCRIPT'
+              "${REMOTE_SERVICE_NAME}" \
+              "${PUBLIC_WEB_ROOT:-}" \
+              "${PUBLIC_APP_PATH:-}" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           remote_app_dir="$1"
@@ -275,6 +297,8 @@ jobs:
           release_id="$5"
           remote_archive="$6"
           remote_service_name="${7-}"
+          public_web_root="${8-}"
+          public_app_path="${9-}"
 
           release_parent="${remote_app_dir%/}/${remote_releases_dir}"
           release_dir="${release_parent}/${release_id}"
@@ -297,6 +321,19 @@ jobs:
           tar -xzf "${remote_archive}" -C "${release_dir}"
           ln -sfn "${remote_releases_dir}/${release_id}" "${current_link}"
           rm -f "${remote_archive}"
+
+          if [ -n "${public_web_root}" ] && [ -n "${public_app_path}" ]; then
+            public_link="${public_web_root%/}/${public_app_path}"
+            case "${public_link}" in
+              "${public_web_root%/}"/*) ;;
+              *)
+                echo "Public link path must stay under the public web root." >&2
+                exit 1
+                ;;
+            esac
+            mkdir -p "$(dirname "${public_link}")"
+            ln -sfn "${current_link}" "${public_link}"
+          fi
 
           if [ -n "${remote_service_name}" ]; then
             sudo systemctl restart "${remote_service_name}"
@@ -321,3 +358,17 @@ jobs:
 
           echo "Activated ${release_id} at ${current_link}"
           REMOTE_SCRIPT
+
+      - name: Write deployment summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## VPS deployment"
+            echo ""
+            echo "Activated release \`${RELEASE_ID}\`."
+            if [ -n "${PUBLIC_APP_PATH:-}" ]; then
+              echo ""
+              echo "Public path: \`/${PUBLIC_APP_PATH%/}/\`"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

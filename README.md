@@ -169,6 +169,18 @@ Public deployment settings:
 | `REMOTE_CURRENT_LINK` | Symlink under `REMOTE_APP_DIR` that points to the active release. |
 | `REMOTE_SERVICE_NAME` | Optional systemd service to restart after deploy. Leave blank for static-file deployments. |
 | `DEPLOY_KEEP_RELEASES` | Number of previous VPS release folders to keep. |
+| `PUBLIC_WEB_ROOT` | Optional Nginx-served public folder for browser access. |
+| `PUBLIC_APP_PATH` | Optional public URL path below `PUBLIC_WEB_ROOT`. |
+
+To make VPS deployments immediately browser-visible, install the shared static app router once on the VPS:
+
+```bash
+sudo bash scripts/vps/InstallStaticWebRouter.sh <deploy-user>
+```
+
+This installs Nginx, serves `/srv/www` publicly on HTTP port `80`, and lets each project expose its active release through a symlink like `/srv/www/bevy-card-game -> /srv/apps/bevy-card-game/current`. The public URL for this repo is `http://<vps-host>/bevy-card-game/`.
+
+Port `80` is public web traffic. Do not place private admin tools, API credentials, wallet files, server notes, or other secrets under `/srv/www` or deployed app bundles.
 
 Required GitHub repository secrets:
 
