@@ -18,19 +18,27 @@ pub const CARD_HEIGHT_WORLD_UNITS: f32 = 1.0;
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
-pub const CARD_THEME_SLOT_COUNT: usize = 2;
+pub const CARD_TYPE_SLOT_COUNT: usize = 2;
 pub const CARD_DEPTH_FACTOR_DEFAULT: f32 = 10.0;
 pub const CARD_DEPTH_FACTOR_MIN: f32 = 0.0;
 pub const CARD_DEPTH_FACTOR_MAX: f32 = 20.0;
 pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
-pub const CARD_BACK_TEXTURE_PATH: &str = "cards/CardStructure/card_back_superhero_pattern.png";
-pub const SKYBOLT_THEME_ID: &str = "skybolt";
-pub const SKYBOLT_THEME_NAME: &str = "SKYBOLT";
-pub const TAR_THEME_ID: &str = "tar";
-pub const TAR_THEME_NAME: &str = "TAR";
+pub const CARD_BACK_TEXTURE_PATH: &str = "cards/card_structure/card_back_superhero_pattern.png";
+pub const DESERT_WORLD_BACKGROUND_TEXTURE_PATH: &str = "worlds/desert_world/world_background.png";
+pub const SKYBOLT_CARD_TYPE_ID: &str = "skybolt";
+pub const SKYBOLT_CARD_TYPE_NAME: &str = "SKYBOLT";
+pub const TAR_CARD_TYPE_ID: &str = "tar";
+pub const TAR_CARD_TYPE_NAME: &str = "TAR";
 
 #[derive(Resource, Debug, Default)]
 pub struct GameTicks(pub u64);
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Resource)]
+pub enum ActiveScene {
+    #[default]
+    Game,
+    CardBrowser,
+}
 
 #[derive(Clone, Debug, Resource)]
 pub struct PrimaryCameraDefaults {
@@ -91,7 +99,7 @@ impl CardInspectionDefaults {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CardTheme {
+pub struct CardType {
     pub id: &'static str,
     pub display_name: &'static str,
     pub background_texture: &'static str,
@@ -104,15 +112,15 @@ pub struct CardTheme {
     pub title_y_ratio: f32,
 }
 
-impl CardTheme {
+impl CardType {
     pub const fn skybolt() -> Self {
         Self {
-            id: SKYBOLT_THEME_ID,
-            display_name: SKYBOLT_THEME_NAME,
-            background_texture: "cards/CardThemes/CardTheme_SkyBolt/background_clouds.png",
-            frame_texture: "cards/CardThemes/CardTheme_SkyBolt/frame_pinstripe.png",
-            foreground_texture: "cards/CardThemes/CardTheme_SkyBolt/foreground_character.png",
-            title_texture: "cards/CardThemes/CardTheme_SkyBolt/title_skybolt.png",
+            id: SKYBOLT_CARD_TYPE_ID,
+            display_name: SKYBOLT_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_skybolt/background_clouds.png",
+            frame_texture: "cards/card_types/card_type_skybolt/frame_pinstripe.png",
+            foreground_texture: "cards/card_types/card_type_skybolt/foreground_character.png",
+            title_texture: "cards/card_types/card_type_skybolt/title_skybolt.png",
             foreground_x_ratio: 0.02,
             foreground_y_ratio: 0.05,
             foreground_height_ratio: 0.82,
@@ -122,12 +130,12 @@ impl CardTheme {
 
     pub const fn tar() -> Self {
         Self {
-            id: TAR_THEME_ID,
-            display_name: TAR_THEME_NAME,
-            background_texture: "cards/CardThemes/CardTheme_Tar/background_cafe.png",
-            frame_texture: "cards/CardThemes/CardTheme_Tar/frame_tar.png",
-            foreground_texture: "cards/CardThemes/CardTheme_Tar/foreground_minotaur.png",
-            title_texture: "cards/CardThemes/CardTheme_Tar/title_tar.png",
+            id: TAR_CARD_TYPE_ID,
+            display_name: TAR_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_tar/background_cafe.png",
+            frame_texture: "cards/card_types/card_type_tar/frame_tar.png",
+            foreground_texture: "cards/card_types/card_type_tar/foreground_minotaur.png",
+            title_texture: "cards/card_types/card_type_tar/title_tar.png",
             foreground_x_ratio: 0.0,
             foreground_y_ratio: -0.03,
             foreground_height_ratio: 0.98,
@@ -137,19 +145,19 @@ impl CardTheme {
 }
 
 #[derive(Clone, Debug, Resource)]
-pub struct CardThemeRegistry {
-    slots: Vec<Option<CardTheme>>,
+pub struct CardTypeRegistry {
+    slots: Vec<Option<CardType>>,
 }
 
-impl Default for CardThemeRegistry {
+impl Default for CardTypeRegistry {
     fn default() -> Self {
         Self {
-            slots: vec![Some(CardTheme::skybolt()), Some(CardTheme::tar())],
+            slots: vec![Some(CardType::skybolt()), Some(CardType::tar())],
         }
     }
 }
 
-impl CardThemeRegistry {
+impl CardTypeRegistry {
     pub fn slot_count(&self) -> usize {
         self.slots.len()
     }
@@ -158,9 +166,9 @@ impl CardThemeRegistry {
         self.slots.iter().flatten().count()
     }
 
-    pub fn active_theme(&self, active_theme: &ActiveCardTheme) -> Option<&CardTheme> {
+    pub fn active_card_type(&self, active_card_type: &ActiveCardType) -> Option<&CardType> {
         self.slots
-            .get(active_theme.index)
+            .get(active_card_type.index)
             .and_then(Option::as_ref)
             .or_else(|| self.slots.iter().flatten().next())
     }
@@ -170,7 +178,7 @@ impl CardThemeRegistry {
             .slots
             .iter()
             .enumerate()
-            .filter_map(|(index, theme)| theme.as_ref().map(|_| index))
+            .filter_map(|(index, card_type)| card_type.as_ref().map(|_| index))
             .collect();
 
         if available_indices.len() <= 1 {
@@ -186,18 +194,18 @@ impl CardThemeRegistry {
 }
 
 #[derive(Debug, Resource)]
-pub struct ActiveCardTheme {
+pub struct ActiveCardType {
     pub index: usize,
 }
 
-impl Default for ActiveCardTheme {
+impl Default for ActiveCardType {
     fn default() -> Self {
         Self { index: 0 }
     }
 }
 
-impl ActiveCardTheme {
-    pub fn toggle(&mut self, registry: &CardThemeRegistry) {
+impl ActiveCardType {
+    pub fn toggle(&mut self, registry: &CardTypeRegistry) {
         self.index = registry.next_available_index(self.index);
     }
 }
@@ -542,37 +550,39 @@ mod tests {
     }
 
     #[test]
-    fn card_theme_registry_has_skybolt_and_tar() {
-        let registry = CardThemeRegistry::default();
-        let active_theme = ActiveCardTheme::default();
+    fn card_type_registry_has_skybolt_and_tar() {
+        let registry = CardTypeRegistry::default();
+        let active_card_type = ActiveCardType::default();
 
-        assert_eq!(registry.slot_count(), CARD_THEME_SLOT_COUNT);
+        assert_eq!(registry.slot_count(), CARD_TYPE_SLOT_COUNT);
         assert_eq!(registry.available_count(), 2);
         assert_eq!(
-            registry.active_theme(&active_theme).map(|theme| theme.id),
-            Some(SKYBOLT_THEME_ID)
+            registry
+                .active_card_type(&active_card_type)
+                .map(|card_type| card_type.id),
+            Some(SKYBOLT_CARD_TYPE_ID)
         );
     }
 
     #[test]
-    fn card_theme_textures_match_asset_directory_casing() {
-        let registry = CardThemeRegistry::default();
+    fn card_type_textures_match_asset_directory_casing() {
+        let registry = CardTypeRegistry::default();
         let asset_root = workspace_root_path()
             .join("bevy")
             .join("crates")
             .join("game")
             .join("assets");
 
-        for theme in registry.slots.iter().flatten() {
+        for card_type in registry.slots.iter().flatten() {
             for texture_path in [
-                theme.background_texture,
-                theme.frame_texture,
-                theme.foreground_texture,
-                theme.title_texture,
+                card_type.background_texture,
+                card_type.frame_texture,
+                card_type.foreground_texture,
+                card_type.title_texture,
             ] {
                 assert!(
                     asset_root.join(texture_path).is_file(),
-                    "missing theme texture at {}",
+                    "missing card type texture at {}",
                     texture_path
                 );
             }
@@ -580,27 +590,27 @@ mod tests {
     }
 
     #[test]
-    fn theme_toggle_cycles_between_skybolt_and_tar() {
-        let registry = CardThemeRegistry::default();
-        let mut active_theme = ActiveCardTheme::default();
+    fn card_type_toggle_cycles_between_skybolt_and_tar() {
+        let registry = CardTypeRegistry::default();
+        let mut active_card_type = ActiveCardType::default();
 
-        active_theme.toggle(&registry);
-        assert_eq!(active_theme.index, 1);
+        active_card_type.toggle(&registry);
+        assert_eq!(active_card_type.index, 1);
         assert_eq!(
             registry
-                .active_theme(&active_theme)
-                .map(|theme| theme.display_name),
-            Some(TAR_THEME_NAME)
+                .active_card_type(&active_card_type)
+                .map(|card_type| card_type.display_name),
+            Some(TAR_CARD_TYPE_NAME)
         );
 
-        active_theme.toggle(&registry);
+        active_card_type.toggle(&registry);
 
-        assert_eq!(active_theme.index, 0);
+        assert_eq!(active_card_type.index, 0);
         assert_eq!(
             registry
-                .active_theme(&active_theme)
-                .map(|theme| theme.display_name),
-            Some(SKYBOLT_THEME_NAME)
+                .active_card_type(&active_card_type)
+                .map(|card_type| card_type.display_name),
+            Some(SKYBOLT_CARD_TYPE_NAME)
         );
     }
 
@@ -656,9 +666,9 @@ mod tests {
     fn card_back_texture_uses_card_structure_asset_path() {
         assert_eq!(
             CARD_BACK_TEXTURE_PATH,
-            "cards/CardStructure/card_back_superhero_pattern.png"
+            "cards/card_structure/card_back_superhero_pattern.png"
         );
-        assert!(!CARD_BACK_TEXTURE_PATH.contains("CardTheme_"));
+        assert!(!CARD_BACK_TEXTURE_PATH.contains("card_type_"));
     }
 
     #[test]

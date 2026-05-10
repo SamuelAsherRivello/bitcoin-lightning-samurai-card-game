@@ -90,5 +90,25 @@ fn asset_root_path() -> &'static str {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn asset_root_path() -> &'static str {
-    "bevy/crates/game/assets"
+    concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn desktop_asset_root_is_absolute_and_points_to_game_assets() {
+        let asset_root = Path::new(asset_root_path());
+
+        assert!(asset_root.is_absolute());
+        assert!(asset_root.is_dir());
+        assert!(
+            asset_root
+                .join("cards/card_types/card_type_skybolt/background_clouds.png")
+                .is_file()
+        );
+    }
 }

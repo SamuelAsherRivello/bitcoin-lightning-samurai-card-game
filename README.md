@@ -33,7 +33,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | --- | -------- |
 | `W` / `A` / `S` / `D` | DebugHUD hold indicators for directional input state. |
 | `R` | Reloads the card browser scene content without restarting the app. |
-| `T` | Cycles the active card theme between the available `SkyBolt` and `Tar` themes. |
+| `T` | Cycles the active card type between the available `SkyBolt` and `Tar` card types. |
 | `F` | Toggles the FPS readout. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
@@ -75,8 +75,8 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
 | `bevy/crates/game/src/runtime/systems` | Card-specific setup, pointer mapping, smoothing, and DebugHUD composition. |
 | `bevy/crates/game/src/runtime/plugins` | Game plugin composition and card POC tests. |
-| `bevy/crates/game/assets/cards/CardThemes/CardTheme_SkyBolt` | Generated SkyBolt card theme textures. |
-| `bevy/crates/game/assets/cards/CardThemes/CardTheme_Tar` | Generated Tar card theme textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_skybolt` | Generated SkyBolt card type textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_tar` | Generated Tar card type textures. |
 | `bevy/crates/shared` | Reusable system-level Rust logic for shared runtime behavior. |
 | `bevy/crates/shared/src/window.rs` | Project-approved desktop window defaults: 1024x768. |
 | `data/local_storage` | Local persisted runtime state for window placement and DebugHUD input toggles. |
@@ -93,12 +93,12 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | Language | Rust 2024 |
 | Engine | Bevy 0.18.1 |
 | Runtime dependencies | `bevy-inspector-egui`, `bevy-persistent`, `serde`, `serde_json`; optional `dioxus-devtools` for desktop hot reload |
-| Architecture | Shared runtime crate plus game-specific ECS components, resources, systems, plugins, generated card-theme assets, and local persisted runtime state |
+| Architecture | Shared runtime crate plus game-specific ECS components, resources, systems, plugins, generated card-type assets, and local persisted runtime state |
 | Workspace | Cargo workspace rooted at this repository |
 
 ## Development Notes
 
-Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, themes, pointer mapping, smoothing, DebugHUD composition, inspector UI, and scene reload behavior belongs in `bevy/crates/game`.
+Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, card types, pointer mapping, smoothing, DebugHUD composition, inspector UI, and scene reload behavior belongs in `bevy/crates/game`.
 
 ## GitHub Features
 
@@ -142,7 +142,7 @@ Each published release builds the public Bevy web target for GitHub Pages.
 
 If the Pages workflow is run manually, leave the release version input blank to use the current `VERSION.txt`. Enter a value like `v0.01` only when redeploying a specific release folder.
 
-The reusable release web export script is [`scripts/other/ExportWebRelease.ps1`](./scripts/other/ExportWebRelease.ps1). It calls the standard web build, writes `404.html`, and validates the expected web bundle and card theme assets before deployment workflows upload the result.
+The reusable release web export script is [`scripts/other/ExportWebRelease.ps1`](./scripts/other/ExportWebRelease.ps1). It calls the standard web build, writes `404.html`, and validates the expected web bundle and card type assets before deployment workflows upload the result.
 
 ## GitHub Pages URLs
 

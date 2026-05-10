@@ -26,7 +26,7 @@
 
 ## Decision: Store the backface as CardStructure asset content
 
-**Rationale**: The user specified that the card series owns one shared backface and that the backface is not specific to an individual card front. `bevy/crates/game/assets/cards/CardStructure/` is already the project-approved location for shared card structure assets.
+**Rationale**: The user specified that the card series owns one shared backface and that the backface is not specific to an individual card front. `bevy/crates/game/assets/cards/card_structure/` is already the project-approved location for shared card structure assets.
 
 **Alternatives considered**: Storing the backface under each front-art folder was rejected because it would make the back specific to an individual card front. Procedural-only material with no asset was rejected because the request asks to place backface art in the CardStructure folder.
 
@@ -38,7 +38,7 @@
 
 ## Decision: Use one bold abstract superhero-pattern CardBack design
 
-**Rationale**: The backface should feel like a game-wide card back that belongs beside the current superhero front themes. The provided trading-card back-cover inspiration uses ornate card-back composition, centered pattern energy, framed structure, and premium contrast; this feature translates those qualities into a superhero direction with compatible blues, whites, greys, and dark accents instead of medieval fantasy.
+**Rationale**: The backface should feel like a game-wide card back that belongs beside the current superhero front card types. The provided trading-card back-cover inspiration uses ornate card-back composition, centered pattern energy, framed structure, and premium contrast; this feature translates those qualities into a superhero direction with compatible blues, whites, greys, and dark accents instead of medieval fantasy.
 
 **Alternatives considered**: A plain white rectangle was rejected because it no longer meets the updated art-direction goal. A character, logo, readable letter, or explicit power emblem was rejected because the back must have no words, no characters, and no clear symbology. Designing box cover or main menu art now was rejected because those surfaces are future scope.
 

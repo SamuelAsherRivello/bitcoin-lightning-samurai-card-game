@@ -21,6 +21,48 @@ pub struct CardBrowserSceneRoot;
 pub struct CardBrowserSceneEntity;
 
 #[derive(Component, Debug, Default)]
+pub struct GameSceneRoot;
+
+#[derive(Component, Debug, Default)]
+pub struct GameSceneEntity;
+
+#[derive(Component, Debug, Default)]
+pub struct WorldBackground;
+
+#[derive(Component, Debug, Default)]
+pub struct LocalPlayerHand;
+
+#[derive(Component, Debug, Default)]
+pub struct LocalPlayerHandCardPreview;
+
+#[derive(Component, Debug, Default)]
+pub struct TurnUi;
+
+#[derive(Component, Debug, Default)]
+pub struct EndTurnButton;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LocationRevealState {
+    Unrevealed,
+    Revealed,
+}
+
+#[derive(Component, Debug)]
+pub struct GameLocation {
+    pub index: usize,
+    pub reveal_state: LocationRevealState,
+}
+
+impl GameLocation {
+    pub const fn new(index: usize, reveal_state: LocationRevealState) -> Self {
+        Self {
+            index,
+            reveal_state,
+        }
+    }
+}
+
+#[derive(Component, Debug, Default)]
 pub struct CardPlaceholder;
 
 #[derive(Component, Debug)]

@@ -21,7 +21,7 @@
 
 | Field | Meaning | Validation |
 | ----- | ------- | ---------- |
-| Texture path | Shared superhero-pattern backface texture under `bevy/crates/game/assets/cards/CardStructure/` | Exists as a runtime asset and is not in an individual front-art folder |
+| Texture path | Shared superhero-pattern backface texture under `bevy/crates/game/assets/cards/card_structure/` | Exists as a runtime asset and is not in an individual front-art folder |
 | Dimensions | Rectangular card face matching established card proportions | Preserves current card silhouette during flip |
 | Front relationship | CardSeries/CardStructure-level visual independent of active card front | Active front toggles do not change this visual |
 | Art direction | Bold abstract superhero-game pattern compatible with existing front palettes | Contains no words, readable letters, characters, logos, or clear symbols |

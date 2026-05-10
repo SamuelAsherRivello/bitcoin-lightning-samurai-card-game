@@ -8,7 +8,7 @@
 | Root docs | Keep Codex and Specify guidance visible while documenting Bevy game conventions. |
 | Scripts | Put repeatable project commands in root `scripts`. |
 | Assets | Put runtime assets under `bevy/crates/game/assets`. |
-| Card assets | Put shared card structure assets under `bevy/crates/game/assets/cards/CardStructure/` and theme-specific card art under `bevy/crates/game/assets/cards/CardThemes/<ThemeName>/`. |
+| Card assets | Put shared card structure assets under `bevy/crates/game/assets/cards/card_structure/` and card-type-specific card art under `bevy/crates/game/assets/cards/card_types/card_type_<card_type_name>/`. |
 | Shaders | Put custom runtime shaders under `bevy/crates/game/assets/shaders/`. |
 | Specs | Put active feature specs in `specs`. |
 | Images | Keep README images in `documentation/images`. |

@@ -4,7 +4,7 @@
 
 **Rationale**: The current prototype already renders a small set of flat front-face planes and drives apparent depth by translating child entities from card tilt. `StandardMaterial.base_color_texture` keeps the implementation compatible with desktop and WebGPU without adding a custom material pipeline.
 
-**Alternatives considered**: A custom shader material was considered for every layer, but it would add WebGPU shader compatibility risk before the theme system is proven. Manual geometry patterns were rejected because the spec explicitly replaces dot construction with static generated textures.
+**Alternatives considered**: A custom shader material was considered for every layer, but it would add WebGPU shader compatibility risk before the card type system is proven. Manual geometry patterns were rejected because the spec explicitly replaces dot construction with static generated textures.
 
 ## Decision: Keep frame masking geometric for this phase
 
@@ -12,11 +12,11 @@
 
 **Alternatives considered**: GPU stencil or alpha-mask clipping would be more general, but it is unnecessary for the current one-card proof and introduces avoidable render pipeline complexity.
 
-## Decision: Use a two-slot in-memory CardTheme registry
+## Decision: Use a two-slot in-memory CardType registry
 
-**Rationale**: The feature only needs one active theme and one reserved slot. A resource-backed registry is enough to validate theme separation and the HUD `T` toggle without introducing external data files or serialization.
+**Rationale**: The feature only needs one active card type and one reserved slot. A resource-backed registry is enough to validate card type separation and the HUD `T` toggle without introducing external data files or serialization.
 
-**Alternatives considered**: Asset manifests or serialized theme files were rejected for this phase because the second theme is not defined yet and the spec does not require runtime authoring.
+**Alternatives considered**: Asset manifests or serialized card type files were rejected for this phase because the second card type is not defined yet and the spec does not require runtime authoring.
 
 ## Decision: Use generated PNG assets with chroma-key removal for breakout layers
 

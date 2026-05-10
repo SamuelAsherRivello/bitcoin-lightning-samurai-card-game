@@ -44,7 +44,7 @@
 | Test output | `RunTests.ps1` passes or blocker is documented |
 | Desktop smoke | Front-to-back, back-to-front, and mid-animation reversal verified |
 | Browser smoke | Web behavior verified or exact tooling/browser blocker documented |
-| Asset audit | Backface asset exists under `bevy/crates/game/assets/cards/CardStructure/` and is not duplicated under front-art folders |
+| Asset audit | Backface asset exists under `bevy/crates/game/assets/cards/card_structure/` and is not duplicated under front-art folders |
 | Art-direction audit | Backface is an abstract superhero-pattern card back, not medieval fantasy, not a character/logo card, and not future box/menu art |
 | Scope audit | CardBrowser remains the current prototype entry point and is not treated as final user-facing game UI |
 | UI audit | Card UI remains temporary and separate from DebugHUD |

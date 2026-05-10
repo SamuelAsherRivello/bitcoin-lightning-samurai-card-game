@@ -23,8 +23,8 @@ if ($ResolvedOutputPath -ne $DefaultWebRoot) {
 
 $IndexPath = Join-Path $ResolvedOutputPath "index.html"
 $FallbackPath = Join-Path $ResolvedOutputPath "404.html"
-$SkyBoltTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "CardThemes") "CardTheme_SkyBolt") "title_skybolt.png"
-$TarTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "CardThemes") "CardTheme_Tar") "title_tar.png"
+$SkyBoltTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "card_types") "card_type_skybolt") "title_skybolt.png"
+$TarTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "card_types") "card_type_tar") "title_tar.png"
 
 if (-not (Test-Path $IndexPath -PathType Leaf)) {
     throw "Expected release index.html was not found: $IndexPath"

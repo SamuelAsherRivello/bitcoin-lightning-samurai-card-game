@@ -5,13 +5,13 @@
 
 ## Summary
 
-Add a `Flip` button to the temporary Card UI in the current `CardBrowser` prototype entry point. The button toggles the single inspectable card between CardFront and CardBack through a smooth y-axis flip. The implementation will layer flip state onto the existing pointer-driven inspection rotation, reverse direction when clicked mid-animation, swap visible face graphics at the edge-on midpoint, and add one shared superhero-pattern backface asset under `bevy/crates/game/assets/cards/CardStructure/`.
+Add a `Flip` button to the temporary Card UI in the current `CardBrowser` prototype entry point. The button toggles the single inspectable card between CardFront and CardBack through a smooth y-axis flip. The implementation will layer flip state onto the existing pointer-driven inspection rotation, reverse direction when clicked mid-animation, swap visible face graphics at the edge-on midpoint, and add one shared superhero-pattern backface asset under `bevy/crates/game/assets/cards/card_structure/`.
 
 ## Technical Context
 
 **Language/Version**: Rust 2024 workspace  
 **Primary Dependencies**: Bevy 0.18.1, bevy-inspector-egui 0.36.0, bevy-persistent 0.10.0, existing `bevy_card_game_shared` crate  
-**Storage**: Runtime PNG backface asset under `bevy/crates/game/assets/cards/CardStructure/`; no persisted flip state  
+**Storage**: Runtime PNG backface asset under `bevy/crates/game/assets/cards/card_structure/`; no persisted flip state  
 **Testing**: `scripts/other/RunTests.ps1`; desktop smoke with `scripts/other/RunAppDesktop.ps1`; browser WebGPU smoke with `scripts/other/RunAppWeb.ps1` when target/tooling is available  
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime in `bevy/crates/game` with shared window support in `bevy/crates/shared`  
@@ -26,8 +26,8 @@ Add a `Flip` button to the temporary Card UI in the current `CardBrowser` protot
 | Check | Status | Notes |
 | ----- | ------ | ----- |
 | Active spec, constitution, and repo guidance followed | ✅ | Work is scoped to `006-card-flip` and AGENTS guidance. |
-| Source, assets, scripts, docs, and tests stay in defined locations | ✅ | Runtime code remains under `bevy/crates/game`; asset goes under `bevy/crates/game/assets/cards/CardStructure/`. |
-| Rust workspace folders and files use Rust naming conventions | ✅ | New Rust modules/assets should use lowercase filenames where created; existing `CardStructure` asset folder is project-approved. |
+| Source, assets, scripts, docs, and tests stay in defined locations | ✅ | Runtime code remains under `bevy/crates/game`; asset goes under `bevy/crates/game/assets/cards/card_structure/`. |
+| Rust workspace folders and files use Rust naming conventions | ✅ | Rust modules and asset folders use lowercase snake case, including `card_structure`. |
 | Visible loading/toast feedback for async data/cache/database work | ✅ | Not applicable; feature has no async data/cache/database workflow. |
 | Browser builds keep localStorage snapshots and avoid browser SQLite/OPFS startup | ✅ | No browser storage or database changes. |
 | Native database/schema/seed setup remains isolated | ✅ | No database changes. |
@@ -58,7 +58,7 @@ specs/006-card-flip/
 bevy/crates/game/
 ├── assets/
 │   └── cards/
-│       └── CardStructure/
+│       └── card_structure/
 │           └── card_back_superhero_pattern.png
 └── src/
     └── runtime/
@@ -81,7 +81,7 @@ scripts/
     └── StopApp.ps1
 ```
 
-**Structure Decision**: Keep flip behavior inside the existing Bevy game runtime ECS structure and current CardBrowser scene. Add the Flip control to the temporary Card UI rather than DebugHUD. Add state to runtime resources, marker/role data to runtime components only if needed for face visibility, behavior to runtime systems, scheduling to runtime plugins, and the shared superhero-pattern backface under the existing project-approved `CardStructure` asset directory.
+**Structure Decision**: Keep flip behavior inside the existing Bevy game runtime ECS structure and current CardBrowser scene. Add the Flip control to the temporary Card UI rather than DebugHUD. Add state to runtime resources, marker/role data to runtime components only if needed for face visibility, behavior to runtime systems, scheduling to runtime plugins, and the shared superhero-pattern backface under the existing project-approved `card_structure` asset directory.
 
 ## Phase 0: Research
 

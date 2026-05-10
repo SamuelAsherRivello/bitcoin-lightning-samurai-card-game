@@ -5,19 +5,19 @@
 
 ## Summary
 
-Implement a flat inspectable Bevy card that reads as four apparent-depth layers through `CardStructure` behavior and generated `CardTheme` artwork. Replace manual dot/rectangle placeholder art with generated static textures loaded from `bevy/crates/game/assets/cards/CardThemes/CardTheme_SkyBolt/` and `bevy/crates/game/assets/cards/CardThemes/CardTheme_Tar/`, preserve the existing pointer-driven tilt/parallax flow, add a tilt-reactive frame shine, expose a HUD `T` theme toggle that cycles available themes, and carry forward the `R` AppScene reload plus persisted `H` hot-reload auto-restart workflow from the related `bevy-zoo-game` specs.
+Implement a flat inspectable Bevy card that reads as four apparent-depth layers through `CardStructure` behavior and generated `CardType` artwork. Replace manual dot/rectangle placeholder art with generated static textures loaded from `bevy/crates/game/assets/cards/card_types/card_type_skybolt/` and `bevy/crates/game/assets/cards/card_types/card_type_tar/`, preserve the existing pointer-driven tilt/parallax flow, add a tilt-reactive frame shine, expose a HUD `T` card type toggle that cycles available card types, and carry forward the `R` AppScene reload plus persisted `H` hot-reload auto-restart workflow from the related `bevy-zoo-game` specs.
 
 ## Technical Context
 
 **Language/Version**: Rust 2024  
 **Primary Dependencies**: Bevy 0.18.1, bevy-inspector-egui, bevy-persistent, serde  
-**Storage**: Runtime PNG assets under `bevy/crates/game/assets/cards/CardThemes/CardTheme_SkyBolt/` and `bevy/crates/game/assets/cards/CardThemes/CardTheme_Tar/`; card structure asset placeholder under `bevy/crates/game/assets/cards/CardStructure/`; local DebugHUD input state under `data/local_storage/debug-hud-input.json`  
+**Storage**: Runtime PNG assets under `bevy/crates/game/assets/cards/card_types/card_type_skybolt/` and `bevy/crates/game/assets/cards/card_types/card_type_tar/`; card structure asset placeholder under `bevy/crates/game/assets/cards/card_structure/`; local DebugHUD input state under `data/local_storage/debug-hud-input.json`  
 **Testing**: `scripts/other/RunTests.ps1`, `scripts/other/RunAppDesktop.ps1 -CheckOnly`, `scripts/other/RunAppWeb.ps1 -CheckOnly`  
 **Target Platform**: Windows desktop and browser WebGPU  
 **Project Type**: Bevy Rust workspace application  
 **Performance Goals**: One inspectable card, a small fixed number of textured planes, no per-frame entity churn  
 **Constraints**: Preserve the 004 thin-slab inspection feel; use flat 2D visual layers; keep generated assets in the Bevy asset tree; do not introduce gameplay or multi-card flows  
-**Scale/Scope**: One centered card, two available CardThemes, two theme registry slots
+**Scale/Scope**: One centered card, two available CardTypes, two card type registry slots
 
 ## Constitution Check
 
@@ -48,10 +48,10 @@ specs/[###-feature]/
 
 ```text
 bevy/crates/game/
-├── assets/cards/CardStructure/
+├── assets/cards/card_structure/
 │   └── .gitkeep
-├── assets/cards/CardThemes/CardTheme_SkyBolt/
-├── assets/cards/CardThemes/CardTheme_Tar/
+├── assets/cards/card_types/card_type_skybolt/
+├── assets/cards/card_types/card_type_tar/
 │   ├── background_clouds.png
 │   ├── frame_pinstripe.png
 │   ├── foreground_character.png

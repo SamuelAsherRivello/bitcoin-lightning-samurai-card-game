@@ -18,7 +18,7 @@
 **Purpose**: Confirm the active feature context, preserve the CardBrowser prototype entry point, and prepare the shared asset slot.
 
 - [X] T001 Verify `.specify/feature.json` points to `specs/006-card-flip` and `AGENTS.md` active plan points to `specs/006-card-flip/plan.md`
-- [X] T002 [P] Create the shared card back source asset `bevy/crates/game/assets/cards/CardStructure/card_back_superhero_pattern.png`
+- [X] T002 [P] Create the shared card back source asset `bevy/crates/game/assets/cards/card_structure/card_back_superhero_pattern.png`
 - [X] T003 [P] Audit current CardBrowser runtime entry points in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 ---
@@ -33,7 +33,7 @@
 - [X] T005 Add front/back face marker components or roles for CardFront and CardBack visibility in `bevy/crates/game/src/runtime/components/mod.rs`
 - [X] T006 Initialize `CardFlipState` in `bevy/crates/game/src/runtime/plugins/mod.rs`
 - [X] T007 Add unit tests for `CardFlipState` defaults, 180-degree targets, midpoint side switching, and mid-animation reversal in `bevy/crates/game/src/runtime/resources/mod.rs`
-- [X] T008 Add a card back asset existence test for `cards/CardStructure/card_back_superhero_pattern.png` in `bevy/crates/game/src/runtime/resources/mod.rs`
+- [X] T008 Add a card back asset existence test for `cards/card_structure/card_back_superhero_pattern.png` in `bevy/crates/game/src/runtime/resources/mod.rs`
 
 **Checkpoint**: Flip state, face identity, and shared back asset path exist and are covered by focused tests.
 
@@ -117,9 +117,9 @@
 
 ### Implementation for User Story 4
 
-- [X] T028 [US4] Load `card_back_superhero_pattern.png` from `bevy/crates/game/assets/cards/CardStructure/` in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T028 [US4] Load `card_back_superhero_pattern.png` from `bevy/crates/game/assets/cards/card_structure/` in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T029 [US4] Ensure CardBack material and mesh are shared across active front changes in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [X] T030 [US4] Verify the CardBack art contains no words, readable letters, characters, logos, or clear icon-like symbols in `bevy/crates/game/assets/cards/CardStructure/card_back_superhero_pattern.png`
+- [X] T030 [US4] Verify the CardBack art contains no words, readable letters, characters, logos, or clear icon-like symbols in `bevy/crates/game/assets/cards/card_structure/card_back_superhero_pattern.png`
 
 **Checkpoint**: User Story 4 is complete when CardBack is visually stable across front changes and the asset passes the art-direction audit.
 
@@ -233,7 +233,7 @@ Task: "Add a test that active front changes do not change CardBack material or t
 ### Notes
 
 - Keep broad Game, Player, Deck, hand, placed card, shared location, and Table Top concepts in `specs/007-gameplay-concepts/spec.md`.
-- Keep implementation scoped to `bevy/crates/game` runtime ECS files and `bevy/crates/game/assets/cards/CardStructure/`.
+- Keep implementation scoped to `bevy/crates/game` runtime ECS files and `bevy/crates/game/assets/cards/card_structure/`.
 - Keep `CardBrowser` as the current project entry point for this prototype, but do not treat it as final user-facing game UI.
 - Keep Card UI temporary and separate from DebugHUD; do not add Flip as a DebugHUD toggle.
 - Do not introduce gameplay, tabletop placement, hand UI, location UI, deck browser UI, turns, scoring, dragging, or menu flow in this feature.

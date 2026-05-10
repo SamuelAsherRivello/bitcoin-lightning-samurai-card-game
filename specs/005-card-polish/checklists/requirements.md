@@ -32,4 +32,4 @@
 ## Notes
 
 - Validation passed on initial review.
-- Revalidated after CardStructure/CardTheme update on 2026-05-09; requirements now cover four layers, generated static theme textures, title breakout, and HUD `T` theme toggling.
+- Revalidated after CardStructure/CardType update on 2026-05-09; requirements now cover four layers, generated static card type textures, title breakout, and HUD `T` card type toggling.

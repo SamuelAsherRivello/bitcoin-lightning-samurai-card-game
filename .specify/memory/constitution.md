@@ -1,9 +1,8 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 -> 1.3.0
+Version change: 1.3.0 -> 1.4.0
 Modified principles:
-- II. Clear Project Boundaries: updated Bevy paths to lowercase Rust-style layout.
-- VII. Implementation Standards: expanded to require typical Rust file and folder naming.
+- VII. Implementation Standards: clarified lower snake case requirement for all folders under `bevy/`, including asset directories.
 Added sections: None
 Removed sections: None
 Templates requiring updates:
@@ -38,7 +37,7 @@ User-visible changes SHOULD be verified through the real target workflow when pr
 ### VII. Implementation Standards
 All implementation code MUST follow Rust and Bevy conventions, including explicit ECS ownership through components, resources, systems, and plugins.
 
-All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms.
+All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms. All folders under `bevy/`, including runtime asset folders, MUST use lowercase `snake_case` names.
 
 Specs and plans SHOULD record any framework-specific constraints before implementation begins.
 
@@ -73,4 +72,4 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.3.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-09
+**Version**: 1.4.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-10

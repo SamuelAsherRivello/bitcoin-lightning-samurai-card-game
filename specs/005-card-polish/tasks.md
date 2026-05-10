@@ -7,13 +7,13 @@
 
 - [X] T001 Create Speckit plan, research, data model, quickstart, and task artifacts in specs/005-card-polish/
 - [X] T002 Update active Speckit plan reference in AGENTS.md
-- [X] T003 Generate and place SKYBOLT texture assets in bevy/crates/game/assets/cards/CardThemes/CardTheme_SkyBolt/
-- [X] T003a Generate and place TAR texture assets in bevy/crates/game/assets/cards/CardThemes/CardTheme_Tar/
+- [X] T003 Generate and place SKYBOLT texture assets in bevy/crates/game/assets/cards/card_types/card_type_skybolt/
+- [X] T003a Generate and place TAR texture assets in bevy/crates/game/assets/cards/card_types/card_type_tar/
 
 ## Phase 2: Foundational
 
-- [X] T004 Add CardStructure and CardTheme ECS/resource types in bevy/crates/game/src/runtime/components/mod.rs and bevy/crates/game/src/runtime/resources/mod.rs
-- [X] T005 Register CardTheme resources and systems in bevy/crates/game/src/runtime/plugins/mod.rs
+- [X] T004 Add CardStructure and CardType ECS/resource types in bevy/crates/game/src/runtime/components/mod.rs and bevy/crates/game/src/runtime/resources/mod.rs
+- [X] T005 Register CardType resources and systems in bevy/crates/game/src/runtime/plugins/mod.rs
 
 ## Phase 3: User Story 1 - Perceive Layered Card Depth
 
@@ -49,14 +49,14 @@
 
 - [X] T011 [US4] Tune layer sizes, z offsets, and alpha material settings in bevy/crates/game/src/runtime/systems/mod.rs
 
-## Phase 7: User Story 5 - Toggle Card Theme Slot
+## Phase 7: User Story 5 - Toggle Card Card Type Slot
 
-**Goal**: Pressing HUD `T` toggles theme state without invalid artwork while only SKYBOLT exists.
+**Goal**: Pressing HUD `T` toggles card type state without invalid artwork while only SKYBOLT exists.
 
 **Independent Test**: Press `T` repeatedly and confirm the HUD and card remain stable on SKYBOLT.
 
-- [X] T012 [US5] Add `T` key HUD span and active theme display in bevy/crates/game/src/runtime/systems/mod.rs
-- [X] T013 [US5] Add theme toggle system and registry tests in bevy/crates/game/src/runtime/resources/mod.rs and bevy/crates/game/src/runtime/systems/mod.rs
+- [X] T012 [US5] Add `T` key HUD span and active card type display in bevy/crates/game/src/runtime/systems/mod.rs
+- [X] T013 [US5] Add card type toggle system and registry tests in bevy/crates/game/src/runtime/resources/mod.rs and bevy/crates/game/src/runtime/systems/mod.rs
 
 ## Phase 8: Polish & Validation
 
