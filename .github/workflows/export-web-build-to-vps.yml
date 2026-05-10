@@ -218,19 +218,19 @@ jobs:
               "${REMOTE_APP_DIR}" \
               "${REMOTE_RELEASES_DIR}" \
               "${REMOTE_CURRENT_LINK}" \
-              "${REMOTE_SERVICE_NAME}" \
               "${DEPLOY_KEEP_RELEASES}" \
               "${RELEASE_ID}" \
-              "${REMOTE_ARCHIVE}" <<'REMOTE_SCRIPT'
+              "${REMOTE_ARCHIVE}" \
+              "${REMOTE_SERVICE_NAME}" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           remote_app_dir="$1"
           remote_releases_dir="$2"
           remote_current_link="$3"
-          remote_service_name="$4"
-          deploy_keep_releases="$5"
-          release_id="$6"
-          remote_archive="$7"
+          deploy_keep_releases="$4"
+          release_id="$5"
+          remote_archive="$6"
+          remote_service_name="${7-}"
 
           release_parent="${remote_app_dir%/}/${remote_releases_dir}"
           release_dir="${release_parent}/${release_id}"
