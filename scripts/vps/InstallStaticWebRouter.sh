@@ -36,6 +36,13 @@ server {
 NGINX
 
 timestamp="$(date +%Y%m%d%H%M%S)"
+disabled_dir="/etc/nginx/sites-disabled-by-static-apps"
+mkdir -p "${disabled_dir}"
+for stale_disabled_site in /etc/nginx/sites-enabled/*.disabled-by-static-apps*; do
+  if [ -e "${stale_disabled_site}" ]; then
+    mv "${stale_disabled_site}" "${disabled_dir}/$(basename "${stale_disabled_site}").${timestamp}"
+  fi
+done
 for enabled_site in /etc/nginx/sites-enabled/*; do
   if [ ! -e "${enabled_site}" ]; then
     continue
@@ -44,7 +51,7 @@ for enabled_site in /etc/nginx/sites-enabled/*; do
     continue
   fi
   if grep -qs "default_server" "${enabled_site}"; then
-    mv "${enabled_site}" "${enabled_site}.disabled-by-static-apps-${timestamp}"
+    mv "${enabled_site}" "${disabled_dir}/$(basename "${enabled_site}").${timestamp}"
   fi
 done
 
