@@ -92,6 +92,55 @@ jobs:
             exit 1
           fi
 
+      - name: Validate VPS SSH secrets and connectivity
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_KNOWN_HOSTS VPS_SSH_PRIVATE_KEY VPS_SSH_PORT VPS_USER; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Repository secret ${key} must be set."
+              exit 1
+            fi
+          done
+
+          if ! [[ "${VPS_SSH_PORT}" =~ ^[0-9]+$ ]] || [ "${VPS_SSH_PORT}" -lt 1 ] || [ "${VPS_SSH_PORT}" -gt 65535 ]; then
+            echo "::error::Repository secret VPS_SSH_PORT must be a TCP port number from 1 to 65535."
+            exit 1
+          fi
+
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          printf '%s\n' "${VPS_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/vps_deploy_key"
+          chmod 600 "${HOME}/.ssh/vps_deploy_key"
+          printf '%s\n' "${VPS_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
+
+          if ! ssh-keygen -l -f "${HOME}/.ssh/vps_deploy_key" > /dev/null; then
+            echo "::error::Repository secret VPS_SSH_PRIVATE_KEY is not a valid SSH private key or requires unsupported input."
+            exit 1
+          fi
+
+          if ! ssh-keygen -l -f "${HOME}/.ssh/known_hosts" > /dev/null; then
+            echo "::error::Repository secret VPS_KNOWN_HOSTS does not contain valid SSH known_hosts entries."
+            exit 1
+          fi
+
+          ssh -p "${VPS_SSH_PORT}" \
+            -i "${HOME}/.ssh/vps_deploy_key" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o IdentitiesOnly=yes \
+            -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes \
+            "${VPS_USER}@${VPS_HOST}" \
+            "printf '%s\n' vps-preflight-ok"
+
       - name: Install Rust wasm target
         run: rustup target add wasm32-unknown-unknown
 
@@ -134,30 +183,6 @@ jobs:
         run: |
           set -euo pipefail
           tar -C "${BUILD_OUTPUT}" -czf web-release.tar.gz .
-
-      - name: Configure SSH
-        shell: bash
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          set -euo pipefail
-          for key in VPS_HOST VPS_KNOWN_HOSTS VPS_SSH_PRIVATE_KEY VPS_SSH_PORT VPS_USER; do
-            if [ -z "${!key:-}" ]; then
-              echo "::error::Repository secret ${key} must be set."
-              exit 1
-            fi
-          done
-
-          mkdir -p "${HOME}/.ssh"
-          chmod 700 "${HOME}/.ssh"
-          printf '%s\n' "${VPS_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/vps_deploy_key"
-          chmod 600 "${HOME}/.ssh/vps_deploy_key"
-          printf '%s\n' "${VPS_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
-          chmod 600 "${HOME}/.ssh/known_hosts"
 
       - name: Upload release archive
         shell: bash

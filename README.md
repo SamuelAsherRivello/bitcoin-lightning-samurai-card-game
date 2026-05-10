@@ -180,6 +180,8 @@ Required GitHub repository secrets:
 | `VPS_SSH_PRIVATE_KEY` | Private deploy key for the limited VPS deploy user. | Do not print or commit this value. |
 | `VPS_KNOWN_HOSTS` | Pinned SSH host key entry for the VPS. | Generate from the trusted VPS host key. |
 
+The VPS workflow validates these five secrets and runs a pinned-host-key SSH preflight before installing Rust tooling or building the web bundle. Missing secrets, an invalid port, malformed SSH key material, host key mismatch, connection timeout, or public-key login failure should fail near the start of the job.
+
 The deploy user should only have write access to the configured app directory. If `REMOTE_SERVICE_NAME` is set, allow that user to restart only that one service with `sudo systemctl restart <service>`.
 
 Add the secrets in GitHub under `Settings > Secrets and variables > Actions > Repository secrets`. Use `New repository secret` once for each name above. Do not put secret values in `deploy.vps.env`, commit history, issues, pull requests, screenshots, or README text.
