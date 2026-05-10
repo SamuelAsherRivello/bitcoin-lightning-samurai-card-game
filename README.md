@@ -172,15 +172,34 @@ Public deployment settings:
 
 Required GitHub repository secrets:
 
-| Secret | Purpose |
-| ------ | ------- |
-| `VPS_HOST` | VPS hostname or IP address. |
-| `VPS_USER` | Limited deploy user on the VPS. |
-| `VPS_SSH_PORT` | SSH port for the VPS. |
-| `VPS_SSH_PRIVATE_KEY` | Private deploy key for the limited VPS deploy user. |
-| `VPS_KNOWN_HOSTS` | Pinned SSH host key entry for the VPS. |
+| Secret | Purpose | Public-safe example |
+| ------ | ------- | ------------------- |
+| `VPS_HOST` | VPS hostname or IP address. | `example.com` |
+| `VPS_USER` | Limited deploy user on the VPS. | `deploy` |
+| `VPS_SSH_PORT` | SSH port for the VPS. | `22` |
+| `VPS_SSH_PRIVATE_KEY` | Private deploy key for the limited VPS deploy user. | Do not print or commit this value. |
+| `VPS_KNOWN_HOSTS` | Pinned SSH host key entry for the VPS. | Generate from the trusted VPS host key. |
 
 The deploy user should only have write access to the configured app directory. If `REMOTE_SERVICE_NAME` is set, allow that user to restart only that one service with `sudo systemctl restart <service>`.
+
+Add the secrets in GitHub under `Settings > Secrets and variables > Actions > Repository secrets`. Use `New repository secret` once for each name above. Do not put secret values in `deploy.vps.env`, commit history, issues, pull requests, screenshots, or README text.
+
+Use a dedicated SSH key for this repository deployment. Store the private key content in `VPS_SSH_PRIVATE_KEY`, and install only the matching public key in the deploy user's `authorized_keys` file on the VPS. The deploy user should not be a personal admin user.
+
+Create `VPS_KNOWN_HOSTS` from a trusted terminal after verifying the server identity out of band:
+
+```bash
+ssh-keyscan -p <ssh-port> <vps-host>
+```
+
+Copy the resulting host key line into the `VPS_KNOWN_HOSTS` repository secret. Do not replace this with automatic host-key trust in the workflow; the pinned host key helps prevent deploying to an impersonated server.
+
+Public configuration belongs in `deploy.vps.env`; private access belongs in GitHub repository secrets:
+
+| Location | Put this there | Do not put this there |
+| -------- | -------------- | --------------------- |
+| `deploy.vps.env` | App name, build output path, remote app folder, release retention count. | SSH private keys, passwords, tokens, cookies, private host notes. |
+| GitHub repository secrets | SSH private key, SSH host, SSH user, SSH port, pinned known-hosts entry. | Build paths or app defaults that other users should customize in the repo. |
 
 ## Credits
 
