@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_aspect_ratio_mask::{AspectRatioPlugin, Resolution};
 use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
-    bevy_egui::{EguiPlugin, EguiPrimaryContextPass},
+    bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass},
 };
 
 pub mod runtime;
@@ -22,6 +22,11 @@ impl Plugin for GamePlugin {
                 width: GAME_VIEW_WIDTH,
                 height: GAME_VIEW_HEIGHT,
             },
+            ..Default::default()
+        })
+        .add_plugins(MeshPickingPlugin)
+        .insert_resource(EguiGlobalSettings {
+            auto_create_primary_context: false,
             ..Default::default()
         })
         .add_plugins(CoreGamePlugin)

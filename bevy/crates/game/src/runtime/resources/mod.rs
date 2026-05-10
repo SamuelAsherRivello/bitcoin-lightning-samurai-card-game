@@ -322,6 +322,33 @@ impl CardUiState {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Resource, Serialize)]
+pub struct CardSettingsStore {
+    pub depth_factor: f32,
+}
+
+impl Default for CardSettingsStore {
+    fn default() -> Self {
+        Self {
+            depth_factor: CARD_DEPTH_FACTOR_DEFAULT,
+        }
+    }
+}
+
+impl CardSettingsStore {
+    pub fn from_state(state: &CardUiState) -> Self {
+        Self {
+            depth_factor: state.depth_factor,
+        }
+    }
+
+    pub fn apply_to_state(&self, state: &mut CardUiState) {
+        state.depth_factor = self
+            .depth_factor
+            .clamp(CARD_DEPTH_FACTOR_MIN, CARD_DEPTH_FACTOR_MAX);
+    }
+}
+
 #[derive(Resource, Debug, Default)]
 pub struct DebugHudState {
     pub is_fps_visible: bool,
@@ -390,6 +417,13 @@ pub fn debug_hud_input_path() -> PathBuf {
         .join("debug-hud-input.json")
 }
 
+pub fn card_settings_path() -> PathBuf {
+    workspace_root_path()
+        .join("data")
+        .join("local_storage")
+        .join("card-settings.json")
+}
+
 pub fn create_window_placement_store() -> Result<Persistent<WindowPlacementStore>, PersistenceError>
 {
     Persistent::<WindowPlacementStore>::builder()
@@ -408,6 +442,17 @@ pub fn create_debug_hud_input_store() -> Result<Persistent<DebugHudInputStore>, 
         .format(StorageFormat::JsonPretty)
         .path(debug_hud_input_path())
         .default(DebugHudInputStore::default())
+        .revertible(true)
+        .revert_to_default_on_deserialization_errors(true)
+        .build()
+}
+
+pub fn create_card_settings_store() -> Result<Persistent<CardSettingsStore>, PersistenceError> {
+    Persistent::<CardSettingsStore>::builder()
+        .name("card settings")
+        .format(StorageFormat::JsonPretty)
+        .path(card_settings_path())
+        .default(CardSettingsStore::default())
         .revertible(true)
         .revert_to_default_on_deserialization_errors(true)
         .build()
@@ -509,6 +554,18 @@ mod tests {
                 Path::new("data")
                     .join("local_storage")
                     .join("debug-hud-input.json")
+            )
+        );
+    }
+
+    #[test]
+    fn card_settings_uses_workspace_local_storage() {
+        let path = card_settings_path();
+        assert!(
+            path.ends_with(
+                Path::new("data")
+                    .join("local_storage")
+                    .join("card-settings.json")
             )
         );
     }
@@ -690,5 +747,27 @@ mod tests {
         state.depth_factor = CARD_DEPTH_FACTOR_MAX;
 
         assert_eq!(state.depth_multiplier(), 2.0);
+    }
+
+    #[test]
+    fn card_settings_applies_depth_factor_to_card_ui_state() {
+        let settings = CardSettingsStore { depth_factor: 7.5 };
+        let mut state = CardUiState::default();
+
+        settings.apply_to_state(&mut state);
+
+        assert_eq!(state.depth_factor, 7.5);
+    }
+
+    #[test]
+    fn card_settings_clamps_depth_factor_to_supported_range() {
+        let settings = CardSettingsStore {
+            depth_factor: CARD_DEPTH_FACTOR_MAX + 1.0,
+        };
+        let mut state = CardUiState::default();
+
+        settings.apply_to_state(&mut state);
+
+        assert_eq!(state.depth_factor, CARD_DEPTH_FACTOR_MAX);
     }
 }
