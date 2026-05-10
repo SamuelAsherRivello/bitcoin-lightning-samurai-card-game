@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::runtime::resources::CardFace;
+
 #[derive(Component, Debug, Default)]
 pub struct Player;
 
@@ -20,6 +22,17 @@ pub struct CardBrowserSceneEntity;
 
 #[derive(Component, Debug, Default)]
 pub struct CardPlaceholder;
+
+#[derive(Component, Debug)]
+pub struct CardFaceLayer {
+    pub face: CardFace,
+}
+
+impl CardFaceLayer {
+    pub const fn new(face: CardFace) -> Self {
+        Self { face }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CardLayerRole {

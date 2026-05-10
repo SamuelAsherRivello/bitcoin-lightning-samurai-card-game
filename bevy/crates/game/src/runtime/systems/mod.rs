@@ -22,15 +22,16 @@ use bevy_inspector_egui::{
 use bevy_persistent::prelude::Persistent;
 
 use crate::runtime::components::{
-    AppSceneEntity, AppSceneRoot, CardBrowserSceneEntity, CardBrowserSceneRoot, CardFrameLayer,
-    CardLayerRole, CardParallaxLayer, CardPlaceholder, DebugHudFpsText, DebugHudKeyText,
-    DebugHudText, InspectorState, Player, PrimarySceneCamera,
+    AppSceneEntity, AppSceneRoot, CardBrowserSceneEntity, CardBrowserSceneRoot, CardFaceLayer,
+    CardFrameLayer, CardLayerRole, CardParallaxLayer, CardPlaceholder, DebugHudFpsText,
+    DebugHudKeyText, DebugHudText, InspectorState, Player, PrimarySceneCamera,
 };
 use crate::runtime::resources::{
-    ActiveCardTheme, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CardInspectionDefaults,
-    CardInspectionState, CardTheme, CardThemeRegistry, CardUiState, DebugHudInputStore,
-    DebugHudState, GameTicks, PrimaryCameraDefaults, WindowPlacement, WindowPlacementState,
-    WindowPlacementStore, load_window_placement, valid_window_placement,
+    ActiveCardTheme, CARD_BACK_TEXTURE_PATH, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN,
+    CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardTheme,
+    CardThemeRegistry, CardUiState, DebugHudInputStore, DebugHudState, GameTicks,
+    PrimaryCameraDefaults, WindowPlacement, WindowPlacementState, WindowPlacementStore,
+    load_window_placement, valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -46,6 +47,7 @@ const TARGET_WIDTH: f32 = DEFAULT_WINDOW_WIDTH as f32;
 const TARGET_HEIGHT: f32 = DEFAULT_WINDOW_HEIGHT as f32;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
+const DEBUG_WINDOW_WIDTH: f32 = 338.0;
 const BACKGROUND_APPARENT_DEPTH: f32 = -1.0;
 const FRAME_APPARENT_DEPTH: f32 = 0.0;
 const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
@@ -130,6 +132,8 @@ pub fn setup_card_browser_scene(
         &active_theme,
         &mut meshes,
         &mut materials,
+        CardFace::Front,
+        Quat::IDENTITY,
     );
 }
 
@@ -150,6 +154,8 @@ pub fn setup_card_placeholder(
         &active_theme,
         &mut meshes,
         &mut materials,
+        CardFace::Front,
+        Quat::IDENTITY,
     );
 }
 
@@ -161,6 +167,8 @@ fn spawn_card_structure(
     active_theme: &ActiveCardTheme,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    visible_face: CardFace,
+    initial_rotation: Quat,
 ) {
     let theme = theme_registry
         .active_theme(&active_theme)
@@ -194,6 +202,13 @@ fn spawn_card_structure(
         AlphaMode::AlphaToCoverage,
         TITLE_DEPTH_BIAS,
     );
+    let card_back_material = themed_material(
+        asset_server,
+        materials,
+        CARD_BACK_TEXTURE_PATH,
+        AlphaMode::Opaque,
+        BACKGROUND_DEPTH_BIAS,
+    );
 
     let frame_dimensions = frame_dimensions(&card_defaults);
     let card_front_z = (card_defaults.thickness * 0.5) + LAYER_RENDER_Z_STEP;
@@ -211,6 +226,7 @@ fn spawn_card_structure(
         card_defaults.width * TITLE_WIDTH_RATIO,
         card_defaults.height * TITLE_HEIGHT_RATIO,
     ));
+    let card_back_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
 
     commands
         .spawn((
@@ -218,10 +234,18 @@ fn spawn_card_structure(
             CardPlaceholder,
             CardBrowserSceneRoot,
             CardBrowserSceneEntity,
-            Transform::default(),
+            Transform::from_rotation(initial_rotation),
             Visibility::default(),
         ))
         .with_children(|parent| {
+            spawn_card_back_plane(
+                parent,
+                card_back_mesh,
+                card_back_material,
+                card_defaults,
+                visible_face == CardFace::Back,
+            );
+
             spawn_parallax_plane(
                 parent,
                 Name::new(format!("Card Background {}", theme.display_name)),
@@ -231,6 +255,7 @@ fn spawn_card_structure(
                 BACKGROUND_APPARENT_DEPTH,
                 Vec3::new(0.0, 0.0, background_z),
                 false,
+                visible_face == CardFace::Front,
             );
 
             spawn_parallax_plane(
@@ -242,6 +267,7 @@ fn spawn_card_structure(
                 FRAME_APPARENT_DEPTH,
                 Vec3::new(0.0, 0.0, frame_z),
                 true,
+                visible_face == CardFace::Front,
             );
 
             spawn_parallax_plane(
@@ -257,6 +283,7 @@ fn spawn_card_structure(
                     foreground_z,
                 ),
                 false,
+                visible_face == CardFace::Front,
             );
             spawn_parallax_plane(
                 parent,
@@ -267,6 +294,7 @@ fn spawn_card_structure(
                 TITLE_APPARENT_DEPTH,
                 Vec3::new(0.0, card_defaults.height * theme.title_y_ratio, title_z),
                 false,
+                visible_face == CardFace::Front,
             );
         });
 }
@@ -430,6 +458,7 @@ fn themed_material(
         base_color_texture: Some(asset_server.load(texture_path)),
         alpha_mode,
         depth_bias,
+        cull_mode: None,
         unlit: true,
         ..Default::default()
     })
@@ -444,17 +473,53 @@ fn spawn_parallax_plane(
     apparent_depth: f32,
     neutral_translation: Vec3,
     is_frame: bool,
+    is_visible: bool,
 ) {
     let mut entity = parent.spawn((
         name,
         Mesh3d(mesh),
         MeshMaterial3d(material.clone()),
         Transform::from_translation(neutral_translation),
+        if is_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        },
+        CardFaceLayer::new(CardFace::Front),
         CardParallaxLayer::new(role, apparent_depth, neutral_translation),
     ));
     if is_frame {
         entity.insert(CardFrameLayer);
     }
+}
+
+fn spawn_card_back_plane(
+    parent: &mut ChildSpawnerCommands,
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    card_defaults: &CardInspectionDefaults,
+    is_visible: bool,
+) {
+    parent.spawn((
+        Name::new("Card Back CardSeries Pattern"),
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform {
+            translation: Vec3::new(
+                0.0,
+                0.0,
+                (-card_defaults.thickness * 0.5) - LAYER_RENDER_Z_STEP,
+            ),
+            rotation: Quat::from_rotation_y(std::f32::consts::PI),
+            ..Default::default()
+        },
+        if is_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        },
+        CardFaceLayer::new(CardFace::Back),
+    ));
 }
 
 pub fn track_card_pointer_target(
@@ -485,6 +550,7 @@ pub fn smooth_card_rotation(
     time: Res<Time>,
     card_defaults: Res<CardInspectionDefaults>,
     card_state: Res<CardInspectionState>,
+    flip_state: Res<CardFlipState>,
     mut card_query: Query<&mut Transform, With<CardPlaceholder>>,
 ) {
     let Ok(mut transform) = card_query.single_mut() else {
@@ -493,22 +559,54 @@ pub fn smooth_card_rotation(
 
     let response_seconds = card_defaults.smoothing_response_seconds.max(f32::EPSILON);
     let blend = 1.0 - 0.01_f32.powf(time.delta_secs() / response_seconds);
-    transform.rotation = transform.rotation.slerp(card_state.target_rotation, blend);
+    let target_rotation = composed_card_rotation(&card_state, &flip_state);
+    transform.rotation = transform.rotation.slerp(target_rotation, blend);
     transform.translation = Vec3::ZERO;
+}
+
+pub fn composed_card_rotation(
+    card_state: &CardInspectionState,
+    flip_state: &CardFlipState,
+) -> Quat {
+    card_state.target_rotation * flip_state.rotation()
+}
+
+fn composed_rotation_for_face(card_state: &CardInspectionState, face: CardFace) -> Quat {
+    match face {
+        CardFace::Front => card_state.target_rotation,
+        CardFace::Back => card_state.target_rotation * Quat::from_rotation_y(std::f32::consts::PI),
+    }
+}
+
+pub fn update_card_flip_animation(time: Res<Time>, mut flip_state: ResMut<CardFlipState>) {
+    flip_state.advance(time.delta_secs());
+}
+
+pub fn update_card_face_visibility(
+    flip_state: Res<CardFlipState>,
+    mut face_query: Query<(&CardFaceLayer, &mut Visibility)>,
+) {
+    if !flip_state.is_changed() {
+        return;
+    }
+
+    for (face_layer, mut visibility) in &mut face_query {
+        *visibility = if face_layer.face == flip_state.visible_face {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
 }
 
 pub fn update_card_parallax_layers(
     card_defaults: Res<CardInspectionDefaults>,
+    card_state: Res<CardInspectionState>,
     card_ui_state: Res<CardUiState>,
-    card_query: Query<&Transform, (With<CardPlaceholder>, Without<CardParallaxLayer>)>,
     mut layer_query: Query<(&CardParallaxLayer, &mut Transform, Option<&Mesh3d>)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    let Ok(card_transform) = card_query.single() else {
-        return;
-    };
-
-    let (yaw, pitch, _) = card_transform.rotation.to_euler(EulerRot::YXZ);
+    let (yaw, pitch, _) = card_state.target_rotation.to_euler(EulerRot::YXZ);
     let max_tilt = card_defaults.max_tilt_radians.max(f32::EPSILON);
     let tilt =
         Vec2::new(yaw / max_tilt, -pitch / max_tilt).clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
@@ -545,15 +643,11 @@ pub fn update_card_parallax_layers(
 
 pub fn update_card_frame_shine(
     card_defaults: Res<CardInspectionDefaults>,
-    card_query: Query<&Transform, (With<CardPlaceholder>, Without<CardFrameLayer>)>,
+    card_state: Res<CardInspectionState>,
     frame_query: Query<&MeshMaterial3d<StandardMaterial>, With<CardFrameLayer>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Ok(card_transform) = card_query.single() else {
-        return;
-    };
-
-    let (yaw, pitch, _) = card_transform.rotation.to_euler(EulerRot::YXZ);
+    let (yaw, pitch, _) = card_state.target_rotation.to_euler(EulerRot::YXZ);
     let max_tilt = card_defaults.max_tilt_radians.max(f32::EPSILON);
     let tilt =
         Vec2::new(yaw / max_tilt, -pitch / max_tilt).clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
@@ -570,82 +664,47 @@ pub fn update_card_frame_shine(
 
 pub fn toggle_card_theme(
     keys: Res<ButtonInput<KeyCode>>,
-    registry: Res<CardThemeRegistry>,
     mut active_theme: ResMut<ActiveCardTheme>,
-    mut commands: Commands,
-    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
-    asset_server: Res<AssetServer>,
-    card_defaults: Res<CardInspectionDefaults>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut card_state: ResMut<CardInspectionState>,
-    mut ticks: ResMut<GameTicks>,
+    flip_state: Res<CardFlipState>,
+    mut reload: CardBrowserReloadParams,
 ) {
     if keys.just_pressed(KeyCode::KeyT) {
         let previous_index = active_theme.index;
-        active_theme.toggle(&registry);
+        active_theme.toggle(&reload.theme_registry);
         if active_theme.index != previous_index {
-            reload_card_browser_scene(
-                &mut commands,
-                &scene_entities,
-                &asset_server,
-                &card_defaults,
-                &registry,
+            let initial_rotation =
+                composed_rotation_for_face(&reload.card_state, flip_state.visible_face);
+            reload.reload_scene(
                 &active_theme,
-                &mut meshes,
-                &mut materials,
-                &mut card_state,
-                &mut ticks,
+                flip_state.visible_face,
+                initial_rotation,
+                false,
             );
         }
     }
 }
 
 pub fn restart_card_browser_scene(
-    mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
-    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
-    asset_server: Res<AssetServer>,
-    card_defaults: Res<CardInspectionDefaults>,
-    theme_registry: Res<CardThemeRegistry>,
     active_theme: Res<ActiveCardTheme>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut card_state: ResMut<CardInspectionState>,
-    mut ticks: ResMut<GameTicks>,
+    mut flip_state: ResMut<CardFlipState>,
+    mut reload: CardBrowserReloadParams,
 ) {
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
     }
 
-    reload_card_browser_scene(
-        &mut commands,
-        &scene_entities,
-        &asset_server,
-        &card_defaults,
-        &theme_registry,
-        &active_theme,
-        &mut meshes,
-        &mut materials,
-        &mut card_state,
-        &mut ticks,
-    );
+    reload.reload_scene(&active_theme, CardFace::Front, Quat::IDENTITY, true);
+    *flip_state = CardFlipState::default();
 }
 
 #[cfg(feature = "desktop-hot-reload")]
 pub fn hot_reload_auto_restart_card_browser_scene(
     mut last_seen_patch_count: Local<u64>,
     hud_state: Res<DebugHudState>,
-    mut commands: Commands,
-    scene_entities: Query<Entity, With<CardBrowserSceneEntity>>,
-    asset_server: Res<AssetServer>,
-    card_defaults: Res<CardInspectionDefaults>,
-    theme_registry: Res<CardThemeRegistry>,
     active_theme: Res<ActiveCardTheme>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut card_state: ResMut<CardInspectionState>,
-    mut ticks: ResMut<GameTicks>,
+    mut flip_state: ResMut<CardFlipState>,
+    mut reload: CardBrowserReloadParams,
 ) {
     let patch_count = desktop_hot_reload_patch_count();
     if patch_count == *last_seen_patch_count {
@@ -658,50 +717,54 @@ pub fn hot_reload_auto_restart_card_browser_scene(
         return;
     }
 
-    reload_card_browser_scene(
-        &mut commands,
-        &scene_entities,
-        &asset_server,
-        &card_defaults,
-        &theme_registry,
-        &active_theme,
-        &mut meshes,
-        &mut materials,
-        &mut card_state,
-        &mut ticks,
-    );
+    reload.reload_scene(&active_theme, CardFace::Front, Quat::IDENTITY, true);
+    *flip_state = CardFlipState::default();
 }
 
 #[cfg(not(feature = "desktop-hot-reload"))]
 pub fn hot_reload_auto_restart_card_browser_scene() {}
 
-fn reload_card_browser_scene(
-    commands: &mut Commands,
-    scene_entities: &Query<Entity, With<CardBrowserSceneEntity>>,
-    asset_server: &AssetServer,
-    card_defaults: &CardInspectionDefaults,
-    theme_registry: &CardThemeRegistry,
-    active_theme: &ActiveCardTheme,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    card_state: &mut CardInspectionState,
-    ticks: &mut GameTicks,
-) {
-    for entity in scene_entities.iter() {
-        commands.entity(entity).despawn();
-    }
+#[derive(SystemParam)]
+pub struct CardBrowserReloadParams<'w, 's> {
+    commands: Commands<'w, 's>,
+    scene_entities: Query<'w, 's, Entity, With<CardBrowserSceneEntity>>,
+    asset_server: Res<'w, AssetServer>,
+    card_defaults: Res<'w, CardInspectionDefaults>,
+    theme_registry: Res<'w, CardThemeRegistry>,
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<StandardMaterial>>,
+    card_state: ResMut<'w, CardInspectionState>,
+    ticks: ResMut<'w, GameTicks>,
+}
 
-    *card_state = CardInspectionState::default();
-    ticks.0 = 0;
-    spawn_card_structure(
-        commands,
-        asset_server,
-        card_defaults,
-        theme_registry,
-        active_theme,
-        meshes,
-        materials,
-    );
+impl CardBrowserReloadParams<'_, '_> {
+    fn reload_scene(
+        &mut self,
+        active_theme: &ActiveCardTheme,
+        visible_face: CardFace,
+        initial_rotation: Quat,
+        reset_scene_state: bool,
+    ) {
+        for entity in self.scene_entities.iter() {
+            self.commands.entity(entity).despawn();
+        }
+
+        if reset_scene_state {
+            *self.card_state = CardInspectionState::default();
+            self.ticks.0 = 0;
+        }
+        spawn_card_structure(
+            &mut self.commands,
+            &self.asset_server,
+            &self.card_defaults,
+            &self.theme_registry,
+            active_theme,
+            &mut self.meshes,
+            &mut self.materials,
+            visible_face,
+            initial_rotation,
+        );
+    }
 }
 
 pub fn update_card_target_from_pointer(
@@ -1176,23 +1239,41 @@ pub fn card_ui(world: &mut World) {
     let egui_context = egui_context.get_mut();
     use_matching_debug_window_text_style(egui_context);
 
-    let Some(mut card_ui_state) = world.get_resource_mut::<CardUiState>() else {
-        return;
-    };
+    let mut flip_requested = false;
 
-    egui::Window::new("Card UI")
-        .anchor(egui::Align2::RIGHT_CENTER, egui::vec2(-24.0, 0.0))
-        .default_width(260.0)
-        .resizable(false)
-        .show(egui_context, |ui| {
-            ui.add(
-                egui::Slider::new(
-                    &mut card_ui_state.depth_factor,
-                    CARD_DEPTH_FACTOR_MIN..=CARD_DEPTH_FACTOR_MAX,
-                )
-                .text("DepthFactor"),
-            );
-        });
+    {
+        let Some(mut card_ui_state) = world.get_resource_mut::<CardUiState>() else {
+            return;
+        };
+
+        egui::Window::new("Card UI")
+            .anchor(
+                egui::Align2::RIGHT_TOP,
+                egui::vec2(-SCREEN_PADDING_LEFT, SCREEN_PADDING_TOP),
+            )
+            .default_width(DEBUG_WINDOW_WIDTH)
+            .resizable(false)
+            .show(egui_context, |ui| {
+                if ui.button("Flip").clicked() {
+                    flip_requested = true;
+                }
+                ui.add_space(DEBUG_WINDOW_FONT_SIZE);
+                ui.label("DepthFactor");
+                ui.add_sized(
+                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
+                    egui::Slider::new(
+                        &mut card_ui_state.depth_factor,
+                        CARD_DEPTH_FACTOR_MIN..=CARD_DEPTH_FACTOR_MAX,
+                    ),
+                );
+            });
+    }
+
+    if flip_requested {
+        if let Some(mut flip_state) = world.get_resource_mut::<CardFlipState>() {
+            flip_state.request_flip();
+        }
+    }
 }
 
 fn use_matching_debug_window_text_style(context: &egui::Context) {
@@ -1617,6 +1698,230 @@ mod tests {
     }
 
     #[test]
+    fn card_structure_spawns_one_card_back_and_one_card_root() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut card_query = app
+            .world_mut()
+            .query_filtered::<Entity, With<CardPlaceholder>>();
+        assert_eq!(card_query.iter(app.world()).count(), 1);
+
+        let mut back_query = app
+            .world_mut()
+            .query_filtered::<(&Name, &CardFaceLayer), Without<CardParallaxLayer>>();
+        let backs: Vec<String> = back_query
+            .iter(app.world())
+            .filter_map(|(name, face_layer)| {
+                (face_layer.face == CardFace::Back).then_some(name.to_string())
+            })
+            .collect();
+
+        assert_eq!(backs, vec!["Card Back CardSeries Pattern"]);
+    }
+
+    #[test]
+    fn card_faces_default_to_front_visible_and_back_hidden() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut face_query = app.world_mut().query::<(&CardFaceLayer, &Visibility)>();
+        let states: Vec<(CardFace, Visibility)> = face_query
+            .iter(app.world())
+            .map(|(face_layer, visibility)| (face_layer.face, *visibility))
+            .collect();
+
+        assert!(
+            states
+                .iter()
+                .any(|(face, visibility)| *face == CardFace::Back
+                    && *visibility == Visibility::Hidden)
+        );
+        assert!(states.iter().any(
+            |(face, visibility)| *face == CardFace::Front && *visibility == Visibility::Visible
+        ));
+    }
+
+    #[test]
+    fn face_visibility_follows_flip_state_midpoint() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<CardFlipState>()
+            .add_systems(Update, update_card_face_visibility);
+
+        app.world_mut()
+            .spawn((CardFaceLayer::new(CardFace::Front), Visibility::Visible));
+        app.world_mut()
+            .spawn((CardFaceLayer::new(CardFace::Back), Visibility::Hidden));
+
+        app.update();
+        {
+            let mut flip_state = app.world_mut().resource_mut::<CardFlipState>();
+            flip_state.current_y_rotation = std::f32::consts::PI;
+            flip_state.visible_face = CardFace::Back;
+        }
+        app.update();
+
+        let mut face_query = app.world_mut().query::<(&CardFaceLayer, &Visibility)>();
+        for (face_layer, visibility) in face_query.iter(app.world()) {
+            match face_layer.face {
+                CardFace::Front => assert_eq!(*visibility, Visibility::Hidden),
+                CardFace::Back => assert_eq!(*visibility, Visibility::Visible),
+            }
+        }
+    }
+
+    #[test]
+    fn composed_card_rotation_layers_flip_over_pointer_rotation() {
+        let card_state = CardInspectionState {
+            last_pointer_normalized: Vec2::ZERO,
+            target_rotation: Quat::from_euler(EulerRot::XYZ, 0.2, -0.1, 0.0),
+        };
+        let flip_state = CardFlipState {
+            current_y_rotation: std::f32::consts::PI,
+            target_y_rotation: std::f32::consts::PI,
+            visible_face: CardFace::Back,
+        };
+
+        let rotation = composed_card_rotation(&card_state, &flip_state);
+
+        assert_ne!(rotation, card_state.target_rotation);
+        assert_eq!(rotation, card_state.target_rotation * flip_state.rotation());
+    }
+
+    #[test]
+    fn flip_from_non_neutral_pointer_rotation_does_not_snap_to_neutral() {
+        let card_state = CardInspectionState {
+            last_pointer_normalized: Vec2::ONE,
+            target_rotation: target_rotation_for_pointer(
+                Vec2::new(0.6, -0.4),
+                &CardInspectionDefaults::default(),
+            ),
+        };
+        let mut flip_state = CardFlipState::default();
+
+        flip_state.request_flip();
+        flip_state.advance(crate::runtime::resources::CARD_FLIP_DURATION_SECONDS * 0.5);
+        let rotation = composed_card_rotation(&card_state, &flip_state);
+
+        assert_ne!(rotation, Quat::IDENTITY);
+        assert_ne!(rotation, flip_state.rotation());
+    }
+
+    #[test]
+    fn theme_toggle_while_back_visible_keeps_card_back_visible() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<GameTicks>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene)
+            .add_systems(Update, toggle_card_theme);
+
+        app.update();
+        {
+            app.world_mut()
+                .resource_mut::<CardInspectionState>()
+                .target_rotation = Quat::from_euler(EulerRot::XYZ, 0.15, -0.12, 0.0);
+            let mut flip_state = app.world_mut().resource_mut::<CardFlipState>();
+            flip_state.current_y_rotation = std::f32::consts::PI;
+            flip_state.target_y_rotation = std::f32::consts::PI;
+            flip_state.visible_face = CardFace::Back;
+        }
+        let expected_rotation = composed_rotation_for_face(
+            app.world().resource::<CardInspectionState>(),
+            CardFace::Back,
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyT);
+        app.update();
+
+        assert_eq!(app.world().resource::<ActiveCardTheme>().index, 1);
+        let mut face_query = app.world_mut().query::<(&CardFaceLayer, &Visibility)>();
+        let back_visible = face_query
+            .iter(app.world())
+            .any(|(face_layer, visibility)| {
+                face_layer.face == CardFace::Back && *visibility == Visibility::Visible
+            });
+
+        assert!(back_visible);
+        let mut card_query = app
+            .world_mut()
+            .query_filtered::<&Transform, With<CardPlaceholder>>();
+        let card_transform = card_query.single(app.world()).unwrap();
+        assert!(card_transform.rotation.angle_between(expected_rotation) < 0.000_1);
+        assert!(
+            app.world()
+                .resource::<CardInspectionState>()
+                .target_rotation
+                .angle_between(Quat::from_euler(EulerRot::XYZ, 0.15, -0.12, 0.0))
+                < 0.000_1
+        );
+    }
+
+    #[test]
+    fn theme_toggle_while_front_visible_changes_visible_front() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<GameTicks>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
+            .init_resource::<CardThemeRegistry>()
+            .init_resource::<ActiveCardTheme>()
+            .add_systems(Startup, setup_card_browser_scene)
+            .add_systems(Update, toggle_card_theme);
+
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyT);
+        app.update();
+
+        assert_eq!(app.world().resource::<ActiveCardTheme>().index, 1);
+        let mut name_query = app.world_mut().query::<&Name>();
+        assert!(
+            name_query
+                .iter(app.world())
+                .any(|name| name.as_str().contains("TAR"))
+        );
+    }
+
+    #[test]
     fn background_geometry_is_clipped_to_frame_hole() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
@@ -1826,6 +2131,7 @@ mod tests {
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
             .init_resource::<CardThemeRegistry>()
             .init_resource::<ActiveCardTheme>()
             .add_systems(Startup, setup_app_scene)

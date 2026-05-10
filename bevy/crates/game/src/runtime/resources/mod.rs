@@ -22,6 +22,8 @@ pub const CARD_THEME_SLOT_COUNT: usize = 2;
 pub const CARD_DEPTH_FACTOR_DEFAULT: f32 = 10.0;
 pub const CARD_DEPTH_FACTOR_MIN: f32 = 0.0;
 pub const CARD_DEPTH_FACTOR_MAX: f32 = 20.0;
+pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
+pub const CARD_BACK_TEXTURE_PATH: &str = "cards/CardStructure/card_back_superhero_pattern.png";
 pub const SKYBOLT_THEME_ID: &str = "skybolt";
 pub const SKYBOLT_THEME_NAME: &str = "SKYBOLT";
 pub const TAR_THEME_ID: &str = "tar";
@@ -197,6 +199,81 @@ impl Default for ActiveCardTheme {
 impl ActiveCardTheme {
     pub fn toggle(&mut self, registry: &CardThemeRegistry) {
         self.index = registry.next_available_index(self.index);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum CardFace {
+    #[default]
+    Front,
+    Back,
+}
+
+#[derive(Debug, Resource)]
+pub struct CardFlipState {
+    pub current_y_rotation: f32,
+    pub target_y_rotation: f32,
+    pub visible_face: CardFace,
+}
+
+impl Default for CardFlipState {
+    fn default() -> Self {
+        Self {
+            current_y_rotation: 0.0,
+            target_y_rotation: 0.0,
+            visible_face: CardFace::Front,
+        }
+    }
+}
+
+impl CardFlipState {
+    pub const fn is_animating(&self) -> bool {
+        (self.target_y_rotation - self.current_y_rotation).abs() > f32::EPSILON
+    }
+
+    pub fn request_flip(&mut self) {
+        if self.is_animating() {
+            if self.target_y_rotation > self.current_y_rotation {
+                self.target_y_rotation -= std::f32::consts::PI;
+            } else {
+                self.target_y_rotation += std::f32::consts::PI;
+            }
+            return;
+        }
+
+        match Self::face_for_angle(self.target_y_rotation) {
+            CardFace::Front => self.target_y_rotation += std::f32::consts::PI,
+            CardFace::Back => self.target_y_rotation -= std::f32::consts::PI,
+        }
+    }
+
+    pub fn advance(&mut self, delta_seconds: f32) {
+        let remaining = self.target_y_rotation - self.current_y_rotation;
+        if remaining.abs() <= f32::EPSILON {
+            self.current_y_rotation = self.target_y_rotation;
+            self.visible_face = Self::face_for_angle(self.current_y_rotation);
+            return;
+        }
+
+        let max_step = (std::f32::consts::PI / CARD_FLIP_DURATION_SECONDS) * delta_seconds.max(0.0);
+        if remaining.abs() <= max_step {
+            self.current_y_rotation = self.target_y_rotation;
+        } else {
+            self.current_y_rotation += max_step * remaining.signum();
+        }
+        self.visible_face = Self::face_for_angle(self.current_y_rotation);
+    }
+
+    pub fn face_for_angle(angle: f32) -> CardFace {
+        if angle.cos() >= 0.0 {
+            CardFace::Front
+        } else {
+            CardFace::Back
+        }
+    }
+
+    pub fn rotation(&self) -> Quat {
+        Quat::from_rotation_y(self.current_y_rotation)
     }
 }
 
@@ -525,6 +602,63 @@ mod tests {
                 .map(|theme| theme.display_name),
             Some(SKYBOLT_THEME_NAME)
         );
+    }
+
+    #[test]
+    fn card_flip_state_defaults_to_front_idle() {
+        let state = CardFlipState::default();
+
+        assert_eq!(state.current_y_rotation, 0.0);
+        assert_eq!(state.target_y_rotation, 0.0);
+        assert_eq!(state.visible_face, CardFace::Front);
+        assert!(!state.is_animating());
+    }
+
+    #[test]
+    fn card_flip_state_targets_180_degrees_per_request() {
+        let mut state = CardFlipState::default();
+
+        state.request_flip();
+
+        assert_eq!(state.target_y_rotation, std::f32::consts::PI);
+        assert!(state.is_animating());
+    }
+
+    #[test]
+    fn card_flip_state_switches_face_after_midpoint() {
+        assert_eq!(CardFlipState::face_for_angle(0.0), CardFace::Front);
+        assert_eq!(
+            CardFlipState::face_for_angle(std::f32::consts::FRAC_PI_2 - 0.01),
+            CardFace::Front
+        );
+        assert_eq!(
+            CardFlipState::face_for_angle(std::f32::consts::FRAC_PI_2 + 0.01),
+            CardFace::Back
+        );
+        assert_eq!(
+            CardFlipState::face_for_angle(std::f32::consts::PI),
+            CardFace::Back
+        );
+    }
+
+    #[test]
+    fn card_flip_state_reverses_mid_animation_from_current_progress() {
+        let mut state = CardFlipState::default();
+
+        state.request_flip();
+        state.current_y_rotation = std::f32::consts::FRAC_PI_2;
+        state.request_flip();
+
+        assert_eq!(state.target_y_rotation, 0.0);
+    }
+
+    #[test]
+    fn card_back_texture_uses_card_structure_asset_path() {
+        assert_eq!(
+            CARD_BACK_TEXTURE_PATH,
+            "cards/CardStructure/card_back_superhero_pattern.png"
+        );
+        assert!(!CARD_BACK_TEXTURE_PATH.contains("CardTheme_"));
     }
 
     #[test]
