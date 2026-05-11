@@ -6,3 +6,4 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+bevy = { version = "0.18.1", default-features = false, features = ["bevy_log", "bevy_text", "bevy_ui"] }

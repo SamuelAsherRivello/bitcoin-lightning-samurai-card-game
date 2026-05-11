@@ -127,6 +127,7 @@ An implementer can add runtime visual marks around requested game scene areas so
 - If Card UI and DebugHUD are visible at the same time, they should remain visually and conceptually separate developer-facing surfaces.
 - If a debug drawing marks a scene area, it should be visually clear enough to support discussion without being mistaken for final art or permanent player-facing UI.
 - If a debug drawing becomes obsolete because the scene layout changes, it should be updated, removed, or explicitly documented as stale.
+- If the window or browser viewport changes size, DebugHUD, Card UI, inspector offsets, and debug drawings should remain inside or aligned to the aspect-ratio-safe game view.
 
 ## Requirements *(mandatory)*
 
@@ -156,6 +157,8 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **FR-018**: Debug drawings SHOULD remain in the running game until the reviewer asks for removal or replacement, unless they become misleading, stale, or harmful to verification.
 - **FR-019**: Debug drawings MUST be treated as temporary scaffolding and MUST NOT be promoted to final player-facing UI or production art without a separate feature decision.
 - **FR-020**: Debug drawings MUST be scoped to the requested visual target, such as a hand area, card zone, interaction region, layout boundary, or other concrete game scene area.
+- **FR-021**: All visible debugging surfaces, including DebugHUD, Card UI, inspector offsets, and debug drawings, MUST derive placement from the aspect-ratio-safe game view rather than raw window pixels or ad hoc world coordinates.
+- **FR-022**: Card UI and scene-specific debug drawing implementation MUST remain under `bevy/crates/game`; shared debugging runtime under `bevy/crates/shared` MUST own only reusable DebugHUD, inspector, and diagnostic input behavior.
 
 ### Key Entities
 
@@ -190,6 +193,7 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **SC-010**: Self-QA notes or handoff output include the repeatable test command used and any blocked manual checks.
 - **SC-011**: When a debug drawing is requested for a concrete scene area, the running app shows a clear temporary mark around that area in 100% of accepted debug-drawing checks.
 - **SC-012**: Review of debug drawings finds that each one is identified as temporary and either still useful, explicitly requested to remain, removed, or replaced with production UI/art.
+- **SC-013**: In desktop and browser layout checks, DebugHUD, Card UI, inspector offsets, and debug drawings remain inside or aligned to the aspect-ratio-safe game view after viewport resize.
 
 ## Assumptions
 
@@ -199,6 +203,7 @@ An implementer can add runtime visual marks around requested game scene areas so
 - `WASD` remains visible to preserve the copied HUD pattern and may provide DebugHUD-only pressed feedback; it is intentionally non-functional for gameplay, card, camera, and other non-DebugHUD systems in this card POC.
 - Card UI is temporary developer/prototype UI and remains separate from DebugHUD.
 - Debug drawings are temporary visual annotations for collaboration and QA; they are expected to remain until removal is requested, but they are not final game art or player-facing UI.
+- Visible debugging surfaces follow the same aspect-ratio-safe layout rules as other runtime overlays and presentation elements.
 - Terminal logs are acceptable for implementer self-debugging when scoped, safe, and paired with repeatable tests.
 - Toast, minimap, reticle, and gameplay HUD systems are intentionally excluded from this feature.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.

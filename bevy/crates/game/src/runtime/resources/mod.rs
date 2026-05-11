@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "desktop-hot-reload")]
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod debug_drawing_model;
+
+pub use debug_drawing_model::*;
+
 const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
 #[cfg(feature = "desktop-hot-reload")]
 static DESKTOP_HOT_RELOAD_PATCH_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -670,6 +674,7 @@ pub struct DebugHudState {
     pub is_fullscreen: bool,
     pub is_inspector_visible: bool,
     pub is_hot_reload_autorestart_enabled: bool,
+    pub is_debug_drawing_visible: bool,
     pub fps_accumulated_seconds: f32,
     pub fps_accumulated_frames: u32,
     pub fps_display_value: f32,
@@ -685,6 +690,8 @@ pub struct DebugHudInputStore {
     pub is_inspector_visible: bool,
     #[serde(default)]
     pub is_hot_reload_autorestart_enabled: bool,
+    #[serde(default)]
+    pub is_debug_drawing_visible: bool,
 }
 
 impl DebugHudInputStore {
@@ -694,6 +701,7 @@ impl DebugHudInputStore {
             is_fullscreen: state.is_fullscreen,
             is_inspector_visible: state.is_inspector_visible,
             is_hot_reload_autorestart_enabled: state.is_hot_reload_autorestart_enabled,
+            is_debug_drawing_visible: state.is_debug_drawing_visible,
         }
     }
 
@@ -702,6 +710,7 @@ impl DebugHudInputStore {
         state.is_fullscreen = self.is_fullscreen;
         state.is_inspector_visible = self.is_inspector_visible;
         state.is_hot_reload_autorestart_enabled = self.is_hot_reload_autorestart_enabled;
+        state.is_debug_drawing_visible = self.is_debug_drawing_visible;
     }
 }
 
@@ -901,6 +910,22 @@ mod tests {
         assert!(!store.is_fullscreen);
         assert!(!store.is_inspector_visible);
         assert!(!store.is_hot_reload_autorestart_enabled);
+        assert!(!store.is_debug_drawing_visible);
+    }
+
+    #[test]
+    fn debug_hud_input_store_persists_debug_drawing_toggle() {
+        let state = DebugHudState {
+            is_debug_drawing_visible: true,
+            ..Default::default()
+        };
+
+        let store = DebugHudInputStore::from_state(&state);
+        let mut restored_state = DebugHudState::default();
+        store.apply_to_state(&mut restored_state);
+
+        assert!(store.is_debug_drawing_visible);
+        assert!(restored_state.is_debug_drawing_visible);
     }
 
     #[test]

@@ -379,6 +379,7 @@ dependencies = [
  "bevy_hotpatching_experiments",
  "serde",
  "serde_json",
+ "web-sys",
 ]
 
 [[package]]
@@ -667,6 +668,9 @@ dependencies = [
 [[package]]
 name = "bevy_card_game_shared"
 version = "0.2.0"
+dependencies = [
+ "bevy",
+]
 
 [[package]]
 name = "bevy_color"

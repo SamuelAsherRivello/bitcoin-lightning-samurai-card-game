@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_aspect_ratio_mask::{AspectRatioMask, AspectRatioPlugin, Resolution};
+use bevy_card_game_shared::runtime::plugins::DebugToolingPlugin;
 use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
     bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass},
@@ -35,6 +36,7 @@ impl Plugin for GamePlugin {
             auto_create_primary_context: false,
             ..Default::default()
         })
+        .add_plugins(DebugToolingPlugin)
         .add_plugins(CoreGamePlugin)
         .add_plugins(EguiPlugin::default())
         .add_plugins(DefaultInspectorConfigPlugin)

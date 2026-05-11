@@ -2,6 +2,12 @@ use bevy::prelude::*;
 
 use crate::runtime::resources::{CardFace, CardModel};
 
+pub mod card_ui_component;
+pub mod debug_drawing_component;
+
+pub use card_ui_component::*;
+pub use debug_drawing_component::*;
+
 /// HUMAN: Player marker for the local game participant.
 /// AI: Keep player state separate from card, scene, and view markers.
 #[derive(Component, Debug, Default)]

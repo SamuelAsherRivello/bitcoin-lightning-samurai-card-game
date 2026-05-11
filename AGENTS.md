@@ -50,7 +50,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/011-ai-integration/plan.md`
+Active implementation plan: `specs/003-debugging/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules

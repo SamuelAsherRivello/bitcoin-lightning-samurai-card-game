@@ -34,7 +34,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `W` / `A` / `S` / `D` | DebugHUD hold indicators for directional input state. |
 | `R` | Reloads the active AppScene child view without restarting the app. |
 | `T` | In GameView, cycles the active world between Bamboo Forest and Coastal Harbor; in Card Browser, cycles global CardUI presentation settings. |
-| `F` | Toggles the FPS readout. |
+| `F` | Toggles fullscreen: Bevy fullscreen on desktop, browser Fullscreen API on web. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
 | `Escape` | Invisible key: requests the same app close flow as the desktop title-bar close button. |

@@ -29,6 +29,10 @@ use bevy_inspector_egui::{
 };
 use bevy_persistent::prelude::Persistent;
 
+pub mod debug_drawing_update_system;
+
+pub use debug_drawing_update_system::*;
+
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardBrowserViewEntity, CardBrowserViewRoot,
     CardFaceLayer, CardFrameLayer, CardLayerRole, CardParallaxLayer, CardView, CardViewBundle,
@@ -49,7 +53,9 @@ use crate::runtime::resources::{
 };
 
 #[cfg(feature = "desktop-hot-reload")]
-use crate::runtime::resources::{desktop_hot_reload_patch_count, record_desktop_hot_reload_patch};
+use crate::runtime::resources::{
+    DebugDrawingModel, desktop_hot_reload_patch_count, record_desktop_hot_reload_patch,
+};
 
 #[cfg(test)]
 use bevy::mesh::VertexAttributeValues;
@@ -131,13 +137,15 @@ pub fn constrain_card_browser_camera_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport(window.resolution.physical_size());
+    let safe_area_viewport = game_view_safe_area_viewport_for_window(window);
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
     }
 }
 
+/// HUMAN: Keeps GameView 3D cameras aligned with the aspect-ratio-safe area.
+/// AI: Avoid native fullscreen scissor validation by using the surface-sized default viewport there.
 pub fn constrain_game_view_3d_cameras_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut camera_query: Query<&mut Camera, (With<GameViewEntity>, With<Camera3d>)>,
@@ -145,11 +153,29 @@ pub fn constrain_game_view_3d_cameras_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport(window.resolution.physical_size());
+    let safe_area_viewport = game_view_safe_area_viewport_for_window(window);
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
     }
+}
+
+fn game_view_safe_area_viewport_for_window(window: &Window) -> Option<Viewport> {
+    if should_use_default_camera_viewport(window) {
+        return None;
+    }
+
+    game_view_safe_area_viewport(window.resolution.physical_size())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn should_use_default_camera_viewport(window: &Window) -> bool {
+    !matches!(window.mode, WindowMode::Windowed)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn should_use_default_camera_viewport(_window: &Window) -> bool {
+    false
 }
 
 fn game_view_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
@@ -313,6 +339,10 @@ fn spawn_game_view_card_overlay_camera(
 /// HUMAN: Spawns the persistent AppScene and debug HUD.
 /// AI: AppScene remains present while GameView and CardBrowserView swap on top.
 pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
+    spawn_app_scene_contents(&mut commands, hud.as_ref().map(|hud| hud.0));
+}
+
+fn spawn_app_scene_contents(commands: &mut Commands, hud_parent: Option<Entity>) -> Entity {
     let app_scene = commands
         .spawn((
             Name::new("AppScene"),
@@ -329,12 +359,13 @@ pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
             Visibility::default(),
         ))
         .id();
-    let debug_hud = spawn_debug_hud(&mut commands);
-    if let Some(hud) = hud {
-        commands.entity(hud.0).add_child(debug_hud);
+    let debug_hud = spawn_debug_hud(commands);
+    if let Some(hud_parent) = hud_parent {
+        commands.entity(hud_parent).add_child(debug_hud);
     } else {
         commands.entity(app_scene).add_child(debug_hud);
     }
+    app_scene
 }
 
 /// HUMAN: Spawns the gameplay sub-screen view.
@@ -1788,7 +1819,7 @@ pub fn restart_app_scene(
         return;
     }
 
-    scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
+    scene.reload_app_scene_and_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
     ticks.0 = 0;
@@ -1810,6 +1841,7 @@ pub fn record_desktop_hot_reload_patch_message() {}
 pub fn hot_reload_auto_restart_app_scene(
     mut last_seen_patch_count: Local<u64>,
     hud_state: Res<DebugHudState>,
+    mut debug_drawing_model: ResMut<DebugDrawingModel>,
     active_card_model: Res<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
     mut ticks: ResMut<GameTicks>,
@@ -1826,7 +1858,8 @@ pub fn hot_reload_auto_restart_app_scene(
         return;
     }
 
-    scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
+    debug_drawing_model.request_reference_layout();
+    scene.reload_app_scene_and_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
     ticks.0 = 0;
@@ -1849,6 +1882,16 @@ pub struct ViewChangeParams<'w, 's> {
         (
             With<GameViewEntity>,
             Without<GameViewRoot>,
+            Without<ChildOf>,
+        ),
+    >,
+    standalone_card_browser_view_entities: Query<
+        'w,
+        's,
+        Entity,
+        (
+            With<CardBrowserViewEntity>,
+            Without<CardBrowserViewRoot>,
             Without<ChildOf>,
         ),
     >,
@@ -1888,6 +1931,9 @@ impl ViewChangeParams<'_, '_> {
             self.commands.entity(entity).despawn();
         }
         for entity in self.standalone_game_view_entities.iter() {
+            self.commands.entity(entity).despawn();
+        }
+        for entity in self.standalone_card_browser_view_entities.iter() {
             self.commands.entity(entity).despawn();
         }
     }
@@ -1980,6 +2026,62 @@ impl ViewChangeParams<'_, '_> {
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                     self.app_scene_query.single().ok(),
+                    visible_face,
+                    initial_rotation,
+                );
+            }
+        }
+    }
+
+    fn despawn_app_scene(&mut self) {
+        self.despawn_game_view();
+        self.despawn_card_browser_view();
+        for entity in self.app_scene_query.iter() {
+            self.commands.entity(entity).despawn();
+        }
+    }
+
+    fn reload_app_scene_and_active_view(
+        &mut self,
+        active_card_model: &ActiveCardModel,
+        visible_face: CardFace,
+        initial_rotation: Quat,
+    ) {
+        self.despawn_app_scene();
+        let app_scene =
+            spawn_app_scene_contents(&mut self.commands, self.hud.as_ref().map(|hud| hud.0));
+        match *self.active_view {
+            ActiveView::GameView => {
+                spawn_game_view_contents(
+                    &mut self.commands,
+                    Some(app_scene),
+                    self.hud.as_ref().map(|hud| hud.0),
+                    &self.asset_server,
+                    &self.camera_defaults,
+                    &self.card_defaults,
+                    &self.card_model_registry,
+                    active_card_model,
+                    &self.world_model_registry,
+                    &self.active_world_model,
+                    &self.location_model_registry,
+                    &self.active_locations,
+                    &mut self.meshes,
+                    &mut self.materials,
+                    self.masked_background_materials.as_deref_mut(),
+                );
+            }
+            ActiveView::CardBrowserView => {
+                spawn_card_browser_view_contents(
+                    &mut self.commands,
+                    &self.asset_server,
+                    &self.camera_defaults,
+                    &self.card_defaults,
+                    &self.card_model_registry,
+                    active_card_model,
+                    &mut self.meshes,
+                    &mut self.materials,
+                    self.masked_background_materials.as_deref_mut(),
+                    Some(app_scene),
                     visible_face,
                     initial_rotation,
                 );
@@ -2329,15 +2431,12 @@ fn spawn_debug_hud(commands: &mut Commands) -> Entity {
             DebugHudText,
         ))
         .with_children(|parent| {
-            spawn_key_span(parent, "W", KeyCode::KeyW, false);
-            spawn_key_span(parent, "A", KeyCode::KeyA, false);
-            spawn_key_span(parent, "S", KeyCode::KeyS, false);
-            spawn_key_span(parent, "D", KeyCode::KeyD, false);
-            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "R", KeyCode::KeyR, false);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "T", KeyCode::KeyT, false);
             parent.spawn((TextSpan::new("\nKEYS: "), debug_hud_text_font()));
+            spawn_key_span(parent, "D", KeyCode::KeyD, true);
+            parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "F", KeyCode::KeyF, true);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "P", KeyCode::KeyP, true);
@@ -2389,6 +2488,7 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     for (key_text, mut underline_color) in &mut params.key_text_query {
         let is_active = if key_text.is_toggle {
             match key_text.key_code {
+                KeyCode::KeyD => params.hud_state.is_debug_drawing_visible,
                 KeyCode::KeyF => params.hud_state.is_fullscreen,
                 KeyCode::KeyP => fps_on,
                 KeyCode::KeyI => inspector_on,
@@ -2441,6 +2541,7 @@ pub fn toggle_debug_hud_inputs(
 
     if keys.just_pressed(KeyCode::KeyF) {
         hud_state.is_fullscreen = !hud_state.is_fullscreen;
+        apply_browser_fullscreen(hud_state.is_fullscreen);
         if let Ok(mut window) = primary_window_query.single_mut() {
             if hud_state.is_fullscreen {
                 let fallback_placement = placement_state
@@ -2478,6 +2579,11 @@ pub fn toggle_debug_hud_inputs(
         changed = true;
     }
 
+    if keys.just_pressed(KeyCode::KeyD) {
+        hud_state.is_debug_drawing_visible = !hud_state.is_debug_drawing_visible;
+        changed = true;
+    }
+
     if keys.just_pressed(KeyCode::KeyH) {
         hud_state.is_hot_reload_autorestart_enabled = !hud_state.is_hot_reload_autorestart_enabled;
         changed = true;
@@ -2503,6 +2609,8 @@ pub fn toggle_debug_hud_inputs(
     }
 }
 
+/// HUMAN: Applies the project fullscreen preference to the primary window.
+/// AI: Preserve the original native Bevy fullscreen path; browser uses the Fullscreen API separately.
 fn apply_fullscreen_mode(window: &mut Window, is_fullscreen: bool) {
     window.mode = if is_fullscreen {
         WindowMode::BorderlessFullscreen(MonitorSelection::Current)
@@ -2511,9 +2619,55 @@ fn apply_fullscreen_mode(window: &mut Window, is_fullscreen: bool) {
     };
 }
 
+/// HUMAN: Fullscreens the app on the selected monitor.
+/// AI: Keep monitor selection explicit for the native path that worked before browser support.
 fn apply_fullscreen_mode_on_monitor(window: &mut Window, monitor_selection: MonitorSelection) {
     window.mode = WindowMode::BorderlessFullscreen(monitor_selection);
 }
+
+#[cfg(target_arch = "wasm32")]
+fn apply_browser_fullscreen(is_fullscreen: bool) {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        warn!("Browser fullscreen toggle skipped: document is unavailable");
+        return;
+    };
+
+    if is_fullscreen {
+        if document.fullscreen_element().is_some() {
+            return;
+        }
+
+        let Some(element) = document.document_element() else {
+            warn!("Browser fullscreen toggle skipped: document element is unavailable");
+            return;
+        };
+
+        if let Err(error) = element.request_fullscreen() {
+            warn!("Browser fullscreen request failed: {error:?}");
+        }
+    } else if document.fullscreen_element().is_some() {
+        document.exit_fullscreen();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn apply_browser_fullscreen(_is_fullscreen: bool) {}
+
+/// HUMAN: Mirrors browser-level fullscreen exits back into DebugHUD state.
+/// AI: Keep the F toggle usable after users leave browser fullscreen with Escape.
+pub fn sync_browser_fullscreen_state_system(mut hud_state: ResMut<DebugHudState>) {
+    sync_browser_fullscreen_state(&mut hud_state);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn sync_browser_fullscreen_state(hud_state: &mut DebugHudState) {
+    if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+        hud_state.is_fullscreen = document.fullscreen_element().is_some();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn sync_browser_fullscreen_state(_hud_state: &mut DebugHudState) {}
 
 pub fn toggle_inspector(
     keys: Res<ButtonInput<KeyCode>>,
@@ -3574,6 +3728,47 @@ mod tests {
             );
             assert_eq!(viewport.physical_size, expected_viewport.physical_size);
             assert_eq!(viewport.depth, expected_viewport.depth);
+        }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn game_view_3d_cameras_use_default_viewport_in_native_fullscreen() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
+            .init_resource::<ActiveLocations>()
+            .add_systems(Startup, setup_game_view)
+            .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area);
+        app.world_mut().spawn((
+            Window {
+                resolution: WindowResolution::new(2560, 1600),
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        app.update();
+        app.update();
+
+        let mut camera_query = app
+            .world_mut()
+            .query_filtered::<&Camera, (With<GameViewEntity>, With<Camera3d>)>();
+        let cameras: Vec<&Camera> = camera_query.iter(app.world()).collect();
+        assert_eq!(cameras.len(), 2);
+        for camera in cameras {
+            assert!(camera.viewport.is_none());
         }
     }
 
@@ -4686,6 +4881,43 @@ mod tests {
     }
 
     #[test]
+    fn debug_hud_debug_drawing_key_is_d_toggle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
+        let debug_drawing_key = key_query
+            .iter(app.world())
+            .find(|key_text| key_text.key_code == KeyCode::KeyD)
+            .unwrap();
+
+        assert!(debug_drawing_key.is_toggle);
+    }
+
+    #[test]
+    fn debug_hud_removes_unused_was_keys() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_systems(Startup, setup_debug_hud);
+
+        app.update();
+
+        let key_codes: Vec<KeyCode> = app
+            .world_mut()
+            .query::<&DebugHudKeyText>()
+            .iter(app.world())
+            .map(|key_text| key_text.key_code)
+            .collect();
+
+        assert!(!key_codes.contains(&KeyCode::KeyW));
+        assert!(!key_codes.contains(&KeyCode::KeyA));
+        assert!(!key_codes.contains(&KeyCode::KeyS));
+    }
+
+    #[test]
     fn debug_hud_fps_key_is_p_toggle() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -4727,6 +4959,41 @@ mod tests {
         app.update();
 
         assert!(!app.world().resource::<DebugHudState>().is_fps_visible);
+    }
+
+    #[test]
+    fn d_key_toggles_debug_drawing() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<DebugHudState>()
+            .add_systems(Update, toggle_debug_hud_inputs);
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyD);
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<DebugHudState>()
+                .is_debug_drawing_visible
+        );
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset(KeyCode::KeyD);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyD);
+        app.update();
+
+        assert!(
+            !app.world()
+                .resource::<DebugHudState>()
+                .is_debug_drawing_visible
+        );
     }
 
     #[test]
@@ -4780,15 +5047,13 @@ mod tests {
 
         assert!(app.world().resource::<DebugHudState>().is_fullscreen);
         assert!(!app.world().resource::<DebugHudState>().is_fps_visible);
-        let window_mode = app
+        let window = app
             .world_mut()
             .query_filtered::<&Window, With<PrimaryWindow>>()
             .single(app.world())
-            .unwrap()
-            .mode
-            .clone();
+            .unwrap();
         assert_eq!(
-            window_mode,
+            window.mode,
             WindowMode::BorderlessFullscreen(MonitorSelection::Current)
         );
 
