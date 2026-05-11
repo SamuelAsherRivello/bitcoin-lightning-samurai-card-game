@@ -107,7 +107,7 @@ mod tests {
         assert!(asset_root.is_dir());
         assert!(
             asset_root
-                .join("cards/card_types/card_type_skybolt/background_clouds.png")
+                .join("cards/card_types/card_type_kage_ren/background.png")
                 .is_file()
         );
     }

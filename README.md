@@ -33,7 +33,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | --- | -------- |
 | `W` / `A` / `S` / `D` | DebugHUD hold indicators for directional input state. |
 | `R` | Reloads the card browser scene content without restarting the app. |
-| `T` | Cycles the active card type between the available `SkyBolt` and `Tar` card types. |
+| `T` | In GameScene, cycles the active world between Bamboo Forest and Coastal Harbor; in Card Browser, cycles global CardUI presentation settings. |
 | `F` | Toggles the FPS readout. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
@@ -75,8 +75,13 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
 | `bevy/crates/game/src/runtime/systems` | Card-specific setup, pointer mapping, smoothing, and DebugHUD composition. |
 | `bevy/crates/game/src/runtime/plugins` | Game plugin composition and card POC tests. |
-| `bevy/crates/game/assets/cards/card_types/card_type_skybolt` | Generated SkyBolt card type textures. |
-| `bevy/crates/game/assets/cards/card_types/card_type_tar` | Generated Tar card type textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_kage_ren` | Generated Kage Ren card textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_lord_daichi` | Generated Lord Daichi card textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_sister_hotaru` | Generated Sister Hotaru card textures. |
+| `bevy/crates/game/assets/cards/card_types/card_type_yokai_placeholder` | Generated temporary Yokai placeholder card textures. |
+| `bevy/crates/game/assets/worlds/bamboo_forest` | Generated Bamboo Forest world background. |
+| `bevy/crates/game/assets/worlds/coastal_harbor` | Generated Coastal Harbor world background. |
+| `bevy/crates/game/assets/locations` | Generated reusable tactical location textures. |
 | `bevy/crates/shared` | Reusable system-level Rust logic for shared runtime behavior. |
 | `bevy/crates/shared/src/window.rs` | Project-approved desktop window defaults: 1024x768. |
 | `data/local_storage` | Local persisted runtime state for window placement and DebugHUD input toggles. |

@@ -13,22 +13,30 @@ pub const PRIMARY_CAMERA_FOV_RADIANS: f32 = std::f32::consts::FRAC_PI_4;
 pub const PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.5;
 pub const PRIMARY_CAMERA_NEAR: f32 = 0.1;
 pub const PRIMARY_CAMERA_FAR: f32 = 1000.0;
-pub const CARD_WIDTH_WORLD_UNITS: f32 = 63.0 / 88.0;
+pub const CARD_WIDTH_WORLD_UNITS: f32 = 9.0 / 16.0;
 pub const CARD_HEIGHT_WORLD_UNITS: f32 = 1.0;
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
-pub const CARD_TYPE_SLOT_COUNT: usize = 2;
+pub const CARD_TYPE_SLOT_COUNT: usize = 4;
+pub const WORLD_THEME_COUNT: usize = 2;
+pub const TACTICAL_LOCATION_COUNT: usize = 6;
+pub const ACTIVE_LOCATION_COUNT: usize = 3;
 pub const CARD_DEPTH_FACTOR_DEFAULT: f32 = 10.0;
 pub const CARD_DEPTH_FACTOR_MIN: f32 = 0.0;
 pub const CARD_DEPTH_FACTOR_MAX: f32 = 20.0;
 pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
-pub const CARD_BACK_TEXTURE_PATH: &str = "cards/card_structure/card_back_superhero_pattern.png";
-pub const DESERT_WORLD_BACKGROUND_TEXTURE_PATH: &str = "worlds/desert_world/world_background.png";
-pub const SKYBOLT_CARD_TYPE_ID: &str = "skybolt";
-pub const SKYBOLT_CARD_TYPE_NAME: &str = "SKYBOLT";
-pub const TAR_CARD_TYPE_ID: &str = "tar";
-pub const TAR_CARD_TYPE_NAME: &str = "TAR";
+pub const CARD_BACK_TEXTURE_PATH: &str = "cards/card_structure/card_back_japan_realism.png";
+pub const KAGE_REN_CARD_TYPE_ID: &str = "kage_ren";
+pub const KAGE_REN_CARD_TYPE_NAME: &str = "KAGE REN";
+pub const LORD_DAICHI_CARD_TYPE_ID: &str = "lord_daichi";
+pub const LORD_DAICHI_CARD_TYPE_NAME: &str = "LORD DAICHI";
+pub const SISTER_HOTARU_CARD_TYPE_ID: &str = "sister_hotaru";
+pub const SISTER_HOTARU_CARD_TYPE_NAME: &str = "SISTER HOTARU";
+pub const YOKAI_PLACEHOLDER_CARD_TYPE_ID: &str = "yokai_placeholder";
+pub const YOKAI_PLACEHOLDER_CARD_TYPE_NAME: &str = "YOKAI TEST";
+pub const BAMBOO_FOREST_WORLD_ID: &str = "bamboo_forest";
+pub const COASTAL_HARBOR_WORLD_ID: &str = "coastal_harbor";
 
 #[derive(Resource, Debug, Default)]
 pub struct GameTicks(pub u64);
@@ -113,33 +121,63 @@ pub struct CardType {
 }
 
 impl CardType {
-    pub const fn skybolt() -> Self {
+    pub const fn kage_ren() -> Self {
         Self {
-            id: SKYBOLT_CARD_TYPE_ID,
-            display_name: SKYBOLT_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_skybolt/background_clouds.png",
-            frame_texture: "cards/card_types/card_type_skybolt/frame_pinstripe.png",
-            foreground_texture: "cards/card_types/card_type_skybolt/foreground_character.png",
-            title_texture: "cards/card_types/card_type_skybolt/title_skybolt.png",
-            foreground_x_ratio: 0.02,
-            foreground_y_ratio: 0.05,
+            id: KAGE_REN_CARD_TYPE_ID,
+            display_name: KAGE_REN_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_kage_ren/background.png",
+            frame_texture: "cards/card_types/card_type_kage_ren/frame.png",
+            foreground_texture: "cards/card_types/card_type_kage_ren/foreground_character.png",
+            title_texture: "cards/card_types/card_type_kage_ren/title.png",
+            foreground_x_ratio: 0.0,
+            foreground_y_ratio: -0.02,
+            foreground_height_ratio: 0.78,
+            title_y_ratio: -0.32,
+        }
+    }
+
+    pub const fn lord_daichi() -> Self {
+        Self {
+            id: LORD_DAICHI_CARD_TYPE_ID,
+            display_name: LORD_DAICHI_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_lord_daichi/background.png",
+            frame_texture: "cards/card_types/card_type_lord_daichi/frame.png",
+            foreground_texture: "cards/card_types/card_type_lord_daichi/foreground_character.png",
+            title_texture: "cards/card_types/card_type_lord_daichi/title.png",
+            foreground_x_ratio: 0.0,
+            foreground_y_ratio: -0.02,
             foreground_height_ratio: 0.82,
             title_y_ratio: -0.32,
         }
     }
 
-    pub const fn tar() -> Self {
+    pub const fn sister_hotaru() -> Self {
         Self {
-            id: TAR_CARD_TYPE_ID,
-            display_name: TAR_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_tar/background_cafe.png",
-            frame_texture: "cards/card_types/card_type_tar/frame_tar.png",
-            foreground_texture: "cards/card_types/card_type_tar/foreground_minotaur.png",
-            title_texture: "cards/card_types/card_type_tar/title_tar.png",
+            id: SISTER_HOTARU_CARD_TYPE_ID,
+            display_name: SISTER_HOTARU_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_sister_hotaru/background.png",
+            frame_texture: "cards/card_types/card_type_sister_hotaru/frame.png",
+            foreground_texture: "cards/card_types/card_type_sister_hotaru/foreground_character.png",
+            title_texture: "cards/card_types/card_type_sister_hotaru/title.png",
             foreground_x_ratio: 0.0,
-            foreground_y_ratio: -0.03,
-            foreground_height_ratio: 0.98,
-            title_y_ratio: 0.43,
+            foreground_y_ratio: -0.02,
+            foreground_height_ratio: 0.78,
+            title_y_ratio: -0.32,
+        }
+    }
+
+    pub const fn yokai_placeholder() -> Self {
+        Self {
+            id: YOKAI_PLACEHOLDER_CARD_TYPE_ID,
+            display_name: YOKAI_PLACEHOLDER_CARD_TYPE_NAME,
+            background_texture: "cards/card_types/card_type_yokai_placeholder/background.png",
+            frame_texture: "cards/card_types/card_type_yokai_placeholder/frame.png",
+            foreground_texture: "cards/card_types/card_type_yokai_placeholder/foreground_character.png",
+            title_texture: "cards/card_types/card_type_yokai_placeholder/title.png",
+            foreground_x_ratio: 0.0,
+            foreground_y_ratio: -0.02,
+            foreground_height_ratio: 0.8,
+            title_y_ratio: -0.32,
         }
     }
 }
@@ -152,12 +190,21 @@ pub struct CardTypeRegistry {
 impl Default for CardTypeRegistry {
     fn default() -> Self {
         Self {
-            slots: vec![Some(CardType::skybolt()), Some(CardType::tar())],
+            slots: vec![
+                Some(CardType::kage_ren()),
+                Some(CardType::lord_daichi()),
+                Some(CardType::sister_hotaru()),
+                Some(CardType::yokai_placeholder()),
+            ],
         }
     }
 }
 
 impl CardTypeRegistry {
+    pub fn card_types(&self) -> impl Iterator<Item = &CardType> {
+        self.slots.iter().flatten()
+    }
+
     pub fn slot_count(&self) -> usize {
         self.slots.len()
     }
@@ -190,6 +237,187 @@ impl CardTypeRegistry {
             .position(|index| *index == current_index)
             .map(|position| available_indices[(position + 1) % available_indices.len()])
             .unwrap_or(available_indices[0])
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldTheme {
+    pub id: &'static str,
+    pub display_name: &'static str,
+    pub background_texture: &'static str,
+}
+
+impl WorldTheme {
+    pub const fn bamboo_forest() -> Self {
+        Self {
+            id: BAMBOO_FOREST_WORLD_ID,
+            display_name: "Bamboo Forest",
+            background_texture: "worlds/bamboo_forest/world_background.png",
+        }
+    }
+
+    pub const fn coastal_harbor() -> Self {
+        Self {
+            id: COASTAL_HARBOR_WORLD_ID,
+            display_name: "Coastal Harbor",
+            background_texture: "worlds/coastal_harbor/world_background.png",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Resource)]
+pub struct WorldThemeRegistry {
+    themes: Vec<WorldTheme>,
+}
+
+impl Default for WorldThemeRegistry {
+    fn default() -> Self {
+        Self {
+            themes: vec![WorldTheme::bamboo_forest(), WorldTheme::coastal_harbor()],
+        }
+    }
+}
+
+impl WorldThemeRegistry {
+    pub fn active_world_theme(&self, active_world_theme: &ActiveWorldTheme) -> &WorldTheme {
+        self.themes
+            .get(active_world_theme.index)
+            .or_else(|| self.themes.first())
+            .expect("world theme registry must contain at least one theme")
+    }
+
+    pub fn next_index(&self, current_index: usize) -> usize {
+        if self.themes.is_empty() {
+            return 0;
+        }
+
+        (current_index + 1) % self.themes.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.themes.len()
+    }
+}
+
+#[derive(Debug, Resource)]
+pub struct ActiveWorldTheme {
+    pub index: usize,
+}
+
+impl Default for ActiveWorldTheme {
+    fn default() -> Self {
+        Self { index: 0 }
+    }
+}
+
+impl ActiveWorldTheme {
+    pub fn toggle(&mut self, registry: &WorldThemeRegistry) {
+        self.index = registry.next_index(self.index);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TacticalLocation {
+    pub id: &'static str,
+    pub display_name: &'static str,
+    pub texture: &'static str,
+}
+
+impl TacticalLocation {
+    pub const fn new(id: &'static str, display_name: &'static str, texture: &'static str) -> Self {
+        Self {
+            id,
+            display_name,
+            texture,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Resource)]
+pub struct TacticalLocationRegistry {
+    locations: Vec<TacticalLocation>,
+}
+
+impl Default for TacticalLocationRegistry {
+    fn default() -> Self {
+        Self {
+            locations: vec![
+                TacticalLocation::new(
+                    "fortress_gate",
+                    "Fortress Gate",
+                    "locations/fortress_gate/location.png",
+                ),
+                TacticalLocation::new(
+                    "bamboo_crossing",
+                    "Bamboo Crossing",
+                    "locations/bamboo_crossing/location.png",
+                ),
+                TacticalLocation::new(
+                    "shrine_ruins",
+                    "Shrine Ruins",
+                    "locations/shrine_ruins/location.png",
+                ),
+                TacticalLocation::new(
+                    "battlefield",
+                    "Battlefield",
+                    "locations/battlefield/location.png",
+                ),
+                TacticalLocation::new(
+                    "spirit_well",
+                    "Spirit Well",
+                    "locations/spirit_well/location.png",
+                ),
+                TacticalLocation::new(
+                    "market_square",
+                    "Market Square",
+                    "locations/market_square/location.png",
+                ),
+            ],
+        }
+    }
+}
+
+impl TacticalLocationRegistry {
+    pub fn selected_locations(&self, active_locations: &ActiveLocations) -> Vec<&TacticalLocation> {
+        active_locations
+            .indices
+            .iter()
+            .filter_map(|index| self.locations.get(*index))
+            .collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.locations.len()
+    }
+}
+
+#[derive(Clone, Debug, Resource)]
+pub struct ActiveLocations {
+    pub indices: [usize; ACTIVE_LOCATION_COUNT],
+    generation: usize,
+}
+
+impl Default for ActiveLocations {
+    fn default() -> Self {
+        Self {
+            indices: [0, 1, 2],
+            generation: 0,
+        }
+    }
+}
+
+impl ActiveLocations {
+    pub fn reroll(
+        &mut self,
+        registry: &TacticalLocationRegistry,
+        active_world_theme: &ActiveWorldTheme,
+    ) {
+        let count = registry.len().max(1);
+        self.generation = self.generation.wrapping_add(1);
+        let start = (active_world_theme.index + self.generation) % count;
+        for (offset, index) in self.indices.iter_mut().enumerate() {
+            *index = (start + offset) % count;
+        }
     }
 }
 
@@ -580,9 +808,9 @@ mod tests {
     }
 
     #[test]
-    fn card_defaults_match_poker_card_ratio() {
+    fn card_defaults_match_japan_realism_card_ratio() {
         let defaults = CardInspectionDefaults::default();
-        let expected_ratio = 88.0 / 63.0;
+        let expected_ratio = 16.0 / 9.0;
         let tolerance = expected_ratio * 0.02;
 
         assert!((defaults.height_width_ratio() - expected_ratio).abs() <= tolerance);
@@ -607,17 +835,17 @@ mod tests {
     }
 
     #[test]
-    fn card_type_registry_has_skybolt_and_tar() {
+    fn card_type_registry_has_japan_realism_characters() {
         let registry = CardTypeRegistry::default();
         let active_card_type = ActiveCardType::default();
 
         assert_eq!(registry.slot_count(), CARD_TYPE_SLOT_COUNT);
-        assert_eq!(registry.available_count(), 2);
+        assert_eq!(registry.available_count(), 4);
         assert_eq!(
             registry
                 .active_card_type(&active_card_type)
                 .map(|card_type| card_type.id),
-            Some(SKYBOLT_CARD_TYPE_ID)
+            Some(KAGE_REN_CARD_TYPE_ID)
         );
     }
 
@@ -647,7 +875,7 @@ mod tests {
     }
 
     #[test]
-    fn card_type_toggle_cycles_between_skybolt_and_tar() {
+    fn card_type_toggle_cycles_between_four_japan_realism_cards() {
         let registry = CardTypeRegistry::default();
         let mut active_card_type = ActiveCardType::default();
 
@@ -657,7 +885,25 @@ mod tests {
             registry
                 .active_card_type(&active_card_type)
                 .map(|card_type| card_type.display_name),
-            Some(TAR_CARD_TYPE_NAME)
+            Some(LORD_DAICHI_CARD_TYPE_NAME)
+        );
+
+        active_card_type.toggle(&registry);
+        assert_eq!(active_card_type.index, 2);
+        assert_eq!(
+            registry
+                .active_card_type(&active_card_type)
+                .map(|card_type| card_type.display_name),
+            Some(SISTER_HOTARU_CARD_TYPE_NAME)
+        );
+
+        active_card_type.toggle(&registry);
+        assert_eq!(active_card_type.index, 3);
+        assert_eq!(
+            registry
+                .active_card_type(&active_card_type)
+                .map(|card_type| card_type.display_name),
+            Some(YOKAI_PLACEHOLDER_CARD_TYPE_NAME)
         );
 
         active_card_type.toggle(&registry);
@@ -667,7 +913,7 @@ mod tests {
             registry
                 .active_card_type(&active_card_type)
                 .map(|card_type| card_type.display_name),
-            Some(SKYBOLT_CARD_TYPE_NAME)
+            Some(KAGE_REN_CARD_TYPE_NAME)
         );
     }
 
@@ -723,9 +969,59 @@ mod tests {
     fn card_back_texture_uses_card_structure_asset_path() {
         assert_eq!(
             CARD_BACK_TEXTURE_PATH,
-            "cards/card_structure/card_back_superhero_pattern.png"
+            "cards/card_structure/card_back_japan_realism.png"
         );
         assert!(!CARD_BACK_TEXTURE_PATH.contains("card_type_"));
+    }
+
+    #[test]
+    fn world_theme_registry_cycles_between_bamboo_forest_and_coastal_harbor() {
+        let registry = WorldThemeRegistry::default();
+        let mut active_world_theme = ActiveWorldTheme::default();
+
+        assert_eq!(registry.len(), WORLD_THEME_COUNT);
+        assert_eq!(
+            registry.active_world_theme(&active_world_theme).id,
+            BAMBOO_FOREST_WORLD_ID
+        );
+
+        active_world_theme.toggle(&registry);
+        assert_eq!(
+            registry.active_world_theme(&active_world_theme).id,
+            COASTAL_HARBOR_WORLD_ID
+        );
+
+        active_world_theme.toggle(&registry);
+        assert_eq!(
+            registry.active_world_theme(&active_world_theme).id,
+            BAMBOO_FOREST_WORLD_ID
+        );
+    }
+
+    #[test]
+    fn active_locations_selects_three_locations_from_six() {
+        let registry = TacticalLocationRegistry::default();
+        let mut active_locations = ActiveLocations::default();
+        let active_world_theme = ActiveWorldTheme::default();
+
+        assert_eq!(registry.len(), TACTICAL_LOCATION_COUNT);
+        assert_eq!(
+            registry.selected_locations(&active_locations).len(),
+            ACTIVE_LOCATION_COUNT
+        );
+
+        active_locations.reroll(&registry, &active_world_theme);
+
+        assert_eq!(
+            registry.selected_locations(&active_locations).len(),
+            ACTIVE_LOCATION_COUNT
+        );
+        assert!(
+            active_locations
+                .indices
+                .iter()
+                .all(|index| *index < TACTICAL_LOCATION_COUNT)
+        );
     }
 
     #[test]

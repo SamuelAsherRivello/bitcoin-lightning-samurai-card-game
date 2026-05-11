@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
 use crate::runtime::resources::{
-    ActiveCardType, ActiveScene, CardFlipState, CardInspectionDefaults, CardInspectionState,
-    CardTypeRegistry, CardUiState, DebugHudState, GameTicks, PrimaryCameraDefaults,
-    WindowPlacementState,
+    ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CardFlipState,
+    CardInspectionDefaults, CardInspectionState, CardTypeRegistry, CardUiState, DebugHudState,
+    GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacementState,
+    WorldThemeRegistry,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{create_card_settings_store, create_debug_hud_input_store};
@@ -34,6 +35,10 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<CardFlipState>()
             .init_resource::<CardTypeRegistry>()
             .init_resource::<ActiveCardType>()
+            .init_resource::<WorldThemeRegistry>()
+            .init_resource::<ActiveWorldTheme>()
+            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<ActiveLocations>()
             .init_resource::<CardUiState>()
             .init_resource::<DebugHudState>()
             .init_resource::<WindowPlacementState>()
