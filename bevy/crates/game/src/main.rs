@@ -3,6 +3,10 @@
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
 use bevy::window::{WindowMode, WindowResolution};
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+use bevy_card_game::runtime::plugins::{
+    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AiRuntimePlugin,
+};
 use bevy_card_game::{
     GamePlugin,
     runtime::resources::{DebugHudInputStore, WindowPlacementStore, valid_window_placement},
@@ -69,6 +73,13 @@ fn main() {
 
     #[cfg(feature = "desktop-hot-reload")]
     app.add_plugins(SimpleSubsecondPlugin::default());
+
+    #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+    {
+        println!("AI runtime bridge enabled: Bevy Remote Protocol at {AI_RUNTIME_BRP_ENDPOINT}");
+        println!("AI runtime screenshot method: {AI_RUNTIME_SCREENSHOT_METHOD}");
+        app.add_plugins(AiRuntimePlugin);
+    }
 
     app.add_plugins(GamePlugin).run();
 }

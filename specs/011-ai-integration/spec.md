@@ -52,6 +52,7 @@ Codex can request screenshots of the running game for visual debugging and compa
 1. **Given** the desktop game is running with screenshot support enabled, **When** Codex requests a screenshot through the MCP bridge, **Then** an image artifact is written under a project-approved generated-output path.
 2. **Given** a screenshot is captured, **When** it is reviewed, **Then** it can be associated with the current spec, target, command, and timestamp without relying on global machine paths.
 3. **Given** the web build is running in a browser, **When** browser-specific screenshot QA is needed, **Then** Playwright or the in-app browser may capture the browser viewport as a complement to the selected runtime MCP.
+4. **Given** the user asks Codex to "peek" at the app, running app, game, or desktop runtime, **When** the AI runtime endpoint is available, **Then** Codex captures a runtime screenshot, queries available BRP state, inspects the image, and reports concise runtime plus visual observations.
 
 ---
 
@@ -115,6 +116,7 @@ Future AI-assisted workflows can add richer diagnostics, guided playtesting, bug
 - **FR-012**: The integration MUST support screenshot capture for the desktop runtime through the selected MCP path.
 - **FR-013**: Screenshot capture MUST save artifacts under a project-local generated-output path documented by the implementation plan or task.
 - **FR-014**: Browser WebGPU screenshot QA MAY use Playwright or the in-app browser as complementary tooling, but those tools are not the selected Bevy runtime MCP.
+- **FR-014A**: A user request to "peek" at the app, running app, game, or desktop runtime MUST mean Codex should use the AI runtime workflow: BRP discovery/query plus `bevy_debugger/screenshot` capture when available.
 - **FR-015**: The integration MUST NOT require secrets, API keys, cookies, cloud credentials, or global machine credentials.
 - **FR-016**: The integration MUST NOT expose local-only services to the public internet.
 - **FR-017**: The integration MUST document whether each runtime operation is observational, screenshot-only, or mutating.
@@ -165,3 +167,4 @@ Future AI-assisted workflows can add richer diagnostics, guided playtesting, bug
 | Responsive positioning includes scaling. | Current game-view and card-browser layout requirements define responsiveness as aspect-ratio-safe position and scale recalculation, not only anchoring. |
 | Runtime mutation is useful but risky. | Bevy Remote Protocol and `bevy_debugger_mcp` can support state changes, so the spec requires reset or rollback guidance before mutation. |
 | Generated screenshots and runtime snapshots are transient unless a future task promotes them. | The project keeps generated outputs explicit and avoids committing noisy artifacts by default. |
+| `AppScene` and active views are distinct. | `AppScene` is always-present while `GameView`, `CardBrowserView`, or future views represent the active user-facing scene/view state. |

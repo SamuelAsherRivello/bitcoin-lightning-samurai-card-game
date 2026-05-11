@@ -1,5 +1,7 @@
 param(
     [switch]$EnableFastDevFeature,
+    [switch]$AiRuntime,
+    [switch]$NoAiRuntime,
     [string]$DioxusCliVersion = "0.7.9",
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$DxArgs
@@ -12,7 +14,12 @@ $PackageName = "bevy-card-game"
 $FastDevFeature = "fast-dev"
 $AssetHotReloadFeature = "asset-hot-reload"
 $HotReloadFeature = "desktop-hot-reload"
+$AiRuntimeFeature = "ai-runtime"
 $IsWindowsHost = $env:OS -eq "Windows_NT"
+$UseAiRuntime = -not $NoAiRuntime
+if ($AiRuntime) {
+    $UseAiRuntime = $true
+}
 
 function Test-CommandExists {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -70,21 +77,29 @@ Write-Host "Target dir: $env:CARGO_TARGET_DIR"
 Write-Host "Dioxus CLI: $DxVersionOutput"
 Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
 Write-Host "Edit hot-reload-enabled Rust systems and save."
+$FeatureList = @($HotReloadFeature, $AssetHotReloadFeature)
+if ($UseAiRuntime) {
+    $FeatureList += $AiRuntimeFeature
+}
 if ($EnableFastDevFeature) {
-    Write-Host "Using features: $HotReloadFeature,$AssetHotReloadFeature,$FastDevFeature"
-} else {
-    Write-Host "Using features: $HotReloadFeature,$AssetHotReloadFeature"
+    $FeatureList += $FastDevFeature
+}
+
+Write-Host "Using features: $($FeatureList -join ',')"
+if (-not $EnableFastDevFeature) {
     Write-Host "Running without '$FastDevFeature' for hot-patch compatibility."
+}
+if ($UseAiRuntime) {
+    Write-Host "AI runtime bridge: Bevy Remote Protocol at http://localhost:15702"
+    Write-Host "AI runtime screenshot method: bevy_debugger/screenshot"
+} else {
+    Write-Host "AI runtime bridge disabled by -NoAiRuntime."
 }
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""
 
 $CommandArgs = @("serve", "--hot-patch", "--windows", "--package", $PackageName, "--bin", $PackageName)
-if ($EnableFastDevFeature) {
-    $CommandArgs += @("--features", "$HotReloadFeature $AssetHotReloadFeature $FastDevFeature")
-} else {
-    $CommandArgs += @("--features", "$HotReloadFeature $AssetHotReloadFeature")
-}
+$CommandArgs += @("--features", ($FeatureList -join " "))
 if ($DxArgs) {
     $CommandArgs += $DxArgs
 }

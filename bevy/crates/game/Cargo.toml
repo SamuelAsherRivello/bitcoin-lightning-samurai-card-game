@@ -8,6 +8,7 @@ repository.workspace = true
 [features]
 default = []
 asset-hot-reload = ["bevy/file_watcher"]
+ai-runtime = ["bevy/bevy_remote"]
 desktop-hot-reload = ["dep:bevy_hotpatching_experiments"]
 fast-dev = ["bevy/dynamic_linking"]
 

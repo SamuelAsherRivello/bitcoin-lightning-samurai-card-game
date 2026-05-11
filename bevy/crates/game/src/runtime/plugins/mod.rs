@@ -1,5 +1,13 @@
 use bevy::prelude::*;
 
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+mod ai_runtime_plugin;
+
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub use ai_runtime_plugin::{
+    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AiRuntimePlugin,
+};
+
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardFlipState,
     CardInspectionDefaults, CardInspectionState, CardModelRegistry, CardUiState, DebugDrawingModel,

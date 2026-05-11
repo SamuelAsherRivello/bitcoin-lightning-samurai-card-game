@@ -54,6 +54,15 @@
 | Reflection | Only safe, relevant diagnostics should be reflected for AI use. |
 | Browser target | Native-only remote support MUST be documented as a browser gap. |
 
+**Future Extension Notes**:
+
+| Area | Guidance |
+| ---- | -------- |
+| Reflected card state | Future card model, card instance, and card view diagnostics should expose safe reflected fields needed for AI inspection. |
+| Reflected location state | Future location totals, control state, and reveal state should be queryable when development tooling is enabled. |
+| Reflected point state | Cost, power, effective power, and location total state should be represented through stable reflected components or resources when implemented. |
+| Diagnostic summaries | Prefer concise read-only resources for high-level AI queries before exposing large or noisy internal structures. |
+
 ## Entity: Runtime Observation
 
 | Field | Type | Description |
@@ -63,6 +72,7 @@
 | `requested_types` | list | Fully qualified component or resource type names. |
 | `result_summary` | string | Agent-readable summary of the returned runtime state. |
 | `operation_class` | enum | Always `observational`. |
+| `source_confidence` | enum | `reflected_state`, `screenshot_text`, or `visual_inference`. |
 
 **State Transitions**:
 
@@ -81,6 +91,15 @@
 | `path` | string | Project-local image path. |
 | `spec_reference` | string | Spec or task that requested the screenshot. |
 | `timestamp` | string | Capture time for traceability. |
+| `peek_request` | bool | True when produced because the user asked to "peek" at the app or running app. |
+
+## Entity: Scene Observation
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `app_scene_present` | bool | Whether the always-present `AppScene` should be assumed present by architecture. |
+| `active_view` | string | Current user-facing view, such as `GameView` or `CardBrowserView`, from reflected state or screenshot DebugHUD text. |
+| `evidence` | enum | `reflected_state`, `screenshot_text`, or `visual_inference`. |
 
 **Validation Rules**:
 

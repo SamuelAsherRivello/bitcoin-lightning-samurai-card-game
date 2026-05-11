@@ -14,6 +14,8 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | MCP-to-game transport | Bevy Remote Protocol over local HTTP |
 | Default Bevy host | `localhost` |
 | Default Bevy port | `15702` |
+| Cargo feature | `ai-runtime` |
+| Desktop script flag | `scripts/other/RunAppDesktop.ps1 -AiRuntime` |
 | Runtime target | Windows desktop dev runtime |
 | Browser WebGPU coverage | Complementary browser automation, not this MCP |
 
@@ -25,6 +27,7 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | Observe ECS state | observational | Codex can query reflected entities, components, and resources. |
 | Discover schemas | observational | Codex can inspect registered reflected types when available. |
 | Capture screenshot | screenshot-only | Codex can request a desktop game screenshot written to a project-local path. |
+| Peek running app | observational + screenshot-only | Codex interprets "peek" as BRP discovery/query plus screenshot capture and image inspection. |
 | Run experiment | mutating | Codex may alter runtime state only with task-specific reason and reset/rollback guidance. |
 | Replay or session analysis | observational | Codex may read recorded session data if generated locally and scoped to the task. |
 
@@ -40,6 +43,8 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | Responsive layout evidence | Runtime screenshots and state queries must support checking that visible positions and scales derive from the aspect-ratio-safe game view across window sizes. |
 | Browser limitation | Native-only BRP support must be documented; browser QA uses separate browser tools. |
 
+Future screenshot work may add a custom BRP method if the selected MCP requires game-side screenshot support beyond standard BRP methods. That method must remain behind `ai-runtime` and write only to project-local paths.
+
 ## Codex Workflow Requirements
 
 | Requirement | Contract |
@@ -49,6 +54,7 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | Source of truth | Codex does not infer runtime state when the MCP query fails. |
 | Secret safety | Codex must not request or print secrets, credentials, cookies, or tokens. |
 | Mutation discipline | Codex prefers observation and screenshots; mutation requires reason plus reset/rollback. |
+| Scene reporting | Codex reports `AppScene` as always-present and distinguishes the active view, such as `GameView` or `CardBrowserView`, when describing scene state. |
 
 ## Minimum Smoke Test
 
@@ -59,6 +65,7 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | Start desktop game with AI runtime tooling | Game exposes local BRP endpoint. |
 | Query a known reflected type | Structured state returns successfully. |
 | Capture screenshot | Image appears at the requested project-local path. |
+| Peek running app | Runtime facts and visual observations are both reported, with visual inferences labeled when not backed by reflected state. |
 | Capture fullscreen and smaller-window screenshots | Visible 2D and 3D positions and scales remain responsive to the aspect-ratio-safe game view. |
 | Stop game/server | No lingering public endpoint remains. |
 
@@ -70,3 +77,5 @@ Define the expected contract between Codex, the selected MCP server, and the run
 | Public remote debugging | Workspace rules forbid exposing local-only services without explicit approval. |
 | Replacing tests | MCP inspection complements repository tests; it does not replace them. |
 | Replacing browser QA | Desktop runtime MCP does not prove browser WebGPU behavior. |
+
+Browser screenshot QA should continue through Playwright or the in-app browser against the served web target. Those screenshots complement MCP desktop screenshots but do not replace runtime ECS inspection.

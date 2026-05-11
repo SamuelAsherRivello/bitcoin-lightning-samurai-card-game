@@ -61,3 +61,15 @@ The main adoption risks are that the upstream project labels itself experimental
 | Save screenshots to arbitrary global paths | Harder to review and conflicts with workspace scope. |
 | Commit every screenshot | Creates noisy repository churn. |
 | Never save screenshots | Prevents visual evidence for AI QA. |
+
+## Decision: Treat "peek" as a runtime observation shortcut
+
+**Rationale**: The project now has a local AI runtime bridge that can answer richer questions than static source inspection. A short user request like "peek at the app" should trigger the practical workflow: discover BRP, query reflected state where possible, capture a screenshot with `bevy_debugger/screenshot`, inspect it, and report what is known versus visually inferred.
+
+**Alternatives considered**:
+
+| Alternative | Rationale For Rejection |
+| ----------- | ----------------------- |
+| Treat "peek" as only a screenshot | Loses available structured BRP evidence such as methods, resources, and transforms. |
+| Treat "peek" as only BRP queries | Misses visual regressions and DebugHUD text that are not reflected yet. |
+| Require the user to say exact commands | Slows down routine QA and makes the AI runtime bridge less useful. |

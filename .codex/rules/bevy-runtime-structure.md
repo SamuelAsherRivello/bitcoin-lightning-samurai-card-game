@@ -18,6 +18,7 @@ Use this rule when adding, moving, reviewing, or documenting Bevy runtime code.
 | Hot reload | Mark hot-reloadable update systems with `#[hot]` when the workflow supports it. |
 | Tests | Keep tests aligned with feature and plugin behavior, close to the runtime code they validate. |
 | Path casing | Keep this repo's lowercase Rust-style paths unless a separate migration updates the constitution, scripts, specs, and docs. |
+| AI runtime peek | For a request to "peek" at the running app, use local BRP on `http://localhost:15702` plus `bevy_debugger/screenshot`; save transient screenshots under `target/ai-runtime-screenshots/`. |
 
 ## Reference Source
 

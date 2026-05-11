@@ -27,6 +27,8 @@
 | Card naming | Use `CardModel` for card data, `CardView` for rendered card presentation, and `CardViewBundle` for the visual bundle. |
 | System naming | Changed runtime system functions use `[domain]_[schedule]_system`, for example `player_update_system`. |
 | Purpose comments | Changed or new primary runtime items have a terse `HUMAN:` line and `AI:` line immediately above the item. |
+| AI runtime peek | When the user asks to "peek" at the app/running app/game, query local BRP at `http://localhost:15702`, call `bevy_debugger/screenshot` into `target/ai-runtime-screenshots/`, inspect the screenshot, and report runtime plus visual observations. |
+| Scene vocabulary | `AppScene` is always-present; report the active view such as `GameView` or `CardBrowserView` as the current scene/view state. |
 | Verification | Use `scripts/main/InstallDependencies.ps1` once per machine, then `scripts/main/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1`. |
 | Desktop warm builds | `RunAppDesktop.ps1` uses a dedicated `target/run-app-desktop` cache and enables the `fast-dev` feature for Bevy dynamic linking on non-release runs. |
 | Dependency install | `InstallDependencies.ps1` warms the `target/run-app-desktop` cache with `cargo build -p bevy-card-game --features fast-dev`. |

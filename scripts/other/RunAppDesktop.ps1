@@ -1,6 +1,7 @@
 param(
     [switch]$CheckOnly,
     [switch]$Release,
+    [switch]$AiRuntime,
     [switch]$UseSccache,
     [switch]$UseFastLinker,
     [switch]$NoFastLinker,
@@ -16,6 +17,7 @@ $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $PackageName = "bevy-card-game"
 $TargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
 $AssetHotReloadFeature = "asset-hot-reload"
+$AiRuntimeFeature = "ai-runtime"
 
 if (-not $env:RUST_BACKTRACE) {
     $env:RUST_BACKTRACE = "1"
@@ -39,12 +41,19 @@ $CompileParams = @{
 if ($TargetTriple) {
     $CompileParams.TargetTriple = $TargetTriple
 }
+$Features = @()
 if ($Release) {
     $CompileParams.Release = $true
 } elseif (-not $NoFastDevFeature) {
-    $CompileParams.Features = @($AssetHotReloadFeature, "fast-dev")
+    $Features += @($AssetHotReloadFeature, "fast-dev")
 } else {
-    $CompileParams.Features = @($AssetHotReloadFeature)
+    $Features += $AssetHotReloadFeature
+}
+if ($AiRuntime) {
+    $Features += $AiRuntimeFeature
+}
+if ($Features.Count -gt 0) {
+    $CompileParams.Features = $Features
 }
 if ($UseSccache) {
     $CompileParams.UseSccache = $true
@@ -89,6 +98,10 @@ try {
 
         Write-Host "Opening desktop app: $ExecutablePath"
         Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
+        if ($AiRuntime) {
+            Write-Host "AI runtime bridge: Bevy Remote Protocol at http://localhost:15702"
+            Write-Host "AI runtime screenshot method: bevy_debugger/screenshot"
+        }
         Start-Process -FilePath $ExecutablePath -WorkingDirectory $RepositoryRoot
     }
 } finally {
