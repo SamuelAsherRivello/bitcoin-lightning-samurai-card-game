@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::{CardFace, CardModel};
+use crate::runtime::resources::CardFace;
 
+pub mod card_gesture_component;
 pub mod card_ui_component;
 pub mod debug_drawing_component;
 pub mod point_view_component;
 
+pub use card_gesture_component::*;
 pub use card_ui_component::*;
 pub use debug_drawing_component::*;
 pub use point_view_component::*;
@@ -26,19 +28,29 @@ pub struct PrimaryViewCamera;
 pub struct AppSceneRoot;
 
 /// HUMAN: Marker for entities that belong to the always-present AppScene.
-/// AI: Use only for persistent app-level entities, not GameView or CardBrowserView children.
+/// AI: Use only for persistent app-level entities, not child scene entities.
 #[derive(Component, Debug, Default)]
 pub struct AppSceneEntity;
 
-/// HUMAN: Root marker for the card browser sub-screen view.
-/// AI: CardBrowserView is loaded on top of AppScene and may be despawned/reloaded.
+/// HUMAN: Root marker for the deck builder sub-screen view.
+/// AI: DeckBuilderScene is loaded on top of AppScene and may be despawned/reloaded.
 #[derive(Component, Debug, Default)]
-pub struct CardBrowserViewRoot;
+pub struct DeckBuilderSceneRoot;
 
-/// HUMAN: Marker for entities owned by CardBrowserView.
-/// AI: Keep card browser rendering/query filters on this marker.
+/// HUMAN: Marker for entities owned by DeckBuilderScene.
+/// AI: Keep deck builder rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct CardBrowserViewEntity;
+pub struct DeckBuilderSceneEntity;
+
+/// HUMAN: Root marker for the debug settings sub-screen scene.
+/// AI: DebugSettingsScene is a duplicated DeckBuilderScene-style scene for diagnostics.
+#[derive(Component, Debug, Default)]
+pub struct DebugSettingsSceneRoot;
+
+/// HUMAN: Marker for entities owned by DebugSettingsScene.
+/// AI: Keep debug settings rendering/query filters on this marker.
+#[derive(Component, Debug, Default)]
+pub struct DebugSettingsSceneEntity;
 
 /// HUMAN: Root marker for the gameplay sub-screen view.
 /// AI: GameView is loaded on top of AppScene and may be despawned/reloaded.
@@ -90,29 +102,6 @@ impl GameLocation {
 /// AI: Pair with CardViewBundle when spawning the root visual entity.
 #[derive(Component, Debug, Default)]
 pub struct CardView;
-
-/// HUMAN: Bundle for the root visual entity of a rendered card.
-/// AI: This creates CardView roots from CardModel data; child layers are spawned by card view systems.
-#[derive(Bundle, Debug)]
-pub struct CardViewBundle {
-    name: Name,
-    card_view: CardView,
-    transform: Transform,
-    global_transform: GlobalTransform,
-    visibility: Visibility,
-}
-
-impl CardViewBundle {
-    pub fn new(card_model: &CardModel, transform: Transform) -> Self {
-        Self {
-            name: Name::new(format!("CardView {}", card_model.display_name)),
-            card_view: CardView,
-            transform,
-            global_transform: GlobalTransform::default(),
-            visibility: Visibility::Visible,
-        }
-    }
-}
 
 /// HUMAN: Marker for a visible face layer on a CardView.
 /// AI: Used by flip visibility systems; keep face semantics here, not in CardModel.

@@ -5,9 +5,13 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "desktop-hot-reload")]
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod card_gesture_model;
+pub mod card_slot_model;
 pub mod debug_drawing_model;
 pub mod point_model;
 
+pub use card_gesture_model::*;
+pub use card_slot_model::*;
 pub use debug_drawing_model::*;
 pub use point_model::*;
 
@@ -61,7 +65,8 @@ pub struct GameTicks(pub u64);
 pub enum ActiveView {
     #[default]
     GameView,
-    CardBrowserView,
+    DeckBuilderScene,
+    DebugSettingsScene,
 }
 
 #[derive(Clone, Debug, Resource)]

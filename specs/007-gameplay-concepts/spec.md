@@ -11,7 +11,7 @@
 
 - Q: Which GameScene details should the concept focus on first? → A: DesertWorld background, three UI locations, local player hand, and TurnUI.
 - Q: Which UI framework should GameScene use for the initial HUD and overlays? → A: Built-in Bevy UI.
-- Q: What is the scene hierarchy? → A: App has one AppScene, and AppScene dynamically owns either GameScene or CardBrowserScene.
+- Q: What is the scene hierarchy? → A: App has one AppScene, and AppScene dynamically owns either GameScene, DeckBuilderScene, or DebugSettingsScene.
 - Q: What dimensional model should GameScene use? → A: GameScene mixes 2D/UI overlays with 3D Card instances rendered in front of the local player hand.
 - Q: Which layout orientation should GameScene target first? → A: Landscape first; portrait/mobile later.
 - Q: How should subscene lighting be owned? → A: Each dynamic subscene owns one light.
@@ -52,18 +52,18 @@ A designer can describe how cards move from deck to hand to shared board locatio
 
 ### User Story 3 - Clarify Prototype Scene Layering (Priority: P2)
 
-A developer can understand how the current prototype separates persistent app-level tools from the active card browser scene while future gameplay concepts are still being defined.
+A developer can understand how the current prototype separates persistent app-level tools from the active Deck Builder scene while future gameplay concepts are still being defined.
 
-**Why this priority**: The card browser should remain an iterated prototype scene, while app-level debug tools stay available across current and future scenes.
+**Why this priority**: The Deck Builder should remain an iterated prototype scene, while app-level debug tools stay available across current and future scenes.
 
-**Independent Test**: Launch or inspect the runtime and verify startup creates a persistent AppScene first, then AppScene opens GameScene by default, with CardBrowserScene available through the scene shortcut.
+**Independent Test**: Launch or inspect the runtime and verify startup creates a persistent AppScene first, then AppScene opens GameScene by default, with DeckBuilderScene available through the scene shortcut.
 
 **Acceptance Scenarios**:
 
 1. **Given** the app starts, **When** startup systems run, **Then** AppScene is created before GameScene and owns GameScene as its active child scene.
 2. **Given** AppScene is active, **When** future scenes are opened or reloaded, **Then** AppScene keeps debug UI and debug support that should persist across scenes.
-3. **Given** CardBrowserScene is active, **When** it is reloaded, **Then** the card browser camera, card, and card-facing presentation entities are replaced without recreating the persistent debug UI.
-4. **Given** either GameScene or CardBrowserScene is active, **When** the player presses `B`, **Then** AppScene replaces its active child scene with the other scene.
+3. **Given** DeckBuilderScene is active, **When** it is reloaded, **Then** the Deck Builder camera, card, and card-facing presentation entities are replaced without recreating the persistent debug UI.
+4. **Given** either GameScene, DeckBuilderScene, or DebugSettingsScene is active, **When** the player presses `S`, **Then** AppScene replaces its active child scene with the next scene.
 
 ---
 
@@ -71,7 +71,7 @@ A developer can understand how the current prototype separates persistent app-le
 
 A designer or developer can see the first gameplay-facing scene concept: a world background with three location shapes laid out on top for future round play.
 
-**Why this priority**: GameScene is the first bridge from the card browser prototype toward actual game presentation without implementing full card play yet.
+**Why this priority**: GameScene is the first bridge from the Deck Builder prototype toward actual game presentation without implementing full card play yet.
 
 **Independent Test**: Launch or inspect GameScene and verify it has its own camera, a DesertWorld world background that fills the scene view, three visible UI location placeholders, a local player hand area, and TurnUI.
 
@@ -91,7 +91,7 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 - If a future feature creates Table Top behavior, it should define the concrete visual and input details then.
 - If future card fronts include non-character content, the CardDefinition concept should still apply.
 - If future scenes need different cameras, each scene should own its own camera rather than relying on AppScene for scene-specific presentation.
-- If scene switching is inspected, AppScene should have exactly one active child scene: GameScene or CardBrowserScene.
+- If scene switching is inspected, AppScene should have exactly one active child scene: GameScene, DeckBuilderScene, or DebugSettingsScene.
 - If the final World Background image is not yet available, GameScene may use a generated DesertWorld placeholder until final art direction is supplied.
 - If location reveal-state art is not final, unrevealed locations should use a dynamic red outline and revealed locations should use a dynamic green outline.
 - If the app is viewed on portrait/mobile screens, the current feature may defer portrait-specific layout to a future spec.
@@ -116,12 +116,12 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 - **FR-014**: This feature MUST NOT require implementation of gameplay systems, Table Top UI, hand UI, deck browsing, turns, scoring, abilities, CPU behavior, or location control.
 - **FR-015**: The current prototype MUST create AppScene as the persistent app-level scene before opening GameScene.
 - **FR-016**: AppScene MUST own debug UI and debug support intended to persist across multiple prototype or gameplay scenes.
-- **FR-017**: CardBrowserScene MUST own the current card browser camera, card presentation, and card-facing UI/presentation entities.
-- **FR-018**: Reloading CardBrowserScene MUST NOT recreate AppScene debug UI.
-- **FR-019**: GameScene MUST own its own camera, separate from CardBrowserScene's camera.
-- **FR-020**: The app MUST start on GameScene instead of CardBrowserScene.
-- **FR-021**: Pressing `B` MUST switch between GameScene and CardBrowserScene.
-- **FR-022**: AppScene MUST own exactly one active child scene at a time: either GameScene or CardBrowserScene.
+- **FR-017**: DeckBuilderScene MUST own the current Deck Builder camera, card presentation, and card-facing UI/presentation entities.
+- **FR-018**: Reloading DeckBuilderScene MUST NOT recreate AppScene debug UI.
+- **FR-019**: GameScene MUST own its own camera, separate from DeckBuilderScene's camera.
+- **FR-020**: The app MUST start on GameScene instead of DeckBuilderScene.
+- **FR-021**: Pressing `S` MUST switch between GameScene and DeckBuilderScene.
+- **FR-022**: AppScene MUST own exactly one active child scene at a time: either GameScene, DeckBuilderScene, or DebugSettingsScene.
 - **FR-023**: GameScene MUST include a World Background that fills the scene view and faces the camera.
 - **FR-024**: GameScene MUST lay out exactly three locations on top of the World Background.
 - **FR-025**: Each GameScene location MUST support unrevealed and revealed visual states.
@@ -139,13 +139,13 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 - **FR-037**: The initial GameScene layout MUST target landscape screens.
 - **FR-038**: Portrait/mobile layout MAY be deferred to a future feature.
 - **FR-039**: GameScene MUST render one 3D card front centered within the local player hand area as the initial hybrid rendering proof.
-- **FR-040**: Each dynamic subscene, GameScene or CardBrowserScene, MUST own exactly one scene light.
+- **FR-040**: Each dynamic subscene, GameScene, DeckBuilderScene, or DebugSettingsScene, MUST own exactly one scene light.
 
 ### Key Entities
 
 - **AppScene**: The persistent app-level scene loaded at startup for debug UI and cross-scene debug support; dynamically owns exactly one active child scene.
 - **GameScene**: The default gameplay-facing child scene owned by AppScene; owns its 2D/UI World Background, three location placeholders, local player hand area, and TurnUI.
-- **CardBrowserScene**: A toggleable prototype scene; owns the card browser camera, card presentation, and card-facing presentation UI.
+- **DeckBuilderScene**: A toggleable prototype scene; owns the Deck Builder camera, card presentation, and card-facing presentation UI.
 - **World Background**: A full-scene image or placeholder plane facing the GameScene camera, representing the table top/world.
 - **DesertWorld**: The first World Background theme, represented as a top-down desert image.
 - **Location**: One of three GameScene board shapes placed over the World Background, with unrevealed and revealed states.
@@ -172,8 +172,8 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 - **SC-001**: A reviewer can identify the future ownership of Game, Player, Deck, Hand, CardSeries, CardDefinition, CardInstance, Table Top, and Shared Location from this spec without reading implementation code.
 - **SC-002**: In scope review, this spec introduces no current implementation requirements for `006-card-flip`.
 - **SC-003**: In terminology review, CardBack is consistently owned by CardSeries and CardFront is consistently owned by CardDefinition.
-- **SC-004**: A reviewer can identify that AppScene persists debug UI while GameScene and CardBrowserScene each own their own scene camera.
-- **SC-005**: A reviewer can identify that GameScene starts by default and `B` switches AppScene's active child between GameScene and CardBrowserScene.
+- **SC-004**: A reviewer can identify that AppScene persists debug UI while GameScene and DeckBuilderScene each own their own scene camera.
+- **SC-005**: A reviewer can identify that GameScene starts by default and `S` cycles AppScene's active child between GameScene and DeckBuilderScene.
 - **SC-006**: A reviewer can identify the three GameScene locations and their future round reveal order.
 - **SC-007**: A reviewer can identify that DesertWorld is the only initial world and only the World Background changes by world.
 - **SC-008**: A reviewer can identify the required dynamic text and outline behavior for initial GameScene location UI.
@@ -186,8 +186,8 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 - This spec is a concept-holding feature for future planning, not the active implementation target.
 - The current active implementation remains `006-card-flip`.
 - AppScene is loaded first and stays resident while GameScene is opened immediately after startup as AppScene's active child scene.
-- CardBrowserScene may be reloaded independently during prototype iteration.
-- CardBrowserScene remains available as a prototype view even though it is no longer the startup scene.
+- DeckBuilderScene may be reloaded independently during prototype iteration.
+- DeckBuilderScene remains available as a prototype view even though it is no longer the startup scene.
 - The first World Background art target is DesertWorld, a top-down desert surface.
 - Location, local player hand, and TurnUI should be implemented as world-independent UI overlays, with 3D Card instances layered in front of the local player hand.
 - Current GameScene layout targets landscape screens.

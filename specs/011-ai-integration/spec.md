@@ -167,4 +167,4 @@ Future AI-assisted workflows can add richer diagnostics, guided playtesting, bug
 | Responsive positioning includes scaling. | Current game-view and card-browser layout requirements define responsiveness as aspect-ratio-safe position and scale recalculation, not only anchoring. |
 | Runtime mutation is useful but risky. | Bevy Remote Protocol and `bevy_debugger_mcp` can support state changes, so the spec requires reset or rollback guidance before mutation. |
 | Generated screenshots and runtime snapshots are transient unless a future task promotes them. | The project keeps generated outputs explicit and avoids committing noisy artifacts by default. |
-| `AppScene` and active views are distinct. | `AppScene` is always-present while `GameView`, `CardBrowserView`, or future views represent the active user-facing scene/view state. |
+| `AppScene` and active views are distinct. | `AppScene` is always-present while `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, or future views represent the active user-facing scene/view state. |

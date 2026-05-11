@@ -24,8 +24,8 @@
 | Open the game scene | The pre-008 desert background and old card lineup are gone; a Japan Realism world and four bottom cards are visible. |
 | Press `T` in GameScene | The world alternates between Bamboo Forest and Coastal Harbor and three locations re-render. |
 | Move cursor over/around cards | Cards tilt subtly while names and silhouettes remain readable. |
-| Click Kage Ren, Lord Daichi, Sister Hotaru, and Yokai placeholder | Card Browser opens focused on the clicked card. |
-| Press `T` in Card Browser | Global CardUI settings change without changing the GameScene world. |
+| Click Kage Ren, Lord Daichi, Sister Hotaru, and Yokai placeholder | Deck Builder opens focused on the clicked card. |
+| Press `T` in Deck Builder | Global CardUI settings change without changing the GameScene world. |
 | Flip the browser card | Only the currently viewed card flips; leaving/opening another card does not preserve that flip state. |
 
 ## Completion Checks

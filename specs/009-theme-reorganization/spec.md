@@ -48,16 +48,16 @@ A developer can identify an asset's category from its name while relying on its 
 
 ### User Story 3 - Use Purposeful Scene and Model/View Naming (Priority: P2)
 
-A developer can distinguish app structure, data, and rendering by using `Scene` names for the persistent app-level scene, `Model` names for data, and `View` names for rendered presentation. `AppScene` is always present, while at most one active sub-screen view such as `GameView` or `CardBrowserView` is loaded on top.
+A developer can distinguish app structure, data, and rendering by using `Scene` names for the persistent app-level scene, `Model` names for data, and `View` names for rendered presentation. `AppScene` is always present, while at most one active sub-screen view such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` is loaded on top.
 
 **Why this priority**: Scene/Model/View naming makes it clear whether code is managing the app container, storing data, or creating visuals. `CardViewBundle` keeps the card's front, back, layers, and visual behavior grouped without overloading the word model.
 
-**Independent Test**: Can be fully tested by reading the updated documentation and validating that the persistent scene is described as `AppScene`, active sub-screen presentations are described as `GameView` and `CardBrowserView`, card data is described as `CardModel`, card rendering is described as `CardView`, and the card visual spawn bundle is described as `CardViewBundle`.
+**Independent Test**: Can be fully tested by reading the updated documentation and validating that the persistent scene is described as `AppScene`, active sub-screen presentations are described as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`, card data is described as `CardModel`, card rendering is described as `CardView`, and the card visual spawn bundle is described as `CardViewBundle`.
 
 **Acceptance Scenarios**:
 
 1. **Given** a developer reads app structure documentation, **When** the always-present scene is introduced, **Then** it is called `AppScene`.
-2. **Given** a developer reads active screen documentation, **When** the gameplay and browser presentations are introduced, **Then** they are called `GameView` and `CardBrowserView`.
+2. **Given** a developer reads active screen documentation, **When** the gameplay and deck builder presentations are introduced, **Then** they are called `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`.
 3. **Given** a developer reads card documentation, **When** card data is introduced, **Then** it is called `CardModel`.
 4. **Given** a developer reads card rendering documentation, **When** card visuals are introduced, **Then** they are called `CardView`.
 5. **Given** the visual bundle is described, **When** a developer reviews its contents, **Then** `CardViewBundle` includes front presentation, back presentation, all visual layers, and view behavior needed to render the card.
@@ -70,7 +70,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - If only the Japan theme exists, the structure still uses a theme root so the current theme does not need a later migration when another theme is added.
 - If an existing asset name already starts with the correct category prefix, it remains valid only if it also avoids repeating the theme name.
 - If a card has placeholder art or incomplete behavior, it still has a `CardModel` and `CardViewBundle` so placeholder and final cards follow the same concept.
-- If the app usually shows one page at a time, `AppScene` remains the always-present exception while `GameView` or `CardBrowserView` is the active sub-screen loaded on top.
+- If the app usually shows one page at a time, `AppScene` remains the always-present exception while `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` is the active sub-screen loaded on top.
 - If a support type is only meaningful inside one primary concept, it may stay in the same file; if it becomes reusable or independently meaningful, it must move to its own purposeful file.
 - If non-theme shared assets remain in the project, they must not be confused with theme-owned cards, locations, or worlds.
 
@@ -89,17 +89,17 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **FR-009**: Theme-owned card, location, and world asset names MUST NOT repeat `japan` because theme identity is provided by the containing theme root.
 - **FR-010**: Documentation MUST use `Scene` for the persistent app-level scene, `Model` for data-holding concepts, and `View` for rendering/presentation concepts.
 - **FR-011**: The always-present app container MUST be documented as `AppScene`.
-- **FR-012**: The gameplay and card browser sub-screen presentations MUST be documented as `GameView` and `CardBrowserView`.
+- **FR-012**: The gameplay and Deck Builder sub-screen presentations MUST be documented as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`.
 - **FR-013**: Card data MUST be documented as `CardModel`.
 - **FR-014**: Card rendering MUST be documented as `CardView`, with `CardViewBundle` as the visual bundle that creates the rendered card.
 - **FR-015**: `CardViewBundle` MUST be documented as containing front presentation, back presentation, all visual layers, and view behavior needed for loading and play presentation.
 - **FR-016**: Card loading documentation MUST describe cards as loading data from `CardModel` and creating visuals through `CardViewBundle` rather than through unrelated individual assets.
 - **FR-017**: All matching runtime structs, resources, systems, tests, labels, and documentation MUST be renamed to the approved Scene/Model/View vocabulary in 009.
-- **FR-018**: Legacy names such as `ActiveScene`, `GameSceneRoot`, `GameSceneEntity`, `CardBrowserSceneRoot`, `CardBrowserSceneEntity`, `CardType`, `CardTypeRegistry`, and `ActiveCardType` MUST NOT remain after implementation except in migration notes or historical references.
+- **FR-018**: Legacy names such as `ActiveScene`, `GameSceneRoot`, `GameSceneEntity`, `DeckBuilderSceneRoot`, `DeckBuilderSceneEntity`, `CardType`, `CardTypeRegistry`, and `ActiveCardType` MUST NOT remain after implementation except in migration notes or historical references.
 - **FR-019**: Runtime source files changed by 009 MUST be split by one primary concept per file, with purposeful filenames and primary item names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
 - **FR-020**: Each primary plugin, component, scene, view, model, and system item changed or created by 009 MUST have a terse purpose comment immediately above it containing exactly one `HUMAN:` line for high-level human intent and one `AI:` line for implementation context or future AI guidance.
 - **FR-021**: Runtime system function names changed or created by 009 MUST follow `[domain]_[schedule]_system`, such as `player_update_system`, where the domain describes the feature area and the schedule describes when the system runs.
-- **FR-022**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, card browser viewing, and card flipping.
+- **FR-022**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, Deck Builder viewing, and card flipping.
 - **FR-023**: Existing world and location presentation from the current proof-of-concept MUST remain unchanged after reorganization, including active world display and visible tactical locations.
 - **FR-024**: The reorganization MUST preserve a clear distinction between theme-owned assets and reusable shared assets that are not specific to a theme.
 
@@ -111,7 +111,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **Theme World Category**: The theme-owned collection of world assets for that theme.
 - **AppScene**: The always-present app-level scene that owns the durable runtime container and can host one active sub-screen view.
 - **GameView**: The gameplay sub-screen presentation loaded on top of `AppScene`.
-- **CardBrowserView**: The card browser sub-screen presentation loaded on top of `AppScene`.
+- **DeckBuilderScene**: The Deck Builder sub-screen presentation loaded on top of `AppScene`.
 - **CardModel**: The card data concept, containing the card's identity, display name, asset references, and data needed to create the rendered card.
 - **CardView**: The rendered card presentation concept, responsible for visual composition and interaction-facing presentation.
 - **CardViewBundle**: The visual bundle used to create the rendered card view, containing front presentation, back presentation, all visual layers, and view behavior associated with that card.
@@ -125,7 +125,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **SC-001**: A developer can locate the Japan theme's cards, locations, and worlds within 30 seconds by starting from the theme asset root.
 - **SC-002**: 100% of Japan theme card, location, and world assets use the required category prefix for their asset category.
 - **SC-003**: 0 Japan theme card, location, or world asset names include `japan` outside the theme root.
-- **SC-004**: A developer can identify the difference between `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` from documentation within 2 minutes.
+- **SC-004**: A developer can identify the difference between `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, `CardView`, and `CardViewBundle` from documentation within 2 minutes.
 - **SC-005**: A developer can inspect five changed runtime files and confirm each file has one primary concept, a purposeful primary item name, and a `HUMAN:` / `AI:` comment block within 5 minutes.
 - **SC-006**: A tester can complete the existing card browsing and card flipping flow after the reorganization with no visible behavior regression.
 - **SC-007**: A tester can view the existing world and tactical location presentation after the reorganization with no visible behavior regression.

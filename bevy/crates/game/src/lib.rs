@@ -5,6 +5,7 @@ use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
     bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass},
 };
+use bevy_tweening::TweeningPlugin;
 
 pub mod runtime;
 
@@ -31,6 +32,7 @@ impl Plugin for GamePlugin {
             ..Default::default()
         })
         .add_plugins(MeshPickingPlugin)
+        .add_plugins(TweeningPlugin)
         .add_plugins(MaterialPlugin::<CardBackgroundMaskMaterial>::default())
         .insert_resource(EguiGlobalSettings {
             auto_create_primary_context: false,

@@ -16,9 +16,12 @@ $AssetHotReloadFeature = "asset-hot-reload"
 $HotReloadFeature = "desktop-hot-reload"
 $AiRuntimeFeature = "ai-runtime"
 $IsWindowsHost = $env:OS -eq "Windows_NT"
-$UseAiRuntime = -not $NoAiRuntime
+$UseAiRuntime = $AiRuntime
 if ($AiRuntime) {
     $UseAiRuntime = $true
+}
+if ($NoAiRuntime) {
+    $UseAiRuntime = $false
 }
 
 function Test-CommandExists {
@@ -93,7 +96,7 @@ if ($UseAiRuntime) {
     Write-Host "AI runtime bridge: Bevy Remote Protocol at http://localhost:15702"
     Write-Host "AI runtime screenshot method: bevy_debugger/screenshot"
 } else {
-    Write-Host "AI runtime bridge disabled by -NoAiRuntime."
+    Write-Host "AI runtime bridge disabled. Use -AiRuntime or scripts/other/RunAppDesktopHotReloadMPC.ps1 to enable it."
 }
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""

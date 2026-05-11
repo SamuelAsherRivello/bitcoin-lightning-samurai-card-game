@@ -42,7 +42,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep README-visible images under `documentation/images/`.
 - Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
 - Keep changed Bevy runtime files focused on one primary concept per file; use purposeful names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
-- Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation. `AppScene` is always present; active sub-screen presentations are views such as `GameView` and `CardBrowserView`.
+- Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation. `AppScene` is always present; active sub-screen presentations are views such as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`.
 - Name changed runtime system functions as `[domain]_[schedule]_system`, for example `player_update_system`.
 - Add a terse two-line purpose comment immediately above each changed or new primary runtime item: one `HUMAN:` line and one `AI:` line.
 - Follow `.codex/rules/bevy-runtime-structure.md` for Bevy crate ownership, ECS module boundaries, feature plugins, runtime assets, hot-reloadable systems, and tests.
@@ -50,10 +50,10 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep desktop window defaults in `bevy/crates/shared/src/window.rs`; update `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` there when changing the project-approved launch/fallback size.
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
 - If the user says to "peek" at the app, running app, game, or desktop runtime, use the AI runtime workflow: query the local Bevy Remote Protocol endpoint at `http://localhost:15702` when available, capture a screenshot through `bevy_debugger/screenshot` to `target/ai-runtime-screenshots/`, inspect the image, and report both runtime facts and visual observations. If the endpoint is unavailable, say so and ask the user to start `scripts/main/RunAppDesktopHotReload.ps1` or `scripts/other/RunAppDesktop.ps1 -AiRuntime`.
-- Treat `AppScene` as the always-present app-level scene and report the currently active view, such as `GameView` or `CardBrowserView`, when describing runtime scene state.
+- Treat `AppScene` as the always-present app-level scene and report the currently active view, such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene`, when describing runtime scene state.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/011-ai-integration/plan.md`
+Active implementation plan: `specs/012-card-gestures/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules

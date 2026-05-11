@@ -98,17 +98,17 @@
 
 ## Phase 6: User Story 4 - Browse a Selected Card (Priority: P2)
 
-**Goal**: Clicking any bottom card opens Card Browser focused on that card; CardUI settings are global; flip state remains temporary.
+**Goal**: Clicking any bottom card opens Deck Builder focused on that card; CardUI settings are global; flip state remains temporary.
 
 **Independent Test**: Select each bottom card, flip it, change CardUI settings with `T`, return to GameScene, and confirm world/CardUI separation plus non-persistent flip state.
 
 ### Implementation for User Story 4
 
 - [x] T029 [US4] Add selected-card navigation state and click observers for each bottom card in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [x] T030 [US4] Update Card Browser spawning to use the selected card identity in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [x] T031 [US4] Ensure `T` in Card Browser changes global CardUI settings rather than active world in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [x] T032 [US4] Ensure Card Browser flip state resets or remains session-only when changing selected cards in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [x] T033 [US4] Update Card Browser and navigation tests for selected-card focus, global CardUI settings, and non-persistent flip state in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [x] T030 [US4] Update Deck Builder spawning to use the selected card identity in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [x] T031 [US4] Ensure `T` in Deck Builder changes global CardUI settings rather than active world in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [x] T032 [US4] Ensure Deck Builder flip state resets or remains session-only when changing selected cards in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [x] T033 [US4] Update Deck Builder and navigation tests for selected-card focus, global CardUI settings, and non-persistent flip state in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 **Checkpoint**: All user stories are independently functional.
 
@@ -139,7 +139,7 @@
 | Phase 3: US1 | Phase 2 | MVP atmosphere validation |
 | Phase 4: US2 | Phase 2, US1 preferred | World cycling validation |
 | Phase 5: US3 | Phase 2, US1 preferred | Card tilt validation |
-| Phase 6: US4 | Phase 2, US1 preferred | Card Browser selected-card validation |
+| Phase 6: US4 | Phase 2, US1 preferred | Deck Builder selected-card validation |
 | Phase 7: Polish | Desired user stories complete | Final readiness |
 
 ### User Story Dependencies
@@ -187,14 +187,14 @@ Task: "Create six reusable location assets under bevy/crates/game/assets/locatio
 1. Complete Phase 1 setup.
 2. Complete Phase 2 foundations: assets, card registry, world/location resources, plugin registration, resource tests.
 3. Complete Phase 3 US1: permanent Japan Realism game scene with four bottom cards, active world background, and three locations.
-4. Stop and validate US1 independently before world cycling or Card Browser changes.
+4. Stop and validate US1 independently before world cycling or Deck Builder changes.
 
 ### Incremental Delivery
 
 1. US1 delivers the permanent visible theme replacement.
 2. US2 adds world cycling and location reselection.
 3. US3 adds subtle card tilt for the full bottom row.
-4. US4 wires selected-card Card Browser focus and global CardUI behavior.
+4. US4 wires selected-card Deck Builder focus and global CardUI behavior.
 5. Polish verifies desktop/web parity and documentation.
 
 ### Implementation Notes

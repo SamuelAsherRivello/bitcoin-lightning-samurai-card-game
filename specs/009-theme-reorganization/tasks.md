@@ -98,21 +98,21 @@
 
 ## Phase 5: User Story 3 - Use Purposeful Scene and Model/View Naming (Priority: P2)
 
-**Goal**: A developer can distinguish app structure, card data, and rendering through `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle`.
+**Goal**: A developer can distinguish app structure, card data, and rendering through `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, `CardView`, and `CardViewBundle`.
 
 **Independent Test**: Read the updated documentation and trace `AppScene` hosting one active sub-screen view, then trace one loaded card from `CardModel` data to a rendered `CardView` created by `CardViewBundle`.
 
 ### Tests for User Story 3
 
 - [X] T022 [P] [US3] Add or update card model registry tests in `bevy/crates/game/src/runtime/resources/mod.rs` to assert each `CardModel` has background, frame, foreground, title, and shared back presentation paths
-- [X] T023 [P] [US3] Add or update scene/view structure tests in `bevy/crates/game/src/runtime/systems/mod.rs` to keep `AppScene` always present while one of `GameView` or `CardBrowserView` is active
+- [X] T023 [P] [US3] Add or update scene/view structure tests in `bevy/crates/game/src/runtime/systems/mod.rs` to keep `AppScene` always present while one of `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` is active
 
 ### Implementation for User Story 3
 
 - [X] T024 [US3] Rename or document card data types in `bevy/crates/game/src/runtime/resources/mod.rs` toward `CardModel`, `CardModelRegistry`, and `ActiveCardModel` after approval
-- [X] T025 [US3] Rename or document scene and sub-screen presentation helpers in `bevy/crates/game/src/runtime/components/mod.rs`, `bevy/crates/game/src/runtime/resources/mod.rs`, and `bevy/crates/game/src/runtime/systems/mod.rs` toward `AppScene`, `ActiveView`, `GameView`, and `CardBrowserView` after approval
+- [X] T025 [US3] Rename or document scene and sub-screen presentation helpers in `bevy/crates/game/src/runtime/components/mod.rs`, `bevy/crates/game/src/runtime/resources/mod.rs`, and `bevy/crates/game/src/runtime/systems/mod.rs` toward `AppScene`, `ActiveView`, `GameView`, and `DeckBuilderScene` after approval
 - [X] T026 [US3] Rename or document card rendering helpers in `bevy/crates/game/src/runtime/systems/mod.rs` toward `CardView` and `CardViewBundle` after approval
-- [X] T027 [US3] Document the `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` concepts and required contents in `README.md`
+- [X] T027 [US3] Document the `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, `CardView`, and `CardViewBundle` concepts and required contents in `README.md`
 - [X] T028 [US3] Update `specs/009-theme-reorganization/contracts/asset-organization-contract.md` if approved implementation naming differs from the proposal
 - [X] T029 [US3] Split changed runtime source in `bevy/crates/game/src/runtime` so each changed file centers on one primary Plugin, Component, Scene, View, Model, or System concept
 - [X] T030 [US3] Rename changed runtime system functions in `bevy/crates/game/src/runtime/systems` to `[domain]_[schedule]_system`
@@ -156,7 +156,7 @@
 | ---------- | ---------- | ----- |
 | US1: Organize Theme Assets for Growth | Phase 2 | MVP; creates the theme-root organization. |
 | US2: Use Theme-Local Naming | Phase 2 and target theme folders from US1 | Can validate naming independently after folders exist. |
-| US3: Use Purposeful Scene and Model/View Naming | Phase 2 and card paths from US1 | Documentation can start early; final traceability depends on approved `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, and `CardViewBundle` names. |
+| US3: Use Purposeful Scene and Model/View Naming | Phase 2 and card paths from US1 | Documentation can start early; final traceability depends on approved `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, and `CardViewBundle` names. |
 
 ### Within Each User Story
 
@@ -200,7 +200,7 @@ Task: "T016 [P] [US2] Add a validation test in bevy/crates/game/src/runtime/reso
 
 ```text
 Task: "T022 [P] [US3] Add or update card model registry tests in bevy/crates/game/src/runtime/resources/mod.rs to assert each CardModel has background, frame, foreground, title, and shared back presentation paths"
-Task: "T023 [P] [US3] Add or update scene/view structure tests in bevy/crates/game/src/runtime/systems/mod.rs to keep AppScene always present while one of GameView or CardBrowserView is active"
+Task: "T023 [P] [US3] Add or update scene/view structure tests in bevy/crates/game/src/runtime/systems/mod.rs to keep AppScene always present while one of GameView, DeckBuilderScene, or DebugSettingsScene is active"
 ```
 
 ---
@@ -218,7 +218,7 @@ Task: "T023 [P] [US3] Add or update scene/view structure tests in bevy/crates/ga
 
 1. Deliver US1 to establish the theme root and migrated path references.
 2. Deliver US2 to enforce category prefixes and remove repeated theme names from owned asset names.
-3. Deliver US3 to complete `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` terminology and traceability.
+3. Deliver US3 to complete `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, `CardView`, and `CardViewBundle` terminology and traceability.
 4. Complete Phase 6 to verify tests, desktop check, browser check, and quickstart smoke.
 
 ### Parallel Team Strategy
@@ -235,5 +235,5 @@ Task: "T023 [P] [US3] Add or update scene/view structure tests in bevy/crates/ga
 
 - `[P]` tasks touch different files or can be prepared without depending on incomplete implementation.
 - `[US1]`, `[US2]`, and `[US3]` labels map to the user stories in [spec.md](./spec.md).
-- Use `AppScene` for the always-present app-level scene; use `GameView` and `CardBrowserView` for active sub-screen presentations; use `CardModel` for card data, `CardView` for rendered presentation, and `CardViewBundle` for the visual bundle that creates card visuals after approval.
+- Use `AppScene` for the always-present app-level scene; use `GameView`, `DeckBuilderScene`, and `DebugSettingsScene` for active sub-screen presentations; use `CardModel` for card data, `CardView` for rendered presentation, and `CardViewBundle` for the visual bundle that creates card visuals after approval.
 - Do not move shared shader assets into the theme root unless the spec is changed.

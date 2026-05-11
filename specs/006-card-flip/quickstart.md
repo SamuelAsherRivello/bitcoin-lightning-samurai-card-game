@@ -19,7 +19,7 @@
 
 | Step | Expected Result |
 | ---- | --------------- |
-| Run `scripts/other/RunAppDesktop.ps1` | The desktop app opens to the CardBrowser prototype entry point with one centered inspectable card |
+| Run `scripts/other/RunAppDesktop.ps1` | The desktop app opens to the DeckBuilder prototype entry point with one centered inspectable card |
 | Open the temporary Card UI | A `Flip` button appears in Card UI, separate from DebugHUD |
 | Click `Flip` from the front face | The card rotates toward the back and swaps from CardFront to CardBack at the edge-on midpoint |
 | Move the pointer during the flip | The card keeps its pointer-driven inspection feel without snapping to neutral |
@@ -46,7 +46,7 @@
 | Browser smoke | Web behavior verified or exact tooling/browser blocker documented |
 | Asset audit | Backface asset exists under `bevy/crates/game/assets/cards/card_structure/` and is not duplicated under front-art folders |
 | Art-direction audit | Backface is an abstract superhero-pattern card back, not medieval fantasy, not a character/logo card, and not future box/menu art |
-| Scope audit | CardBrowser remains the current prototype entry point and is not treated as final user-facing game UI |
+| Scope audit | DeckBuilder remains the current prototype entry point and is not treated as final user-facing game UI |
 | UI audit | Card UI remains temporary and separate from DebugHUD |
 
 ## Implementation Verification

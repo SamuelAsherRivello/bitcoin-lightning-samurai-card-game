@@ -14,7 +14,7 @@
 | Contract Item | Requirement |
 | ------------- | ----------- |
 | Persistent scene | `AppScene` is the always-present app-level scene. |
-| Active sub-screen views | `GameView` and `CardBrowserView` are loaded on top of `AppScene`; at most one is active at a time. |
+| Active sub-screen views | `GameView`, `DeckBuilderScene`, and `DebugSettingsScene` are loaded on top of `AppScene`; at most one is active at a time. |
 | Naming | Use `Scene` for the persistent app-level container and `View` for rendered sub-screen presentations. |
 
 ## Cards
@@ -26,7 +26,7 @@
 | Model/View naming | Card data is named `CardModel`; rendered card presentation is named `CardView`. |
 | View bundle contents | `CardViewBundle` creates the root visual entity for one rendered card; card view systems spawn the front layers and back presentation below that root. |
 | Naming | Card folders start with `card_` and do not include `japan`; Rust data/rendering names use `Model` and `View` to disambiguate ownership. |
-| Behavior | Existing bottom-row display, click-to-browser navigation, `CardBrowserView` viewing, and flip behavior remain unchanged. |
+| Behavior | Existing bottom-row display, click-to-DeckBuilderScene navigation, `DeckBuilderScene` viewing, and flip behavior remain unchanged. |
 
 ## Locations
 

@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use super::card_slot_model::{CardSlotBoardModel, CardSlotRect, CardSlotSide};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DebugDrawingTarget {
     GameArea,
@@ -31,7 +33,6 @@ pub enum DebugDrawingTarget {
     LocationCardSlotBottomRightLowerLeft,
     LocationCardSlotBottomRightLowerRight,
     HandArea,
-    SingleCardArea,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,6 +51,10 @@ impl DebugDrawingRect {
             width,
             height,
         }
+    }
+
+    pub const fn from_card_slot_rect(rect: CardSlotRect) -> Self {
+        Self::new(rect.left, rect.top, rect.width, rect.height)
     }
 }
 
@@ -151,11 +156,6 @@ impl DebugDrawingModel {
             "hand area",
             DebugDrawingTarget::HandArea.quantized_rect(),
         );
-        self.replace(
-            DebugDrawingTarget::SingleCardArea,
-            "single card area",
-            DebugDrawingTarget::SingleCardArea.quantized_rect(),
-        );
     }
 
     pub fn request_hand_area(&mut self, label: impl Into<String>) {
@@ -245,7 +245,7 @@ const LOCATION_CARD_SLOT_QUADRANT_TARGETS: [DebugDrawingTarget; 24] = [
 ];
 
 impl DebugDrawingTarget {
-    pub const fn quantized_rect(self) -> DebugDrawingRect {
+    pub fn quantized_rect(self) -> DebugDrawingRect {
         match self {
             DebugDrawingTarget::GameArea => DebugDrawingRect::new(304.0, 0.0, 672.0, 800.0),
             DebugDrawingTarget::LocationAreaTwo => {
@@ -257,81 +257,57 @@ impl DebugDrawingTarget {
             DebugDrawingTarget::LocationAreaFour => {
                 DebugDrawingRect::new(732.0, 224.0, 184.0, 208.0)
             }
-            DebugDrawingTarget::LocationCardSlotTopLeftUpperLeft => {
-                DebugDrawingRect::new(364.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopLeftUpperRight => {
-                DebugDrawingRect::new(456.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopLeftLowerLeft => {
-                DebugDrawingRect::new(364.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopLeftLowerRight => {
-                DebugDrawingRect::new(456.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft => {
-                DebugDrawingRect::new(548.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopCenterUpperRight => {
-                DebugDrawingRect::new(640.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopCenterLowerLeft => {
-                DebugDrawingRect::new(548.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopCenterLowerRight => {
-                DebugDrawingRect::new(640.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopRightUpperLeft => {
-                DebugDrawingRect::new(732.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopRightUpperRight => {
-                DebugDrawingRect::new(824.0, 44.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopRightLowerLeft => {
-                DebugDrawingRect::new(732.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotTopRightLowerRight => {
-                DebugDrawingRect::new(824.0, 134.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomLeftUpperLeft => {
-                DebugDrawingRect::new(364.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomLeftUpperRight => {
-                DebugDrawingRect::new(456.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomLeftLowerLeft => {
-                DebugDrawingRect::new(364.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomLeftLowerRight => {
-                DebugDrawingRect::new(456.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomCenterUpperLeft => {
-                DebugDrawingRect::new(548.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomCenterUpperRight => {
-                DebugDrawingRect::new(640.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomCenterLowerLeft => {
-                DebugDrawingRect::new(548.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomCenterLowerRight => {
-                DebugDrawingRect::new(640.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomRightUpperLeft => {
-                DebugDrawingRect::new(732.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomRightUpperRight => {
-                DebugDrawingRect::new(824.0, 432.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomRightLowerLeft => {
-                DebugDrawingRect::new(732.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::LocationCardSlotBottomRightLowerRight => {
-                DebugDrawingRect::new(824.0, 522.0, 92.0, 90.0)
-            }
-            DebugDrawingTarget::HandArea => DebugDrawingRect::new(360.0, 576.0, 560.0, 208.0),
-            DebugDrawingTarget::SingleCardArea => DebugDrawingRect::new(570.0, 604.0, 128.0, 168.0),
+            DebugDrawingTarget::LocationCardSlotTopLeftUpperLeft
+            | DebugDrawingTarget::LocationCardSlotTopLeftUpperRight
+            | DebugDrawingTarget::LocationCardSlotTopLeftLowerLeft
+            | DebugDrawingTarget::LocationCardSlotTopLeftLowerRight
+            | DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft
+            | DebugDrawingTarget::LocationCardSlotTopCenterUpperRight
+            | DebugDrawingTarget::LocationCardSlotTopCenterLowerLeft
+            | DebugDrawingTarget::LocationCardSlotTopCenterLowerRight
+            | DebugDrawingTarget::LocationCardSlotTopRightUpperLeft
+            | DebugDrawingTarget::LocationCardSlotTopRightUpperRight
+            | DebugDrawingTarget::LocationCardSlotTopRightLowerLeft
+            | DebugDrawingTarget::LocationCardSlotTopRightLowerRight
+            | DebugDrawingTarget::LocationCardSlotBottomLeftUpperLeft
+            | DebugDrawingTarget::LocationCardSlotBottomLeftUpperRight
+            | DebugDrawingTarget::LocationCardSlotBottomLeftLowerLeft
+            | DebugDrawingTarget::LocationCardSlotBottomLeftLowerRight
+            | DebugDrawingTarget::LocationCardSlotBottomCenterUpperLeft
+            | DebugDrawingTarget::LocationCardSlotBottomCenterUpperRight
+            | DebugDrawingTarget::LocationCardSlotBottomCenterLowerLeft
+            | DebugDrawingTarget::LocationCardSlotBottomCenterLowerRight
+            | DebugDrawingTarget::LocationCardSlotBottomRightUpperLeft
+            | DebugDrawingTarget::LocationCardSlotBottomRightUpperRight
+            | DebugDrawingTarget::LocationCardSlotBottomRightLowerLeft
+            | DebugDrawingTarget::LocationCardSlotBottomRightLowerRight => self
+                .runtime_rect(&CardSlotBoardModel::default())
+                .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0)),
+            DebugDrawingTarget::HandArea => DebugDrawingRect::new(364.0, 612.0, 552.0, 188.0),
         }
+    }
+
+    pub fn runtime_rect(self, slot_board: &CardSlotBoardModel) -> Option<DebugDrawingRect> {
+        let (location_index, side, slot_index) = self.card_slot_identity()?;
+        slot_board
+            .slot_rect(location_index, side, slot_index)
+            .map(DebugDrawingRect::from_card_slot_rect)
+    }
+
+    fn card_slot_identity(self) -> Option<(usize, CardSlotSide, usize)> {
+        let index = LOCATION_CARD_SLOT_QUADRANT_TARGETS
+            .iter()
+            .position(|target| *target == self)?;
+        let side = if index < 12 {
+            CardSlotSide::Opponent
+        } else {
+            CardSlotSide::LocalPlayer
+        };
+        let side_index = index % 12;
+        let location_index = side_index / 4;
+        let slot_index = side_index % 4;
+
+        Some((location_index, side, slot_index))
     }
 }
 
@@ -377,14 +353,7 @@ mod tests {
     fn default_model_requests_reference_debug_drawing_layout() {
         let model = DebugDrawingModel::default();
 
-        assert_eq!(model.requests().len(), 30);
-        assert_eq!(
-            model
-                .request_for(DebugDrawingTarget::SingleCardArea)
-                .unwrap()
-                .rect,
-            DebugDrawingRect::new(570.0, 604.0, 128.0, 168.0)
-        );
+        assert_eq!(model.requests().len(), 29);
         assert_eq!(
             model
                 .request_for(DebugDrawingTarget::LocationAreaTwo)
@@ -431,6 +400,16 @@ mod tests {
                 .unwrap()
                 .color,
             DebugDrawingColor::blue()
+        );
+    }
+
+    #[test]
+    fn location_slot_debug_targets_read_runtime_slot_rects() {
+        let board = CardSlotBoardModel::default();
+
+        assert_eq!(
+            DebugDrawingTarget::LocationCardSlotBottomRightLowerRight.runtime_rect(&board),
+            Some(DebugDrawingRect::new(824.0, 522.0, 92.0, 90.0))
         );
     }
 }

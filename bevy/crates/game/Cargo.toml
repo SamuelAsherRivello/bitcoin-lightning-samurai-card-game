@@ -16,6 +16,7 @@ fast-dev = ["bevy/dynamic_linking"]
 bevy.workspace = true
 bevy_aspect_ratio_mask.workspace = true
 bevy-inspector-egui.workspace = true
+bevy_tweening = "0.15"
 bevy-persistent = { version = "0.10.0", features = ["json", "pretty"] }
 bevy_card_game_shared.workspace = true
 bevy_hotpatching_experiments = { version = "0.4.0", optional = true }

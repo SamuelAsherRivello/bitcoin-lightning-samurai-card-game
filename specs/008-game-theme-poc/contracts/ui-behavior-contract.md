@@ -8,9 +8,9 @@
 | Press `T` | Cycle active world between Bamboo Forest and Coastal Harbor. | Do not change CardUI settings or card identities. |
 | World changes | Randomly select and render three tactical locations from the six reusable locations. | Do not render fewer or more than three active locations. |
 | Move cursor/touch | Bottom cards lean subtly toward pointer/touch while remaining readable. | Do not create exaggerated tilt that obscures names or silhouettes. |
-| Click/tap a card | Open Card Browser focused on that clicked card. | Do not always open a default card regardless of click target. |
+| Click/tap a card | Open Deck Builder focused on that clicked card. | Do not always open a default card regardless of click target. |
 
-## Card Browser Contract
+## Deck Builder Contract
 
 | Interaction | Required Behavior | Must Not Happen |
 | ----------- | ----------------- | --------------- |

@@ -98,7 +98,7 @@
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `app_scene_present` | bool | Whether the always-present `AppScene` should be assumed present by architecture. |
-| `active_view` | string | Current user-facing view, such as `GameView` or `CardBrowserView`, from reflected state or screenshot DebugHUD text. |
+| `active_view` | string | Current user-facing view, such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene`, from reflected state or screenshot DebugHUD text. |
 | `evidence` | enum | `reflected_state`, `screenshot_text`, or `visual_inference`. |
 
 **Validation Rules**:

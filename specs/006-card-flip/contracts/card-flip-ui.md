@@ -2,7 +2,7 @@
 
 ## Surface
 
-The temporary `Card UI` window inside the current `CardBrowser` prototype entry point exposes a `Flip` button alongside card presentation controls. `Card UI` is separate from DebugHUD. `CardBrowser`, Card UI, and DebugHUD are not treated as final user-facing game UI by this feature.
+The temporary `Card UI` window inside the current `DeckBuilder` prototype entry point exposes a `Flip` button alongside card presentation controls. `Card UI` is separate from DebugHUD. `DeckBuilder`, Card UI, and DebugHUD are not treated as final user-facing game UI by this feature.
 
 ## User Actions
 
@@ -35,5 +35,5 @@ The temporary `Card UI` window inside the current `CardBrowser` prototype entry 
 | Front-specific backs | CardBack does not vary by active card front in this feature phase |
 | CardBack content | CardBack contains no words, readable letters, characters, logos, or clear icon-like symbols |
 | Future brand surfaces | Game box cover art and main menu art are not designed by this feature |
-| Final game UI | CardBrowser is not promoted to final user-facing game UI by this feature |
+| Final game UI | DeckBuilder is not promoted to final user-facing game UI by this feature |
 | DebugHUD separation | Card UI remains separate from DebugHUD and the Flip button is not a DebugHUD toggle |

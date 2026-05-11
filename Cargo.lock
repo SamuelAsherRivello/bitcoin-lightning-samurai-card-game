@@ -201,7 +201,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
  "x11rb",
 ]
 
@@ -381,6 +381,7 @@ dependencies = [
  "bevy_aspect_ratio_mask",
  "bevy_card_game_shared",
  "bevy_hotpatching_experiments",
+ "bevy_tweening",
  "fastrand",
  "serde",
  "serde_json",
@@ -1727,6 +1728,16 @@ dependencies = [
  "bevy_utils",
  "derive_more",
  "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "bevy_tweening"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af8511c4208a4eb3fdec028088a2ff63f2a4ae4a7079eeb56a0cffae19fe064f"
+dependencies = [
+ "bevy",
  "thiserror 2.0.18",
 ]
 

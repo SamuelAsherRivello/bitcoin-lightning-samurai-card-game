@@ -37,8 +37,7 @@
 | unlabeled | Bottom location card slot | `left=364 top=432 width=184 height=180` | UI order 1, below 3D card overlay order 2 |
 | unlabeled | Bottom location card slot | `left=548 top=432 width=184 height=180` | UI order 1, below 3D card overlay order 2 |
 | unlabeled | Bottom location card slot | `left=732 top=432 width=184 height=180` | UI order 1, below 3D card overlay order 2 |
-| `hand area` | Hand area | `left=360 top=576 width=560 height=208` | UI order 1, below 3D card overlay order 2 |
-| `single card area` | Single card area | `left=570 top=604 width=128 height=168` | UI order 1, below 3D card overlay order 2 |
+| `hand area` | Hand area | `left=364 top=612 width=552 height=188` | UI order 1, below 3D card overlay order 2 |
 
 The default `DebugDrawingModel` requests this full reference layout, but the lines render only when the persisted DebugHUD `D` toggle is on and the active view is `GameView`. Use `remove(target)` to clear a mark, `replace(target, label, rect)` to move or relabel one mark, and `request_reference_layout()` to restore the six inspiration-layout annotations.
 
@@ -46,7 +45,7 @@ The default `DebugDrawingModel` requests this full reference layout, but the lin
 
 | Control Or Script | Purpose | Expected Behavior |
 | ----------------- | ------- | ----------------- |
-| `H` DebugHUD toggle | Enables automatic runtime rebuild after hot patches | When `H` is on and any desktop hot-patch event arrives, the app rebuilds the persistent `AppScene`, respawns the DebugHUD, and rebuilds the current sub-screen view such as `GameView` or `CardBrowserView` |
+| `H` DebugHUD toggle | Enables automatic runtime rebuild after hot patches | When `H` is on and any desktop hot-patch event arrives, the app rebuilds the persistent `AppScene`, respawns the DebugHUD, and rebuilds the current sub-screen view such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` |
 | `R` DebugHUD key | Manual runtime rebuild | Rebuilds the `AppScene` and current sub-screen without waiting for a hot-patch event |
 | `scripts/main/RunAppDesktopHotReload.ps1` | Desktop Rust hot-patch workflow | Runs `dx serve --hot-patch --windows` with `desktop-hot-reload` and `asset-hot-reload`; edit hot-enabled Rust systems and save |
 | `scripts/main/RunAppDesktop.ps1` | Standard desktop workflow | Builds/runs without Rust hot patching, but includes asset hot reload in non-release mode |

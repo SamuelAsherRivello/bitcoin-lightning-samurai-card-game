@@ -13,18 +13,18 @@
 - Q: What should CardBack look like for this feature? -> A: One shared superhero-pattern back matching the current front palette, with no words, characters, or clear symbols.
 - Q: What does `T` change during this prototype? -> A: `T` changes the active card front definition; if CardBack is visible, the change is hidden until the card is flipped face up.
 - Q: What owns CardBack conceptually? -> A: The card series owns the shared CardBack; individual card definitions own their CardFront content.
-- Q: What is `CardBrowser` in this feature? -> A: `CardBrowser` remains the current prototype entry point, but it is not intended to be a final user-facing game surface.
+- Q: What is `DeckBuilder` in this feature? -> A: `DeckBuilder` remains the current prototype entry point, but it is not intended to be a final user-facing game surface.
 - Q: What is `Card UI` in this feature? -> A: `Card UI` is a temporary prototype control surface, separate from DebugHUD, and is not final user-facing game UI.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Flip Card From Front To Back (Priority: P1)
 
-A reviewer opens the current `CardBrowser` prototype entry point, uses the temporary Card UI, and clicks a new `Flip` button to animate the visible card from its current front-face presentation to the card backface.
+A reviewer opens the current `DeckBuilder` prototype entry point, uses the temporary Card UI, and clicks a new `Flip` button to animate the visible card from its current front-face presentation to the card backface.
 
 **Why this priority**: The feature's primary value is direct reviewer control over seeing the card's two sides while preserving the single-card inspection flow.
 
-**Independent Test**: Launch the `CardBrowser` prototype entry point, click `Flip` in the Card UI while the current front face is visible, and verify the card animates to a back-facing state without changing scene scope.
+**Independent Test**: Launch the `DeckBuilder` prototype entry point, click `Flip` in the Card UI while the current front face is visible, and verify the card animates to a back-facing state without changing scene scope.
 
 **Acceptance Scenarios**:
 
@@ -107,14 +107,14 @@ A reviewer can press `T` while the card back is visible to change the active car
 - If the temporary Card UI is hidden or disabled by existing debug controls, the flip state should remain valid and the card should not change faces unexpectedly.
 - If `T` is pressed while CardBack is visible, the card should keep showing CardBack until a flip reveals CardFront.
 - If future tabletop behavior is introduced later, this prototype's flip behavior should remain card-level behavior and should not imply tabletop placement or multi-card UI in this feature.
-- If the final game entry point is introduced later, `CardBrowser` should remain understood as a prototype/developer browsing surface rather than the final user-facing game UI.
+- If the final game entry point is introduced later, `DeckBuilder` should remain understood as a prototype/developer browsing surface rather than the final user-facing game UI.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: The Card UI MUST include a button labeled `Flip`.
-- **FR-001a**: `CardBrowser` MUST remain the current project entry point for this feature's one-card prototype workflow.
+- **FR-001a**: `DeckBuilder` MUST remain the current project entry point for this feature's one-card prototype workflow.
 - **FR-001b**: Card UI MUST remain a temporary prototype control surface separate from DebugHUD.
 - **FR-002**: Activating `Flip` while the card front face is visible MUST animate the card to its back face.
 - **FR-003**: Activating `Flip` while the card back face is visible MUST animate the card back to its front face.
@@ -141,14 +141,14 @@ A reviewer can press `T` while the card back is visible to change the active car
 - **FR-024**: When CardBack is visible and `T` changes the active card front definition, the visible card MUST remain face down until the reviewer flips it face up.
 - **FR-025**: When CardFront is visible and `T` changes the active card front definition, the visible front content MUST update to the active card definition.
 - **FR-026**: Broader gameplay concepts such as Game, Player, Deck, hand, placed cards, shared board locations, and Table Top MUST remain in `007-gameplay-concepts` rather than becoming implementation scope for this feature.
-- **FR-027**: This feature MUST NOT promote `CardBrowser` into final user-facing game UI; it remains a prototype/developer entry point.
+- **FR-027**: This feature MUST NOT promote `DeckBuilder` into final user-facing game UI; it remains a prototype/developer entry point.
 - **FR-028**: This feature MUST NOT promote Card UI into final user-facing game UI and MUST NOT merge it with DebugHUD.
 
 ### Key Entities
 
 - **Card UI**: The temporary prototype control surface that gains the `Flip` button; separate from DebugHUD and not intended as final user-facing game UI.
 - **DebugHUD**: The existing debug overlay/control surface for diagnostics and debug toggles; separate from Card UI.
-- **CardBrowser**: The current prototype entry point for viewing and inspecting one card; not intended to be the final user-facing game surface.
+- **DeckBuilder**: The current prototype entry point for viewing and inspecting one card; not intended to be the final user-facing game surface.
 - **Flip Button**: The Card UI action that toggles the card between front-facing and back-facing presentation through animation.
 - **CardSeries**: The shared set or collection identity that owns the common CardBack used across cards from that series.
 - **CardDefinition**: Static card-front identity and content; currently represented by the prototype's switchable front entries.
@@ -167,7 +167,7 @@ A reviewer can press `T` while the card back is visible to change the active car
 - **SC-004**: In pointer movement tests during flip, the card continues responding to pointer-driven inspection without snapping to neutral in 100% of tested attempts.
 - **SC-005**: In active-card-front toggle tests with at least two front entries available, CardBack remains visually unchanged in 100% of tested backface views.
 - **SC-006**: In repeated-click tests, the card always settles into a valid front or back state within the documented animation duration and never disappears, jitters indefinitely, or shows both faces at once.
-- **SC-007**: In scope review, the feature adds only CardBrowser one-card prototype flip behavior, active front switching, and backface presentation; no tabletop placement, gameplay, deck browsing, hand UI, location UI, multiple-card layout, dragging, scoring, turns, rules, or menu flow is present.
+- **SC-007**: In scope review, the feature adds only DeckBuilder one-card prototype flip behavior, active front switching, and backface presentation; no tabletop placement, gameplay, deck browsing, hand UI, location UI, multiple-card layout, dragging, scoring, turns, rules, or menu flow is present.
 - **SC-008**: In art-direction review, at least 4 out of 5 reviewers identify CardBack as compatible with the existing superhero card-front palette and tone.
 - **SC-009**: In content review, CardBack contains no words, readable letters, characters, logos, or clear icon-like symbols in 100% of inspected backface views.
 - **SC-010**: In hidden-front tests, pressing `T` while CardBack is visible keeps CardBack visible in 100% of attempts, and the changed CardFront becomes visible only after flipping face up.
@@ -179,7 +179,7 @@ A reviewer can press `T` while the card back is visible to change the active car
 - The existing pointer-driven inspection behavior remains the source of non-flip tilt during the feature.
 - CardBack is one shared superhero-pattern rectangular visual, located with CardStructure assets and owned by the card series.
 - The current switchable front entries stand in for CardDefinitions during this prototype; future CardDefinitions may include non-character front content.
-- `CardBrowser` is currently the only entry point to the project, but it is not intended to be a final user-facing game surface.
+- `DeckBuilder` is currently the only entry point to the project, but it is not intended to be a final user-facing game surface.
 - Card UI is temporary and separate from DebugHUD; this feature should not merge those surfaces or imply either is final game UI.
 - The Pinterest board is used only as composition inspiration for trading-card backs; the game should translate that inspiration into a superhero tone rather than a medieval fantasy tone.
 - Future tabletop, box cover art, and main menu visuals may share the eventual CardBack theme, but they are out of scope for this feature.

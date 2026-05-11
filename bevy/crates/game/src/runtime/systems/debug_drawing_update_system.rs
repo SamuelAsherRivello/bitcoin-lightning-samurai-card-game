@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_hotpatching_experiments::hot;
 
 use crate::runtime::components::{DebugDrawing, GameViewRoot};
-use crate::runtime::resources::{ActiveView, DebugDrawingModel, DebugHudState};
+use crate::runtime::resources::{ActiveView, CardSlotBoardModel, DebugDrawingModel, DebugHudState};
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
 /// HUMAN: Synchronizes requested debug drawings with visible game-scene annotations.
@@ -11,6 +11,7 @@ use crate::runtime::resources::{ActiveView, DebugDrawingModel, DebugHudState};
 pub fn debug_drawing_update_system(
     mut commands: Commands,
     model: Res<DebugDrawingModel>,
+    slot_board: Res<CardSlotBoardModel>,
     active_view: Res<ActiveView>,
     hud_state: Res<DebugHudState>,
     game_view_query: Query<Entity, With<GameViewRoot>>,
@@ -45,16 +46,20 @@ pub fn debug_drawing_update_system(
             continue;
         }
 
+        let rect = request
+            .target
+            .runtime_rect(&slot_board)
+            .unwrap_or(request.rect);
         let drawing = commands
             .spawn((
                 Name::new(format!("Debug Drawing: {}", request.label)),
                 DebugDrawing::new(request.target, request.generation),
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Px(request.rect.left),
-                    top: Val::Px(request.rect.top),
-                    width: Val::Px(request.rect.width),
-                    height: Val::Px(request.rect.height),
+                    left: Val::Px(rect.left),
+                    top: Val::Px(rect.top),
+                    width: Val::Px(rect.width),
+                    height: Val::Px(rect.height),
                     border: UiRect::all(Val::Px(2.0)),
                     ..Default::default()
                 },
@@ -99,6 +104,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<DebugDrawingModel>()
+            .init_resource::<CardSlotBoardModel>()
             .init_resource::<ActiveView>()
             .init_resource::<DebugHudState>()
             .add_systems(Update, debug_drawing_update_system);
@@ -114,7 +120,7 @@ mod tests {
             .query_filtered::<Entity, With<DebugDrawing>>()
             .iter(app.world())
             .collect();
-        assert_eq!(drawings.len(), 30);
+        assert_eq!(drawings.len(), 29);
         assert!(
             app.world()
                 .entity(game_view)
@@ -129,6 +135,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<DebugDrawingModel>()
+            .init_resource::<CardSlotBoardModel>()
             .init_resource::<ActiveView>()
             .init_resource::<DebugHudState>()
             .add_systems(Update, debug_drawing_update_system);
@@ -166,6 +173,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<DebugDrawingModel>()
+            .init_resource::<CardSlotBoardModel>()
             .init_resource::<ActiveView>()
             .init_resource::<DebugHudState>()
             .add_systems(Update, debug_drawing_update_system);
@@ -194,6 +202,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<DebugDrawingModel>()
+            .init_resource::<CardSlotBoardModel>()
             .init_resource::<ActiveView>()
             .init_resource::<DebugHudState>()
             .add_systems(Update, debug_drawing_update_system);
@@ -222,10 +231,11 @@ mod tests {
     }
 
     #[test]
-    fn card_browser_view_hides_game_scene_debug_drawings() {
+    fn deck_builder_scene_hides_game_scene_debug_drawings() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<DebugDrawingModel>()
+            .init_resource::<CardSlotBoardModel>()
             .init_resource::<ActiveView>()
             .init_resource::<DebugHudState>()
             .add_systems(Update, debug_drawing_update_system);
@@ -235,7 +245,7 @@ mod tests {
             .is_debug_drawing_visible = true;
         app.update();
 
-        *app.world_mut().resource_mut::<ActiveView>() = ActiveView::CardBrowserView;
+        *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckBuilderScene;
         app.update();
 
         assert_eq!(

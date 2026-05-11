@@ -15,11 +15,11 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Confirm the active feature context, preserve the CardBrowser prototype entry point, and prepare the shared asset slot.
+**Purpose**: Confirm the active feature context, preserve the DeckBuilder prototype entry point, and prepare the shared asset slot.
 
 - [X] T001 Verify `.specify/feature.json` points to `specs/006-card-flip` and `AGENTS.md` active plan points to `specs/006-card-flip/plan.md`
 - [X] T002 [P] Create the shared card back source asset `bevy/crates/game/assets/cards/card_structure/card_back_superhero_pattern.png`
-- [X] T003 [P] Audit current CardBrowser runtime entry points in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T003 [P] Audit current DeckBuilder runtime entry points in `bevy/crates/game/src/runtime/systems/mod.rs`
 
 ---
 
@@ -43,7 +43,7 @@
 
 **Goal**: The temporary Card UI has a `Flip` button that animates the current front-facing card to the shared back-facing state.
 
-**Independent Test**: Launch the CardBrowser prototype, click `Flip` in the Card UI while CardFront is visible, and verify the card animates to CardBack without adding gameplay or extra cards.
+**Independent Test**: Launch the DeckBuilder prototype, click `Flip` in the Card UI while CardFront is visible, and verify the card animates to CardBack without adding gameplay or extra cards.
 
 ### Tests for User Story 1
 
@@ -156,7 +156,7 @@
 - [X] T039 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` and record any blocker in `specs/006-card-flip/quickstart.md`
 - [ ] T040 Manually verify desktop Card UI flip, midpoint swap, pointer inspection, `T` while face up, and `T` while face down using `scripts/other/RunAppDesktop.ps1`
 - [ ] T041 Manually verify browser Card UI flip behavior using `scripts/other/RunAppWeb.ps1 -NoOpen` or document exact browser/WebGPU blocker in `specs/006-card-flip/quickstart.md`
-- [X] T042 Verify docs state CardBrowser is the current prototype entry point but not final user-facing game UI in `specs/006-card-flip/spec.md`
+- [X] T042 Verify docs state DeckBuilder is the current prototype entry point but not final user-facing game UI in `specs/006-card-flip/spec.md`
 - [X] T043 Verify docs state Card UI is temporary and separate from DebugHUD in `specs/006-card-flip/spec.md`
 
 ---
@@ -234,6 +234,6 @@ Task: "Add a test that active front changes do not change CardBack material or t
 
 - Keep broad Game, Player, Deck, hand, placed card, shared location, and Table Top concepts in `specs/007-gameplay-concepts/spec.md`.
 - Keep implementation scoped to `bevy/crates/game` runtime ECS files and `bevy/crates/game/assets/cards/card_structure/`.
-- Keep `CardBrowser` as the current project entry point for this prototype, but do not treat it as final user-facing game UI.
+- Keep `DeckBuilder` as the current project entry point for this prototype, but do not treat it as final user-facing game UI.
 - Keep Card UI temporary and separate from DebugHUD; do not add Flip as a DebugHUD toggle.
 - Do not introduce gameplay, tabletop placement, hand UI, location UI, deck browser UI, turns, scoring, dragging, or menu flow in this feature.

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::{CostPointModel, PowerPointModel};
+use crate::runtime::resources::{CardSlotSide, CostPointModel, PowerPointModel};
 
 /// HUMAN: Marker and data for a rendered cost point view.
 /// AI: CostPointView presents play-budget cost only; never use it for scoring totals.
@@ -25,5 +25,22 @@ pub struct PowerPointView {
 impl PowerPointView {
     pub const fn new(model: PowerPointModel) -> Self {
         Self { model }
+    }
+}
+
+/// HUMAN: Identifies a location-side power total rendered in GameView.
+/// AI: Systems recalculate this from runtime slot/card data; the text is only presentation.
+#[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
+pub struct LocationPowerPointView {
+    pub location_index: usize,
+    pub side: CardSlotSide,
+}
+
+impl LocationPowerPointView {
+    pub const fn new(location_index: usize, side: CardSlotSide) -> Self {
+        Self {
+            location_index,
+            side,
+        }
     }
 }

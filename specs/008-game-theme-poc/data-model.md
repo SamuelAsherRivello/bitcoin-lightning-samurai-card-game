@@ -6,10 +6,10 @@
 | ------ | ------ | ------------- | ---------------- |
 | `WorldTheme` | `id`, `display_name`, `background_texture`, `lighting_profile`, `location_treatment` | Active GameScene has one `WorldTheme`. | Supported values are `bamboo_forest` and `coastal_harbor`; paths use lowercase `snake_case`; changing world does not change CardUI settings or card identities. |
 | `TacticalLocation` | `id`, `display_name`, `base_art`, `world_variant_treatment` | GameScene displays three selected locations from six total. | Supported values are `fortress_gate`, `bamboo_crossing`, `shrine_ruins`, `battlefield`, `spirit_well`, and `market_square`; each selection shows exactly three locations. |
-| `CardCharacter` | `id`, `name`, `title`, `visual_family`, `background_texture`, `foreground_texture`, `frame_texture`, `title_texture`, `composition` | GameScene displays four cards; Card Browser focuses one selected card. | Supported values are `kage_ren`, `lord_daichi`, `sister_hotaru`, and `yokai_placeholder`; every card uses a shared `840 x 1440` front-layer canvas, runtime renders the card silhouette at 2:3, and card fronts render in background, frame, safe-area reference, foreground, title order. |
+| `CardCharacter` | `id`, `name`, `title`, `visual_family`, `background_texture`, `foreground_texture`, `frame_texture`, `title_texture`, `composition` | GameScene displays four cards; Deck Builder focuses one selected card. | Supported values are `kage_ren`, `lord_daichi`, `sister_hotaru`, and `yokai_placeholder`; every card uses a shared `840 x 1440` front-layer canvas, runtime renders the card silhouette at 2:3, and card fronts render in background, frame, safe-area reference, foreground, title order. |
 | `CardUiSettings` | `depth_factor`, `show_safe_area`, `background_layer_scale`, `frame_layer_scale`, `foreground_layer_scale`, `title_layer_scale` | Applied globally to all cards; persisted through existing card settings storage. | Settings are not world-specific and not card-specific; `show_safe_area` only toggles the reference overlay; layer scales default to `1.0`, clamp to `0.0..=2.0`, apply uniformly to x/y, preserve each layer center point, and can be reset individually to `1.0`. |
-| `CardFlipSessionState` | `current_y_rotation`, `target_y_rotation`, `visible_face` | Applies to the currently viewed Card Browser card. | State is temporary and is not written to CardUI settings or card identity data. |
-| `ActiveScene` | `game`, `card_browser` | Determines whether `T` controls world theme or CardUI settings. | In GameScene, `T` cycles world theme; in Card Browser, `T` changes CardUI settings. |
+| `CardFlipSessionState` | `current_y_rotation`, `target_y_rotation`, `visible_face` | Applies to the currently viewed Deck Builder card. | State is temporary and is not written to CardUI settings or card identity data. |
+| `ActiveScene` | `game`, `deck_builder` | Determines whether `T` controls world theme or CardUI settings. | In GameScene, `T` cycles world theme; in Deck Builder, `T` changes CardUI settings. |
 
 ## State Transitions
 
@@ -17,10 +17,10 @@
 | ------- | -------------- | ------ | ----------- |
 | Open game | No active scene visible | GameScene shows one active world, three locations, and four bottom cards. | Active world initial value is runtime state only unless implementation explicitly persists it later. |
 | Press `T` in GameScene | Active world is Bamboo Forest or Coastal Harbor | Active world switches to the other supported world and three locations are selected/rendered. | Does not modify CardUI settings. |
-| Click/tap bottom card | GameScene visible | Card Browser opens focused on clicked card. | Focused card is navigation state; not a durable card setting. |
-| Press `T` in Card Browser | Card Browser visible | Global CardUI settings change and visible card presentation updates. | CardUI settings are stored globally. |
-| Flip card in Card Browser | Card Browser visible | Current viewed card flips front/back for animation testing. | Flip state is temporary and not stored. |
-| Return to GameScene | Card Browser visible | GameScene returns with active world unchanged. | CardUI settings continue applying globally to cards. |
+| Click/tap bottom card | GameScene visible | Deck Builder opens focused on clicked card. | Focused card is navigation state; not a durable card setting. |
+| Press `T` in Deck Builder | Deck Builder visible | Global CardUI settings change and visible card presentation updates. | CardUI settings are stored globally. |
+| Flip card in Deck Builder | Deck Builder visible | Current viewed card flips front/back for animation testing. | Flip state is temporary and not stored. |
+| Return to GameScene | Deck Builder visible | GameScene returns with active world unchanged. | CardUI settings continue applying globally to cards. |
 
 ## Asset Identity
 
