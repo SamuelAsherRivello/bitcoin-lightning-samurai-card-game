@@ -39,6 +39,7 @@
 - Confirm first-time native database/schema/seed setup remains in `create_database_if_missing()` and normal reads do not recreate or reseed existing data.
 - Confirm browser-visible changes have a practical served-web verification path.
 - Confirm the feature follows the selected language and framework standards.
+- Confirm all on-screen 2D and 3D positions derive from the aspect-ratio-safe game view and are recalculated when the viewport changes.
 - Confirm any framework-specific API constraints are documented in the plan.
 
 ## Project Structure

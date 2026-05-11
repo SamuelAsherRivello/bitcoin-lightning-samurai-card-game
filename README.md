@@ -32,7 +32,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | Key | Behavior |
 | --- | -------- |
 | `W` / `A` / `S` / `D` | DebugHUD hold indicators for directional input state. |
-| `R` | Reloads the card browser scene content without restarting the app. |
+| `R` | Reloads the active AppScene child scene without restarting the app. |
 | `T` | In GameScene, cycles the active world between Bamboo Forest and Coastal Harbor; in Card Browser, cycles global CardUI presentation settings. |
 | `F` | Toggles the FPS readout. |
 | `I` | Toggles the Bevy inspector window. |
@@ -59,9 +59,10 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | First checkout | `scripts/main/InstallDependencies.ps1` warms the same desktop cache once, so later `RunAppDesktop.ps1` calls only rebuild changed code. |
 | Default run | `scripts/other/RunAppDesktop.ps1` compiles only changed artifacts, then opens the cached desktop executable. |
 | Headless compile helper | `scripts/other/CompileApp.ps1` centralizes Cargo build, check, and test setup for the main run scripts. |
-| Fast validation | `scripts/other/RunAppDesktop.ps1 -CheckOnly` runs `cargo check -p bevy-card-game --features fast-dev` without launching the app. |
+| Fast validation | `scripts/other/RunAppDesktop.ps1 -CheckOnly` runs `cargo check -p bevy-card-game --features asset-hot-reload,fast-dev` without launching the app. |
 | Fast dev feature | Non-release desktop runs enable `fast-dev`, which turns on Bevy dynamic linking for faster edit-run cycles after the first build. |
-| Desktop hot reload | `scripts/main/RunAppDesktopHotReload.ps1` uses Dioxus CLI hot patching with `target/run-app-desktop-hot-reload` and keeps output in the terminal. |
+| Asset hot reload | Desktop run scripts enable `asset-hot-reload`, which turns on Bevy file watching for changed runtime assets including bitmap textures. |
+| Desktop hot reload | `scripts/main/RunAppDesktopHotReload.ps1` uses Dioxus CLI hot patching with `target/run-app-desktop-hot-reload`, enables asset file watching, and keeps output in the terminal. |
 | Web target | `scripts/other/RunAppWeb.ps1` builds `wasm32-unknown-unknown` into `target/run-app-web`, runs `wasm-bindgen`, serves the generated page on localhost, and opens the browser. |
 | Explicit target | Pass `-TargetTriple x86_64-pc-windows-msvc` only when a separate target cache is required. |
 
@@ -98,7 +99,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | ---- | ------ |
 | Language | Rust 2024 |
 | Engine | Bevy 0.18.1 |
-| Runtime dependencies | `bevy-inspector-egui`, `bevy-persistent`, `serde`, `serde_json`; optional `dioxus-devtools` for desktop hot reload |
+| Runtime dependencies | `bevy-inspector-egui`, `bevy-persistent`, `serde`, `serde_json`; optional `bevy_hotpatching_experiments` for desktop code hot reload |
 | Architecture | Shared runtime crate plus game-specific ECS components, resources, systems, plugins, generated card-type assets, and local persisted runtime state |
 | Workspace | Cargo workspace rooted at this repository |
 

@@ -2,22 +2,26 @@ use bevy::prelude::*;
 
 use crate::runtime::resources::{
     ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CardFlipState,
-    CardInspectionDefaults, CardInspectionState, CardTypeRegistry, CardUiState, DebugHudInputStore,
-    DebugHudState, GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry,
-    WindowPlacementState, WorldThemeRegistry,
+    CardInspectionDefaults, CardInspectionState, CardTypeRegistry, CardUiState, DebugHudState,
+    GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacementState,
+    WorldThemeRegistry,
 };
 #[cfg(not(target_arch = "wasm32"))]
-use crate::runtime::resources::{create_card_settings_store, create_debug_hud_input_store};
+use crate::runtime::resources::{
+    DebugHudInputStore, create_card_settings_store, create_debug_hud_input_store,
+};
 use crate::runtime::systems::{
     advance_ticks, constrain_card_browser_camera_to_safe_area,
-    hot_reload_auto_restart_card_browser_scene, load_saved_card_settings,
-    load_saved_debug_hud_input, load_saved_window_placement, quit_app_on_escape,
-    restart_card_browser_scene, restore_window_placement_to_current_monitors,
-    save_window_placement_on_close, scale_debug_hud, setup_app_scene, setup_game, setup_game_scene,
-    setup_inspector, smooth_card_rotation, toggle_active_scene, toggle_card_type,
-    toggle_debug_hud_inputs, toggle_inspector, track_card_pointer_target, track_window_placement,
-    track_window_size, update_card_face_visibility, update_card_flip_animation,
-    update_card_frame_shine, update_card_parallax_layers, update_debug_hud, update_end_turn_button,
+    constrain_game_scene_3d_cameras_to_safe_area, hot_reload_auto_restart_app_scene,
+    load_saved_card_settings, load_saved_debug_hud_input, load_saved_window_placement,
+    log_game_scene_card_render_diagnostics, quit_app_on_escape,
+    record_desktop_hot_reload_patch_message, restart_app_scene,
+    restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
+    setup_app_scene, setup_game, setup_game_scene, setup_inspector, smooth_card_rotation,
+    toggle_active_scene, toggle_card_type, toggle_debug_hud_inputs, toggle_inspector,
+    track_card_pointer_target, track_window_placement, track_window_size,
+    update_card_face_visibility, update_card_flip_animation, update_card_frame_shine,
+    update_card_parallax_layers, update_debug_hud, update_end_turn_button,
 };
 
 pub struct CoreGamePlugin;
@@ -74,11 +78,10 @@ impl Plugin for CoreGamePlugin {
                     update_card_face_visibility.after(update_card_flip_animation),
                     update_card_parallax_layers.after(smooth_card_rotation),
                     update_card_frame_shine.after(smooth_card_rotation),
+                    log_game_scene_card_render_diagnostics.after(smooth_card_rotation),
                     toggle_card_type,
                     toggle_inspector,
                     update_end_turn_button,
-                    restart_card_browser_scene,
-                    hot_reload_auto_restart_card_browser_scene,
                     update_debug_hud
                         .after(toggle_debug_hud_inputs)
                         .after(toggle_inspector)
@@ -86,7 +89,16 @@ impl Plugin for CoreGamePlugin {
                     scale_debug_hud,
                 ),
             )
+            .add_systems(
+                Update,
+                (
+                    restart_app_scene,
+                    record_desktop_hot_reload_patch_message,
+                    hot_reload_auto_restart_app_scene,
+                ),
+            )
             .add_systems(Update, constrain_card_browser_camera_to_safe_area)
+            .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area)
             .add_systems(
                 Update,
                 quit_app_on_escape.before(save_window_placement_on_close),

@@ -8,19 +8,15 @@ use bevy_card_game::{
     runtime::resources::{DebugHudInputStore, WindowPlacementStore, valid_window_placement},
 };
 use bevy_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
+#[cfg(feature = "desktop-hot-reload")]
+use bevy_hotpatching_experiments::SimpleSubsecondPlugin;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_card_game::runtime::resources::{
     create_debug_hud_input_store, create_window_placement_store,
 };
-#[cfg(feature = "desktop-hot-reload")]
-use dioxus_devtools::{connect_subsecond, subsecond};
-#[cfg(feature = "desktop-hot-reload")]
-use std::sync::Arc;
 
 fn main() {
-    connect_desktop_hot_reload();
-
     let window_placement_store = create_startup_window_placement_store();
     let saved_window_placement = window_placement_store
         .as_ref()
@@ -45,6 +41,7 @@ fn main() {
         DefaultPlugins
             .set(AssetPlugin {
                 file_path: asset_root_path().to_string(),
+                watch_for_changes_override: asset_watch_for_changes_override(),
                 ..default()
             })
             .set(WindowPlugin {
@@ -69,6 +66,9 @@ fn main() {
     } else {
         app.insert_resource(DebugHudInputStore::default());
     }
+
+    #[cfg(feature = "desktop-hot-reload")]
+    app.add_plugins(SimpleSubsecondPlugin::default());
 
     app.add_plugins(GamePlugin).run();
 }
@@ -97,18 +97,6 @@ fn create_startup_debug_hud_input_store()
     None
 }
 
-#[cfg(feature = "desktop-hot-reload")]
-fn connect_desktop_hot_reload() {
-    subsecond::register_handler(Arc::new(|| {
-        info!("Desktop hot reload patch applied");
-        bevy_card_game::runtime::resources::record_desktop_hot_reload_patch();
-    }));
-    connect_subsecond();
-}
-
-#[cfg(not(feature = "desktop-hot-reload"))]
-fn connect_desktop_hot_reload() {}
-
 #[cfg(target_arch = "wasm32")]
 fn asset_root_path() -> &'static str {
     "assets"
@@ -117,6 +105,16 @@ fn asset_root_path() -> &'static str {
 #[cfg(not(target_arch = "wasm32"))]
 fn asset_root_path() -> &'static str {
     concat!(env!("CARGO_MANIFEST_DIR"), "/assets")
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "asset-hot-reload"))]
+fn asset_watch_for_changes_override() -> Option<bool> {
+    Some(true)
+}
+
+#[cfg(not(all(not(target_arch = "wasm32"), feature = "asset-hot-reload")))]
+fn asset_watch_for_changes_override() -> Option<bool> {
+    None
 }
 
 #[cfg(test)]

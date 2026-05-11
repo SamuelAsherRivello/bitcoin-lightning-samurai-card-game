@@ -7,7 +7,8 @@ repository.workspace = true
 
 [features]
 default = []
-desktop-hot-reload = ["dep:dioxus-devtools"]
+asset-hot-reload = ["bevy/file_watcher"]
+desktop-hot-reload = ["dep:bevy_hotpatching_experiments"]
 fast-dev = ["bevy/dynamic_linking"]
 
 [dependencies]
@@ -16,6 +17,6 @@ bevy_aspect_ratio_mask.workspace = true
 bevy-inspector-egui.workspace = true
 bevy-persistent = { version = "0.10.0", features = ["json", "pretty"] }
 bevy_card_game_shared.workspace = true
-dioxus-devtools = { version = "0.7.9", optional = true }
+bevy_hotpatching_experiments = { version = "0.4.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

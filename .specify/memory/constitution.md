@@ -1,14 +1,15 @@
 <!--
 Sync Impact Report
-Version change: 1.3.0 -> 1.4.0
+Version change: 1.4.0 -> 1.5.0
 Modified principles:
-- VII. Implementation Standards: clarified lower snake case requirement for all folders under `bevy/`, including asset directories.
-Added sections: None
+- IX. Aspect-Ratio-Relative Runtime Layout: added required game-view layout behavior.
+Added sections:
+- Core Principle IX. Aspect-Ratio-Relative Runtime Layout
 Removed sections: None
 Templates requiring updates:
+- ✅ .specify/templates/spec-template.md
 - ✅ .specify/templates/plan-template.md
 - ✅ .specify/templates/tasks-template.md
-- ✅ .specify/templates/spec-template.md
 Follow-up TODOs: None
 -->
 
@@ -48,6 +49,11 @@ The project and all user-visible capabilities MUST work on Windows desktop and i
 
 Plans and tasks MUST call out any target-specific risk, fallback, or verification gap for Windows desktop or browser WebGPU. A feature is not complete until the relevant desktop and browser workflows are both verified, or the unverified target is explicitly documented as blocked with the reason.
 
+### IX. Aspect-Ratio-Relative Runtime Layout
+The game MUST use the project aspect-ratio system for on-screen layout. All visible 2D UI elements and 3D presentation elements that appear on screen MUST be positioned relative to the aspect-ratio-safe game view rather than raw window pixels or ad hoc world coordinates.
+
+When the screen size, window size, or target viewport changes, on-screen positions MUST be recalculated from the aspect-ratio-safe game view so the composition remains stable across supported desktop and browser WebGPU targets. Fixed pixel values MAY be used only as dimensions inside the virtual game view; placement MUST still derive from the aspect-ratio layout.
+
 ## Project Constraints
 
 - Keep project-specific source layout documented in `README.md` and active specs.
@@ -58,6 +64,7 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 - Keep `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` as replaceable README image slots.
 - Do not introduce unrelated refactors while implementing a feature spec.
 - Do not introduce rendering, shader, asset, UI, or input capabilities that only work on one target unless the active spec documents the temporary limitation and follow-up path.
+- Keep on-screen GameScene and Card Browser layout positions derived from the aspect-ratio-safe game view, including 3D overlays that visually align with 2D UI.
 
 ## Development Workflow
 
@@ -72,4 +79,4 @@ Plans and tasks MUST call out any target-specific risk, fallback, or verificatio
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.4.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-10
+**Version**: 1.5.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-11

@@ -1,7 +1,10 @@
 use bevy::{
     app::AppExit,
     asset::RenderAssetUsages,
-    camera::{ScalingMode, Viewport},
+    camera::{
+        ClearColorConfig, ScalingMode, Viewport,
+        visibility::{NoCpuCulling, RenderLayers},
+    },
     ecs::system::SystemParam,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
@@ -17,6 +20,8 @@ use bevy_card_game_shared::{
     GameTitle,
     window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH},
 };
+#[cfg(feature = "desktop-hot-reload")]
+use bevy_hotpatching_experiments::{HotPatched, hot};
 use bevy_inspector_egui::{
     bevy_egui::{EguiContext, PrimaryEguiContext, egui},
     bevy_inspector,
@@ -38,12 +43,13 @@ use crate::runtime::resources::{
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
     CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardSettingsStore,
     CardType, CardTypeRegistry, CardUiState, DebugHudInputStore, DebugHudState, GameTicks,
-    PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacement, WindowPlacementState,
-    WindowPlacementStore, WorldThemeRegistry, load_window_placement, valid_window_placement,
+    PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacement,
+    WindowPlacementState, WindowPlacementStore, WorldThemeRegistry, load_window_placement,
+    valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
-use crate::runtime::resources::desktop_hot_reload_patch_count;
+use crate::runtime::resources::{desktop_hot_reload_patch_count, record_desktop_hot_reload_patch};
 
 #[cfg(test)]
 use bevy::mesh::VertexAttributeValues;
@@ -76,6 +82,7 @@ const BACKGROUND_APERTURE_SCALE: f32 = 1.0;
 const FRAME_SHINE_STRENGTH: f32 = 0.22;
 const GAME_ROUND_CURRENT: u32 = 1;
 const GAME_ROUND_TOTAL: u32 = 6;
+const GAME_VIEW_ASPECT_RATIO: f32 = GAME_VIEW_WIDTH / GAME_VIEW_HEIGHT;
 const GAME_SCENE_HAND_LEFT_PERCENT: f32 = 24.0;
 const GAME_SCENE_HAND_BOTTOM_PERCENT: f32 = 2.5;
 const GAME_SCENE_HAND_WIDTH_PERCENT: f32 = 52.0;
@@ -84,8 +91,14 @@ const GAME_SCENE_HAND_CARD_HEIGHT: f32 = 192.0;
 const GAME_SCENE_HAND_CARD_WIDTH: f32 =
     GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
 const GAME_SCENE_HAND_CARD_GAP: f32 = 16.0;
+const GAME_SCENE_HAND_CARD_WORLD_Z: f32 = 0.32;
+const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
+const GAME_SCENE_WORLD_BACKGROUND_BLEED: f32 = 1.18;
+const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -0.16;
+const CARD_RENDER_LAYER: usize = 1;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
+const CARD_BROWSER_CARD_HEIGHT_FRACTION: f32 = 0.9;
 const DEBUG_HUD_Z_INDEX: i32 = 100;
 const END_TURN_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_TURN_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
@@ -116,14 +129,28 @@ pub fn constrain_card_browser_camera_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = card_browser_safe_area_viewport(window.resolution.physical_size());
+    let safe_area_viewport = game_view_safe_area_viewport(window.resolution.physical_size());
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
     }
 }
 
-fn card_browser_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
+pub fn constrain_game_scene_3d_cameras_to_safe_area(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    mut camera_query: Query<&mut Camera, (With<GameSceneEntity>, With<Camera3d>)>,
+) {
+    let Ok(window) = primary_window.single() else {
+        return;
+    };
+    let safe_area_viewport = game_view_safe_area_viewport(window.resolution.physical_size());
+
+    for mut camera in &mut camera_query {
+        camera.viewport = safe_area_viewport.clone();
+    }
+}
+
+fn game_view_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
     if window_size.x == 0 || window_size.y == 0 {
         return None;
     }
@@ -160,7 +187,6 @@ fn spawn_primary_camera(
             PrimarySceneCamera,
             CardBrowserSceneEntity,
             Camera3d::default(),
-            PrimaryEguiContext,
             NoIndirectDrawing,
             Projection::Perspective(PerspectiveProjection {
                 fov: camera_defaults.fov_radians,
@@ -168,7 +194,32 @@ fn spawn_primary_camera(
                 far: camera_defaults.far,
                 ..Default::default()
             }),
+            RenderLayers::layer(CARD_RENDER_LAYER),
             camera_transform.transform(),
+        ))
+        .id()
+}
+
+fn spawn_card_browser_ui_camera(commands: &mut Commands) -> Entity {
+    commands
+        .spawn((
+            Name::new("CardBrowserScene UI Camera"),
+            CardBrowserSceneEntity,
+            Camera2d,
+            Camera {
+                order: 1,
+                clear_color: ClearColorConfig::None,
+                ..Default::default()
+            },
+            IsDefaultUiCamera,
+            PrimaryEguiContext,
+            Projection::from(OrthographicProjection {
+                scaling_mode: ScalingMode::AutoMin {
+                    min_width: GAME_VIEW_WIDTH,
+                    min_height: GAME_VIEW_HEIGHT,
+                },
+                ..OrthographicProjection::default_2d()
+            }),
         ))
         .id()
 }
@@ -176,10 +227,14 @@ fn spawn_primary_camera(
 fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("GameScene Camera"),
-            PrimarySceneCamera,
+            Name::new("GameScene UI Camera"),
             GameSceneEntity,
             Camera2d,
+            Camera {
+                order: 1,
+                clear_color: ClearColorConfig::None,
+                ..Default::default()
+            },
             IsDefaultUiCamera,
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
@@ -192,6 +247,67 @@ fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
+fn spawn_game_scene_card_camera(
+    commands: &mut Commands,
+    camera_defaults: &PrimaryCameraDefaults,
+) -> Entity {
+    let mut camera_transform = camera_defaults.clone();
+    camera_transform.position.z = GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
+
+    commands
+        .spawn((
+            Name::new("GameScene 3D Card Camera"),
+            PrimarySceneCamera,
+            GameSceneEntity,
+            Camera3d::default(),
+            Camera {
+                order: 0,
+                ..Default::default()
+            },
+            NoIndirectDrawing,
+            Projection::Perspective(PerspectiveProjection {
+                fov: camera_defaults.fov_radians,
+                near: camera_defaults.near,
+                far: camera_defaults.far,
+                ..Default::default()
+            }),
+            camera_transform.transform(),
+        ))
+        .id()
+}
+
+fn spawn_game_scene_card_overlay_camera(
+    commands: &mut Commands,
+    camera_defaults: &PrimaryCameraDefaults,
+) -> Entity {
+    let mut camera_transform = camera_defaults.clone();
+    camera_transform.position.z = GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
+
+    commands
+        .spawn((
+            Name::new("GameScene 3D Card Overlay Camera"),
+            PrimarySceneCamera,
+            GameSceneEntity,
+            Camera3d::default(),
+            Camera {
+                order: 2,
+                clear_color: ClearColorConfig::None,
+                ..Default::default()
+            },
+            NoIndirectDrawing,
+            Projection::Perspective(PerspectiveProjection {
+                fov: camera_defaults.fov_radians,
+                near: camera_defaults.near,
+                far: camera_defaults.far,
+                ..Default::default()
+            }),
+            RenderLayers::layer(CARD_RENDER_LAYER),
+            camera_transform.transform(),
+        ))
+        .id()
+}
+
+#[cfg_attr(feature = "desktop-hot-reload", hot)]
 pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
     let app_scene = commands
         .spawn((
@@ -270,9 +386,9 @@ fn spawn_game_scene_contents(
     active_world_theme: &ActiveWorldTheme,
     tactical_location_registry: &TacticalLocationRegistry,
     active_locations: &ActiveLocations,
-    _meshes: &mut Assets<Mesh>,
-    _materials: &mut Assets<StandardMaterial>,
-    _masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
     let mut scene = commands.spawn((
         Name::new("GameScene"),
@@ -284,35 +400,49 @@ fn spawn_game_scene_contents(
             height: Val::Percent(100.0),
             ..Default::default()
         },
+        Transform::default(),
+        GlobalTransform::default(),
         Visibility::default(),
     ));
     scene.with_children(|parent| {
         spawn_game_scene_ui(
             parent,
             asset_server,
-            card_type_registry,
-            world_theme_registry,
-            active_world_theme,
             tactical_location_registry,
             active_locations,
         );
     });
     let scene_entity = scene.id();
     spawn_game_scene_camera(commands);
+    spawn_game_scene_card_camera(commands, camera_defaults);
+    spawn_game_scene_card_overlay_camera(commands, camera_defaults);
+    spawn_game_scene_world_background(
+        commands,
+        asset_server,
+        world_theme_registry,
+        active_world_theme,
+        meshes,
+        materials,
+    );
+    spawn_game_scene_hand_cards(
+        commands,
+        asset_server,
+        card_defaults,
+        card_type_registry,
+        meshes,
+        materials,
+        masked_background_materials.as_deref_mut(),
+    );
 
     if let Some(parent) = hud_parent.or(app_scene_parent) {
         commands.entity(parent).add_child(scene_entity);
     }
-
-    let _ = (camera_defaults, card_defaults, active_card_type);
+    let _ = active_card_type;
 }
 
 fn spawn_game_scene_ui(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
-    card_type_registry: &CardTypeRegistry,
-    world_theme_registry: &WorldThemeRegistry,
-    active_world_theme: &ActiveWorldTheme,
     tactical_location_registry: &TacticalLocationRegistry,
     active_locations: &ActiveLocations,
 ) {
@@ -326,32 +456,49 @@ fn spawn_game_scene_ui(
                 height: Val::Percent(100.0),
                 ..Default::default()
             },
+            Transform::default(),
+            GlobalTransform::default(),
             Visibility::Visible,
         ))
         .with_children(|parent| {
-            let world_theme = world_theme_registry.active_world_theme(active_world_theme);
-            parent.spawn((
-                Name::new(format!("{} World Background", world_theme.display_name)),
-                WorldBackground,
-                ImageNode::new(asset_server.load(world_theme.background_texture)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..Default::default()
-                },
-                Visibility::Visible,
-            ));
-
             spawn_location_row(
                 parent,
                 asset_server,
                 tactical_location_registry,
                 active_locations,
             );
-            spawn_local_player_hand(parent, asset_server, card_type_registry);
+            spawn_local_player_hand(parent);
             spawn_turn_ui(parent);
         });
+}
+
+fn spawn_game_scene_world_background(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    world_theme_registry: &WorldThemeRegistry,
+    active_world_theme: &ActiveWorldTheme,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) -> Entity {
+    let world_theme = world_theme_registry.active_world_theme(active_world_theme);
+    let background_size = game_scene_world_background_size();
+    commands
+        .spawn((
+            Name::new(format!("{} World Background", world_theme.display_name)),
+            WorldBackground,
+            GameSceneEntity,
+            Mesh3d(meshes.add(Rectangle::new(background_size.x, background_size.y))),
+            MeshMaterial3d(card_type_material(
+                asset_server,
+                materials,
+                world_theme.background_texture,
+                AlphaMode::Opaque,
+                BACKGROUND_DEPTH_BIAS,
+            )),
+            Transform::from_translation(Vec3::new(0.0, 0.0, GAME_SCENE_WORLD_BACKGROUND_Z)),
+            Visibility::Visible,
+        ))
+        .id()
 }
 
 fn spawn_location_row(
@@ -428,6 +575,42 @@ fn spawn_location_ui(
     });
 }
 
+fn game_scene_perspective_view_size_at_z(z: f32) -> Vec2 {
+    let distance = (GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
+    let height = 2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance;
+
+    Vec2::new(height * GAME_VIEW_ASPECT_RATIO, height)
+}
+
+fn game_scene_world_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
+    let view_size = game_scene_perspective_view_size_at_z(z);
+
+    Vec3::new(
+        ((game_view_position.x / GAME_VIEW_WIDTH) - 0.5) * view_size.x,
+        (0.5 - (game_view_position.y / GAME_VIEW_HEIGHT)) * view_size.y,
+        z,
+    )
+}
+
+fn game_scene_world_height_for_game_view_height(game_view_height: f32, z: f32) -> f32 {
+    game_scene_perspective_view_size_at_z(z).y * (game_view_height / GAME_VIEW_HEIGHT)
+}
+
+fn game_scene_world_background_size() -> Vec2 {
+    game_scene_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
+        * GAME_SCENE_WORLD_BACKGROUND_BLEED
+}
+
+fn card_browser_perspective_view_height_at_z(z: f32) -> f32 {
+    let distance = (CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
+    2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance
+}
+
+fn card_browser_centered_card_scale(card_defaults: &CardInspectionDefaults) -> f32 {
+    (card_browser_perspective_view_height_at_z(0.0) * CARD_BROWSER_CARD_HEIGHT_FRACTION)
+        / card_defaults.height
+}
+
 fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, font_size: f32) {
     parent.spawn((
         Text::new(text),
@@ -439,118 +622,71 @@ fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, fo
     ));
 }
 
-fn spawn_local_player_hand(
-    parent: &mut ChildSpawnerCommands,
-    asset_server: &AssetServer,
-    card_type_registry: &CardTypeRegistry,
-) {
-    parent
-        .spawn((
-            Name::new("Local Player Hand"),
-            LocalPlayerHand,
-            GameSceneEntity,
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(GAME_SCENE_HAND_LEFT_PERCENT),
-                bottom: Val::Percent(GAME_SCENE_HAND_BOTTOM_PERCENT),
-                width: Val::Percent(GAME_SCENE_HAND_WIDTH_PERCENT),
-                height: Val::Percent(GAME_SCENE_HAND_HEIGHT_PERCENT),
-                border: UiRect::all(Val::Px(3.0)),
-                display: Display::Flex,
-                column_gap: Val::Px(GAME_SCENE_HAND_CARD_GAP),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BorderColor::all(Color::srgb(0.44, 0.35, 0.22)),
-            BackgroundColor(Color::srgba(0.02, 0.02, 0.02, 0.22)),
-            GlobalZIndex(10),
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            for card_type in card_type_registry.card_types() {
-                spawn_game_scene_hand_card_ui(parent, asset_server, card_type);
-            }
-        });
+fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
+    parent.spawn((
+        Name::new("Local Player Hand"),
+        LocalPlayerHand,
+        GameSceneEntity,
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Percent(GAME_SCENE_HAND_LEFT_PERCENT),
+            bottom: Val::Percent(GAME_SCENE_HAND_BOTTOM_PERCENT),
+            width: Val::Percent(GAME_SCENE_HAND_WIDTH_PERCENT),
+            height: Val::Percent(GAME_SCENE_HAND_HEIGHT_PERCENT),
+            border: UiRect::all(Val::Px(3.0)),
+            ..Default::default()
+        },
+        BorderColor::all(Color::srgb(0.44, 0.35, 0.22)),
+        BackgroundColor(Color::srgba(0.02, 0.02, 0.02, 0.22)),
+        GlobalZIndex(10),
+        Transform::default(),
+        GlobalTransform::default(),
+        Visibility::Visible,
+    ));
 }
 
-fn spawn_game_scene_hand_card_ui(
-    parent: &mut ChildSpawnerCommands,
+fn spawn_game_scene_hand_cards(
+    commands: &mut Commands,
     asset_server: &AssetServer,
-    card_type: &CardType,
+    card_defaults: &CardInspectionDefaults,
+    card_type_registry: &CardTypeRegistry,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
-    parent
-        .spawn((
-            Name::new(format!(
-                "GameScene Local Hand Card {}",
-                card_type.display_name
-            )),
-            GameSceneEntity,
-            LocalPlayerHandCardPreview,
-            Transform::default(),
-            GlobalTransform::default(),
-            Node {
-                width: Val::Px(GAME_SCENE_HAND_CARD_WIDTH),
-                height: Val::Px(GAME_SCENE_HAND_CARD_HEIGHT),
-                display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+    let cards: Vec<CardType> = card_type_registry.card_types().cloned().collect();
+    let hitboxes = game_scene_card_hitboxes();
+    let card_world_scale = game_scene_world_height_for_game_view_height(
+        GAME_SCENE_HAND_CARD_HEIGHT,
+        GAME_SCENE_HAND_CARD_WORLD_Z,
+    ) / card_defaults.height;
+
+    for (index, card_type) in cards.into_iter().enumerate() {
+        let (card_min, card_max) = hitboxes[index];
+        let card_position = game_scene_world_position_from_game_view(
+            (card_min + card_max) * 0.5,
+            GAME_SCENE_HAND_CARD_WORLD_Z,
+        );
+        let card = spawn_card_structure_for_type(
+            commands,
+            asset_server,
+            card_defaults,
+            card_type,
+            meshes,
+            materials,
+            masked_background_materials.as_deref_mut(),
+            CardFace::Front,
+            Transform {
+                translation: card_position,
+                scale: Vec3::splat(card_world_scale),
                 ..Default::default()
             },
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Name::new(format!("{} Background Preview", card_type.display_name)),
-                GameSceneEntity,
-                ImageNode::new(asset_server.load(card_type.background_texture)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(GAME_SCENE_HAND_CARD_WIDTH),
-                    height: Val::Px(GAME_SCENE_HAND_CARD_HEIGHT),
-                    overflow: Overflow::clip(),
-                    border_radius: BorderRadius::all(Val::Px(7.0)),
-                    ..Default::default()
-                },
-                Visibility::Visible,
-            ));
-            parent.spawn((
-                Name::new(format!("{} Frame Preview", card_type.display_name)),
-                GameSceneEntity,
-                ImageNode::new(asset_server.load(card_type.frame_texture)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(GAME_SCENE_HAND_CARD_WIDTH),
-                    height: Val::Px(GAME_SCENE_HAND_CARD_HEIGHT),
-                    ..Default::default()
-                },
-                Visibility::Visible,
-            ));
-            parent.spawn((
-                Name::new(format!("{} Foreground Preview", card_type.display_name)),
-                GameSceneEntity,
-                ImageNode::new(asset_server.load(card_type.foreground_texture)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(GAME_SCENE_HAND_CARD_WIDTH),
-                    height: Val::Px(GAME_SCENE_HAND_CARD_HEIGHT),
-                    ..Default::default()
-                },
-                Visibility::Visible,
-            ));
-            parent.spawn((
-                Name::new(format!("{} Title Preview", card_type.display_name)),
-                GameSceneEntity,
-                ImageNode::new(asset_server.load(card_type.title_texture)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(GAME_SCENE_HAND_CARD_WIDTH),
-                    height: Val::Px(GAME_SCENE_HAND_CARD_HEIGHT),
-                    ..Default::default()
-                },
-                Visibility::Visible,
-            ));
-        });
+        );
+        commands
+            .entity(card)
+            .insert((GameSceneEntity, LocalPlayerHandCardPreview))
+            .observe(card_click_navigation);
+    }
 }
 
 fn spawn_turn_ui(parent: &mut ChildSpawnerCommands) {
@@ -659,6 +795,7 @@ fn spawn_card_browser_scene_contents(
         ))
         .id();
     let camera = spawn_primary_camera(commands, camera_defaults);
+    let ui_camera = spawn_card_browser_ui_camera(commands);
     let light = spawn_card_browser_light(commands);
     let card = spawn_card_structure(
         commands,
@@ -672,7 +809,10 @@ fn spawn_card_browser_scene_contents(
         visible_face,
         initial_rotation,
     );
+    // Keep 3D content out of the UI node hierarchy so resize-driven UI layout
+    // transforms cannot move or scale the card browser presentation.
     commands.entity(scene_root).add_child(camera);
+    commands.entity(scene_root).add_child(ui_camera);
     commands.entity(scene_root).add_child(light);
     commands.entity(scene_root).add_child(card);
     commands
@@ -721,6 +861,34 @@ fn spawn_card_structure(
         .active_card_type(&active_card_type)
         .cloned()
         .unwrap_or_else(CardType::kage_ren);
+    spawn_card_structure_for_type(
+        commands,
+        asset_server,
+        card_defaults,
+        card_type,
+        meshes,
+        materials,
+        masked_background_materials,
+        visible_face,
+        Transform {
+            translation: Vec3::ZERO,
+            rotation: initial_rotation,
+            scale: Vec3::splat(card_browser_centered_card_scale(card_defaults)),
+        },
+    )
+}
+
+fn spawn_card_structure_for_type(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    card_defaults: &CardInspectionDefaults,
+    card_type: CardType,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    visible_face: CardFace,
+    transform: Transform,
+) -> Entity {
     let background_material = card_type_material(
         asset_server,
         materials,
@@ -789,8 +957,9 @@ fn spawn_card_structure(
     let mut scene_root = commands.spawn((
         Name::new(format!("CardStructure {}", card_type.display_name)),
         CardPlaceholder,
-        Transform::from_rotation(initial_rotation),
-        Visibility::default(),
+        transform,
+        GlobalTransform::default(),
+        Visibility::Visible,
     ));
     scene_root.with_children(|parent| {
         spawn_card_back_plane(
@@ -1160,6 +1329,8 @@ fn spawn_parallax_plane(
         Mesh3d(mesh),
         MeshMaterial3d(material.clone()),
         Transform::from_translation(neutral_translation),
+        RenderLayers::layer(CARD_RENDER_LAYER),
+        NoCpuCulling,
         if is_visible {
             Visibility::Visible
         } else {
@@ -1192,6 +1363,8 @@ fn spawn_masked_background_plane(
             Mesh3d(mesh),
             MeshMaterial3d(material),
             Transform::from_translation(neutral_translation),
+            RenderLayers::layer(CARD_RENDER_LAYER),
+            NoCpuCulling,
             if is_visible {
                 Visibility::Visible
             } else {
@@ -1220,6 +1393,7 @@ fn spawn_card_back_plane(
             Name::new("Card Back CardSeries Pattern"),
             Mesh3d(mesh),
             MeshMaterial3d(material),
+            RenderLayers::layer(CARD_RENDER_LAYER),
             Transform {
                 translation: Vec3::new(
                     0.0,
@@ -1229,6 +1403,7 @@ fn spawn_card_back_plane(
                 rotation: Quat::from_rotation_y(std::f32::consts::PI),
                 ..Default::default()
             },
+            NoCpuCulling,
             if is_visible {
                 Visibility::Visible
             } else {
@@ -1292,6 +1467,115 @@ pub fn smooth_card_rotation(
     for mut transform in &mut game_card_query {
         transform.rotation = transform.rotation.slerp(game_card_rotation, blend);
     }
+}
+
+pub fn log_game_scene_card_render_diagnostics(
+    mut has_logged: Local<bool>,
+    active_scene: Res<ActiveScene>,
+    card_query: Query<
+        (&Name, &Transform, &GlobalTransform),
+        (
+            With<LocalPlayerHandCardPreview>,
+            With<CardPlaceholder>,
+            With<GameSceneEntity>,
+            Without<CardBrowserSceneEntity>,
+        ),
+    >,
+    layer_query: Query<
+        (&Name, &Visibility, &GlobalTransform),
+        (
+            With<CardParallaxLayer>,
+            With<CardFaceLayer>,
+            Without<CardBrowserSceneEntity>,
+        ),
+    >,
+    camera_query: Query<(&Name, &Camera, Option<&Projection>), With<GameSceneEntity>>,
+) {
+    if *has_logged || *active_scene != ActiveScene::Game {
+        return;
+    }
+
+    let cards: Vec<String> = card_query
+        .iter()
+        .map(|(name, transform, global_transform)| {
+            format!(
+                "{} local=({:.3},{:.3},{:.3}) scale=({:.3},{:.3},{:.3}) world=({:.3},{:.3},{:.3})",
+                name.as_str(),
+                transform.translation.x,
+                transform.translation.y,
+                transform.translation.z,
+                transform.scale.x,
+                transform.scale.y,
+                transform.scale.z,
+                global_transform.translation().x,
+                global_transform.translation().y,
+                global_transform.translation().z,
+            )
+        })
+        .collect();
+    let layer_details: Vec<String> = layer_query
+        .iter()
+        .map(|(name, visibility, global_transform)| {
+            format!(
+                "{} visibility={:?} world=({:.3},{:.3},{:.3})",
+                name.as_str(),
+                visibility,
+                global_transform.translation().x,
+                global_transform.translation().y,
+                global_transform.translation().z
+            )
+        })
+        .collect();
+    let cameras: Vec<String> = camera_query
+        .iter()
+        .map(|(name, camera, projection)| {
+            let projection_name = match projection {
+                Some(Projection::Perspective(_)) => "Perspective",
+                Some(Projection::Orthographic(_)) => "Orthographic",
+                _ => "Other",
+            };
+            format!(
+                "{} order={} clear={:?} projection={}",
+                name.as_str(),
+                camera.order,
+                camera.clear_color,
+                projection_name
+            )
+        })
+        .collect();
+
+    info!(
+        "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]",
+        cards.len(),
+        layer_details.len(),
+        cameras.len(),
+        cards.join(" | "),
+        layer_details.join(" | "),
+        cameras.join(" | ")
+    );
+    let diagnostic_path = std::path::Path::new("target/run-app-desktop/game-scene-card-render.log");
+    let diagnostic_result = diagnostic_path
+        .parent()
+        .map(std::fs::create_dir_all)
+        .transpose()
+        .and_then(|_| {
+            std::fs::write(
+                diagnostic_path,
+                format!(
+                    "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]\n",
+                    cards.len(),
+                    layer_details.len(),
+                    cameras.len(),
+                    cards.join(" | "),
+                    layer_details.join(" | "),
+                    cameras.join(" | ")
+                ),
+            )
+        });
+    if let Err(error) = diagnostic_result {
+        warn!("Failed to write GameScene render diagnostics: {error}");
+    }
+    *has_logged = true;
 }
 
 pub fn composed_card_rotation(
@@ -1484,27 +1768,44 @@ fn next_card_ui_depth_factor(current: f32) -> f32 {
     }
 }
 
-pub fn restart_card_browser_scene(
+#[cfg_attr(feature = "desktop-hot-reload", hot)]
+pub fn restart_app_scene(
     keys: Res<ButtonInput<KeyCode>>,
     active_card_type: Res<ActiveCardType>,
     mut flip_state: ResMut<CardFlipState>,
-    mut reload: CardBrowserReloadParams,
+    mut ticks: ResMut<GameTicks>,
+    mut scene: SceneChangeParams,
 ) {
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
     }
 
-    reload.reload_scene(&active_card_type, CardFace::Front, Quat::IDENTITY, true);
+    scene.reload_active_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
+    *scene.card_state = CardInspectionState::default();
+    ticks.0 = 0;
 }
 
 #[cfg(feature = "desktop-hot-reload")]
-pub fn hot_reload_auto_restart_card_browser_scene(
+pub fn record_desktop_hot_reload_patch_message(mut patches: MessageReader<HotPatched>) {
+    for _ in patches.read() {
+        info!("Desktop hot reload patch applied");
+        record_desktop_hot_reload_patch();
+    }
+}
+
+#[cfg(not(feature = "desktop-hot-reload"))]
+pub fn record_desktop_hot_reload_patch_message() {}
+
+#[cfg(feature = "desktop-hot-reload")]
+#[cfg_attr(feature = "desktop-hot-reload", hot)]
+pub fn hot_reload_auto_restart_app_scene(
     mut last_seen_patch_count: Local<u64>,
     hud_state: Res<DebugHudState>,
     active_card_type: Res<ActiveCardType>,
     mut flip_state: ResMut<CardFlipState>,
-    mut reload: CardBrowserReloadParams,
+    mut ticks: ResMut<GameTicks>,
+    mut scene: SceneChangeParams,
 ) {
     let patch_count = desktop_hot_reload_patch_count();
     if patch_count == *last_seen_patch_count {
@@ -1517,12 +1818,14 @@ pub fn hot_reload_auto_restart_card_browser_scene(
         return;
     }
 
-    reload.reload_scene(&active_card_type, CardFace::Front, Quat::IDENTITY, true);
+    scene.reload_active_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
+    *scene.card_state = CardInspectionState::default();
+    ticks.0 = 0;
 }
 
 #[cfg(not(feature = "desktop-hot-reload"))]
-pub fn hot_reload_auto_restart_card_browser_scene() {}
+pub fn hot_reload_auto_restart_app_scene() {}
 
 #[derive(SystemParam)]
 pub struct SceneChangeParams<'w, 's> {
@@ -1569,7 +1872,7 @@ pub struct SceneChangeParams<'w, 's> {
     active_world_theme: ResMut<'w, ActiveWorldTheme>,
     tactical_location_registry: Res<'w, TacticalLocationRegistry>,
     active_locations: ResMut<'w, ActiveLocations>,
-    card_state: Res<'w, CardInspectionState>,
+    card_state: ResMut<'w, CardInspectionState>,
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
@@ -1740,64 +2043,6 @@ fn card_click_navigation(
             params.spawn_game_scene(&active_card_type);
             *params.active_scene = ActiveScene::Game;
         }
-    }
-}
-
-#[derive(SystemParam)]
-pub struct CardBrowserReloadParams<'w, 's> {
-    commands: Commands<'w, 's>,
-    scene_entities: Query<'w, 's, Entity, With<CardBrowserSceneRoot>>,
-    app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
-    asset_server: Res<'w, AssetServer>,
-    camera_defaults: Res<'w, PrimaryCameraDefaults>,
-    card_defaults: Res<'w, CardInspectionDefaults>,
-    card_type_registry: Res<'w, CardTypeRegistry>,
-    meshes: ResMut<'w, Assets<Mesh>>,
-    materials: ResMut<'w, Assets<StandardMaterial>>,
-    masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
-    card_state: ResMut<'w, CardInspectionState>,
-    ticks: ResMut<'w, GameTicks>,
-    active_scene: Option<Res<'w, ActiveScene>>,
-}
-
-impl CardBrowserReloadParams<'_, '_> {
-    fn reload_scene(
-        &mut self,
-        active_card_type: &ActiveCardType,
-        visible_face: CardFace,
-        initial_rotation: Quat,
-        reset_scene_state: bool,
-    ) {
-        if self
-            .active_scene
-            .as_ref()
-            .is_some_and(|active_scene| **active_scene != ActiveScene::CardBrowser)
-        {
-            return;
-        }
-
-        for entity in self.scene_entities.iter() {
-            self.commands.entity(entity).despawn();
-        }
-
-        if reset_scene_state {
-            *self.card_state = CardInspectionState::default();
-            self.ticks.0 = 0;
-        }
-        spawn_card_browser_scene_contents(
-            &mut self.commands,
-            &self.asset_server,
-            &self.camera_defaults,
-            &self.card_defaults,
-            &self.card_type_registry,
-            active_card_type,
-            &mut self.meshes,
-            &mut self.materials,
-            self.masked_background_materials.as_deref_mut(),
-            self.app_scene_query.single().ok(),
-            visible_face,
-            initial_rotation,
-        );
     }
 }
 
@@ -2685,26 +2930,29 @@ fn layer_scale_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32
 }
 
 fn card_ui_safe_area_anchor_offset(window_size: Vec2) -> egui::Vec2 {
-    let safe_area_margin = aspect_ratio_safe_area_margin(window_size);
+    let Some((safe_area_margin, scale)) = game_view_layout(window_size) else {
+        return egui::vec2(-SCREEN_PADDING_LEFT, SCREEN_PADDING_TOP);
+    };
 
     egui::vec2(
-        -(safe_area_margin.x + SCREEN_PADDING_LEFT),
-        safe_area_margin.y + SCREEN_PADDING_TOP,
+        -(safe_area_margin.x + (SCREEN_PADDING_LEFT * scale)),
+        safe_area_margin.y + (SCREEN_PADDING_TOP * scale),
     )
 }
 
-fn aspect_ratio_safe_area_margin(window_size: Vec2) -> Vec2 {
+fn game_view_layout(window_size: Vec2) -> Option<(Vec2, f32)> {
     if window_size.x <= 0.0 || window_size.y <= 0.0 {
-        return Vec2::ZERO;
+        return None;
     }
 
     let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
     let scale = (window_size.x / game_view_size.x).min(window_size.y / game_view_size.y);
     if scale <= 0.0 {
-        return Vec2::ZERO;
+        return None;
     }
 
-    ((window_size - (game_view_size * scale)) * 0.5).max(Vec2::ZERO)
+    let safe_area_margin = ((window_size - (game_view_size * scale)) * 0.5).max(Vec2::ZERO);
+    Some((safe_area_margin, scale))
 }
 
 fn use_matching_debug_window_text_style(context: &egui::Context) {
@@ -3214,29 +3462,116 @@ mod tests {
             .query_filtered::<Entity, (With<DirectionalLight>, With<CardBrowserSceneEntity>)>();
         assert_eq!(light_query.iter(app.world()).count(), 1);
 
+        let mut ui_camera_query = app
+            .world_mut()
+            .query_filtered::<(&Camera, Option<&PrimaryEguiContext>), (
+                With<Camera2d>,
+                With<CardBrowserSceneEntity>,
+            )>();
+        let (ui_camera, egui_context) = ui_camera_query.single(app.world()).unwrap();
+        assert_eq!(ui_camera.order, 1);
+        assert!(matches!(ui_camera.clear_color, ClearColorConfig::None));
+        assert!(egui_context.is_some());
+
         let mut card_query = app
             .world_mut()
-            .query_filtered::<Entity, (With<CardPlaceholder>, With<CardBrowserSceneEntity>)>();
-        assert_eq!(card_query.iter(app.world()).count(), 1);
+            .query_filtered::<&Transform, (With<CardPlaceholder>, With<CardBrowserSceneEntity>)>();
+        let card_transform = card_query.single(app.world()).unwrap();
+        let expected_card_scale =
+            card_browser_centered_card_scale(app.world().resource::<CardInspectionDefaults>());
+        assert_eq!(card_transform.translation, Vec3::ZERO);
+        assert_close(card_transform.scale.x, expected_card_scale);
+        assert_close(card_transform.scale.y, expected_card_scale);
+        assert_close(card_transform.scale.z, expected_card_scale);
+    }
+
+    #[test]
+    fn card_browser_scene_root_does_not_inherit_ui_layout_transform() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardTypeRegistry>()
+            .init_resource::<ActiveCardType>()
+            .add_systems(Startup, setup_app_scene)
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut root_query = app
+            .world_mut()
+            .query_filtered::<(Option<&ChildOf>, &Transform), With<CardBrowserSceneRoot>>();
+        let (parent, transform) = root_query.single(app.world()).unwrap();
+        assert!(parent.is_none());
+        assert_eq!(transform.translation, Vec3::ZERO);
+        assert_eq!(transform.scale, Vec3::ONE);
     }
 
     #[test]
     fn card_browser_camera_viewport_matches_centered_safe_area() {
-        let wide_viewport = card_browser_safe_area_viewport(UVec2::new(1600, 800)).unwrap();
+        let wide_viewport = game_view_safe_area_viewport(UVec2::new(1600, 800)).unwrap();
         assert_eq!(wide_viewport.physical_position, UVec2::new(160, 0));
         assert_eq!(wide_viewport.physical_size, UVec2::new(1280, 800));
 
-        let tall_viewport = card_browser_safe_area_viewport(UVec2::new(1280, 1000)).unwrap();
+        let tall_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1000)).unwrap();
         assert_eq!(tall_viewport.physical_position, UVec2::new(0, 100));
         assert_eq!(tall_viewport.physical_size, UVec2::new(1280, 800));
 
-        let default_viewport = card_browser_safe_area_viewport(UVec2::new(
-            DEFAULT_WINDOW_WIDTH,
-            DEFAULT_WINDOW_HEIGHT,
-        ))
-        .unwrap();
+        let default_viewport =
+            game_view_safe_area_viewport(UVec2::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT))
+                .unwrap();
         assert_eq!(default_viewport.physical_position, UVec2::new(0, 64));
         assert_eq!(default_viewport.physical_size, UVec2::new(1024, 640));
+    }
+
+    #[test]
+    fn game_scene_3d_cameras_use_centered_safe_area_viewport() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
+            .init_resource::<CardTypeRegistry>()
+            .init_resource::<ActiveCardType>()
+            .init_resource::<WorldThemeRegistry>()
+            .init_resource::<ActiveWorldTheme>()
+            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<ActiveLocations>()
+            .add_systems(Startup, setup_game_scene)
+            .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area);
+        app.world_mut().spawn((
+            Window {
+                resolution: WindowResolution::new(1280, 1536),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        app.update();
+        app.update();
+
+        let expected_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
+        let mut camera_query = app
+            .world_mut()
+            .query_filtered::<&Camera, (With<GameSceneEntity>, With<Camera3d>)>();
+        let cameras: Vec<&Camera> = camera_query.iter(app.world()).collect();
+        assert_eq!(cameras.len(), 2);
+        for camera in cameras {
+            let viewport = camera.viewport.as_ref().unwrap();
+            assert_eq!(
+                viewport.physical_position,
+                expected_viewport.physical_position
+            );
+            assert_eq!(viewport.physical_size, expected_viewport.physical_size);
+            assert_eq!(viewport.depth, expected_viewport.depth);
+        }
     }
 
     #[test]
@@ -3261,22 +3596,32 @@ mod tests {
         let mut camera_query = app
             .world_mut()
             .query_filtered::<Entity, (With<PrimarySceneCamera>, With<GameSceneEntity>)>();
-        assert_eq!(camera_query.iter(app.world()).count(), 1);
+        assert_eq!(camera_query.iter(app.world()).count(), 2);
 
         let mut light_query = app
             .world_mut()
             .query_filtered::<Entity, (With<DirectionalLight>, With<GameSceneEntity>)>();
         assert_eq!(light_query.iter(app.world()).count(), 0);
 
-        let mut background_query = app
-            .world_mut()
-            .query_filtered::<(&Name, &Node, &ImageNode), With<WorldBackground>>();
-        let (background_name, background_node, _background_image) =
+        let mut background_query = app.world_mut().query_filtered::<(
+            &Name,
+            &Mesh3d,
+            &MeshMaterial3d<StandardMaterial>,
+        ), With<WorldBackground>>();
+        let (background_name, background_mesh, _background_material) =
             background_query.single(app.world()).unwrap();
 
         assert_eq!(background_name.as_str(), "Bamboo Forest World Background");
-        assert_eq!(background_node.width, Val::Percent(100.0));
-        assert_eq!(background_node.height, Val::Percent(100.0));
+        let background_mesh = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .get(&background_mesh.0)
+            .unwrap();
+        let (background_width, background_height) =
+            mesh_bounds(background_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
+        let expected_background_size = game_scene_world_background_size();
+        assert_close(background_width, expected_background_size.x);
+        assert_close(background_height, expected_background_size.y);
 
         let mut location_query = app.world_mut().query::<&GameLocation>();
         let mut locations: Vec<(usize, LocationRevealState)> = location_query
@@ -3309,15 +3654,111 @@ mod tests {
 
         let mut preview_query = app.world_mut().query_filtered::<&Transform, (
             With<LocalPlayerHandCardPreview>,
+            With<CardPlaceholder>,
             With<GameSceneEntity>,
             Without<CardBrowserSceneEntity>,
         )>();
-        assert_eq!(preview_query.iter(app.world()).count(), 4);
+        let mut preview_transforms: Vec<Transform> =
+            preview_query.iter(app.world()).copied().collect();
+        preview_transforms.sort_by(|left, right| {
+            left.translation
+                .x
+                .partial_cmp(&right.translation.x)
+                .unwrap()
+        });
+        assert_eq!(preview_transforms.len(), 4);
+
+        let expected_scale = game_scene_world_height_for_game_view_height(
+            GAME_SCENE_HAND_CARD_HEIGHT,
+            GAME_SCENE_HAND_CARD_WORLD_Z,
+        ) / app.world().resource::<CardInspectionDefaults>().height;
+        for (index, transform) in preview_transforms.iter().enumerate() {
+            let (card_min, card_max) = game_scene_card_hitboxes()[index];
+            let expected_translation = game_scene_world_position_from_game_view(
+                (card_min + card_max) * 0.5,
+                GAME_SCENE_HAND_CARD_WORLD_Z,
+            );
+            assert_close(transform.translation.x, expected_translation.x);
+            assert_close(transform.translation.y, expected_translation.y);
+            assert_close(transform.translation.z, expected_translation.z);
+            assert_close(transform.scale.x, expected_scale);
+            assert_close(transform.scale.y, expected_scale);
+            assert_close(transform.scale.z, expected_scale);
+        }
+
+        let mut preview_layer_query = app.world_mut().query_filtered::<Entity, (
+            With<CardParallaxLayer>,
+            With<CardFaceLayer>,
+            Without<CardBrowserSceneEntity>,
+        )>();
+        assert_eq!(preview_layer_query.iter(app.world()).count(), 20);
 
         let mut preview_camera_query = app
             .world_mut()
             .query_filtered::<&Camera, (With<Camera3d>, With<GameSceneEntity>)>();
-        assert_eq!(preview_camera_query.iter(app.world()).count(), 0);
+        let mut preview_camera_orders: Vec<isize> = preview_camera_query
+            .iter(app.world())
+            .map(|camera| camera.order)
+            .collect();
+        preview_camera_orders.sort();
+        assert_eq!(preview_camera_orders, vec![0, 2]);
+
+        let mut ui_camera_query = app
+            .world_mut()
+            .query_filtered::<&Camera, (With<Camera2d>, With<GameSceneEntity>)>();
+        let ui_camera = ui_camera_query.single(app.world()).unwrap();
+        assert_eq!(ui_camera.order, 1);
+        assert!(matches!(ui_camera.clear_color, ClearColorConfig::None));
+    }
+
+    #[test]
+    fn game_scene_hand_preview_transform_chain_has_global_transforms() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardInspectionState>()
+            .init_resource::<CardFlipState>()
+            .init_resource::<CardTypeRegistry>()
+            .init_resource::<ActiveCardType>()
+            .init_resource::<WorldThemeRegistry>()
+            .init_resource::<ActiveWorldTheme>()
+            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<ActiveLocations>()
+            .add_systems(Startup, setup_app_scene)
+            .add_systems(Startup, setup_game_scene);
+
+        app.update();
+
+        let mut transform_parent_query =
+            app.world_mut()
+                .query_filtered::<(&Name, &Transform, &GlobalTransform), Or<(
+                    With<GameSceneRoot>,
+                    With<LocalPlayerHand>,
+                )>>();
+        let transform_parent_names: Vec<&str> = transform_parent_query
+            .iter(app.world())
+            .map(|(name, _, _)| name.as_str())
+            .collect();
+        assert!(transform_parent_names.contains(&"GameScene"));
+        assert!(transform_parent_names.contains(&"Local Player Hand"));
+
+        let mut game_scene_ui_query =
+            app.world_mut()
+                .query::<(&Name, &Transform, &GlobalTransform, &GameSceneEntity)>();
+        assert!(
+            game_scene_ui_query
+                .iter(app.world())
+                .any(|(name, _, _, _)| name.as_str() == "GameScene UI")
+        );
+
+        let mut preview_query = app.world_mut().query_filtered::<
+            (&Name, &Transform, &GlobalTransform),
+            With<LocalPlayerHandCardPreview>,
+        >();
+        assert_eq!(preview_query.iter(app.world()).count(), 4);
     }
 
     #[test]
@@ -3347,9 +3788,18 @@ mod tests {
             With<GameSceneEntity>,
             Without<CardBrowserSceneEntity>,
         )>();
-        for preview_transform in preview_query.iter(app.world()) {
-            assert_eq!(preview_transform.translation, Vec3::ZERO);
-            assert_eq!(preview_transform.scale, Vec3::ONE);
+        let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
+        assert_eq!(initial_transforms.len(), 4);
+
+        app.update();
+
+        let updated_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
+        assert_eq!(updated_transforms.len(), initial_transforms.len());
+        for (initial_transform, updated_transform) in
+            initial_transforms.iter().zip(updated_transforms.iter())
+        {
+            assert_eq!(updated_transform.translation, initial_transform.translation);
+            assert_eq!(updated_transform.scale, initial_transform.scale);
         }
     }
 
@@ -3482,6 +3932,14 @@ mod tests {
 
         assert_eq!(offset.x, -SCREEN_PADDING_LEFT);
         assert_eq!(offset.y, 100.0 + SCREEN_PADDING_TOP);
+    }
+
+    #[test]
+    fn card_ui_anchor_padding_scales_with_debug_hud() {
+        let offset = card_ui_safe_area_anchor_offset(Vec2::new(1024.0, 768.0));
+
+        assert_close(offset.x, -(SCREEN_PADDING_LEFT * 0.8));
+        assert_close(offset.y, 64.0 + (SCREEN_PADDING_TOP * 0.8));
     }
 
     #[test]
@@ -4482,6 +4940,8 @@ mod tests {
             .init_resource::<Assets<StandardMaterial>>()
             .init_asset::<Image>()
             .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<Touches>()
             .init_resource::<GameTicks>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
@@ -4489,9 +4949,16 @@ mod tests {
             .init_resource::<CardFlipState>()
             .init_resource::<CardTypeRegistry>()
             .init_resource::<ActiveCardType>()
+            .init_resource::<WorldThemeRegistry>()
+            .init_resource::<ActiveWorldTheme>()
+            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<ActiveLocations>()
+            .init_resource::<ActiveScene>()
             .add_systems(Startup, setup_app_scene)
             .add_systems(Startup, setup_card_browser_scene)
-            .add_systems(Update, restart_card_browser_scene);
+            .add_systems(Update, restart_app_scene);
+
+        *app.world_mut().resource_mut::<ActiveScene>() = ActiveScene::CardBrowser;
 
         app.update();
 

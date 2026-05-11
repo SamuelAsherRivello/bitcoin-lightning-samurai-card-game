@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $PackageName = "bevy-card-game"
 $FastDevFeature = "fast-dev"
+$AssetHotReloadFeature = "asset-hot-reload"
 $HotReloadFeature = "desktop-hot-reload"
 $IsWindowsHost = $env:OS -eq "Windows_NT"
 
@@ -70,9 +71,9 @@ Write-Host "Dioxus CLI: $DxVersionOutput"
 Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
 Write-Host "Edit hot-reload-enabled Rust systems and save."
 if ($EnableFastDevFeature) {
-    Write-Host "Using features: $HotReloadFeature,$FastDevFeature"
+    Write-Host "Using features: $HotReloadFeature,$AssetHotReloadFeature,$FastDevFeature"
 } else {
-    Write-Host "Using feature: $HotReloadFeature"
+    Write-Host "Using features: $HotReloadFeature,$AssetHotReloadFeature"
     Write-Host "Running without '$FastDevFeature' for hot-patch compatibility."
 }
 Write-Host "Press Ctrl+C to stop."
@@ -80,9 +81,9 @@ Write-Host ""
 
 $CommandArgs = @("serve", "--hot-patch", "--windows", "--package", $PackageName, "--bin", $PackageName)
 if ($EnableFastDevFeature) {
-    $CommandArgs += @("--features", "$HotReloadFeature $FastDevFeature")
+    $CommandArgs += @("--features", "$HotReloadFeature $AssetHotReloadFeature $FastDevFeature")
 } else {
-    $CommandArgs += @("--features", $HotReloadFeature)
+    $CommandArgs += @("--features", "$HotReloadFeature $AssetHotReloadFeature")
 }
 if ($DxArgs) {
     $CommandArgs += $DxArgs

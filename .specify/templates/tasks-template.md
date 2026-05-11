@@ -25,6 +25,7 @@ description: "Task list template for feature implementation"
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
+- For Bevy on-screen work, include tasks that keep visible 2D and 3D positions derived from the aspect-ratio-safe game view.
 
 <!-- 
   ============================================================================

@@ -1,9 +1,13 @@
-# Research: DebugHUD
+# Research: Debugging
 
 | Decision | Rationale | Alternatives Considered |
 | -------- | --------- | ----------------------- |
 | Use Bevy UI `Text`, `TextSpan`, `Node`, and `BackgroundColor` for the HUD panel | These APIs are native to Bevy, work with ECS, and avoid adding a browser-only or desktop-only overlay dependency | Egui-only HUD was rejected because the feature requests a Bevy HUD pattern, while egui remains reserved for the inspector |
 | Keep DebugHUD and diagnostic input in `bevy/crates/shared` | DebugHUD, inspector visibility, and diagnostic key capture are reusable system-level tools rather than card-specific gameplay | Keeping the DebugHUD in `bevy/crates/game` was rejected because future non-card prototypes should be able to reuse the same diagnostics |
+| Keep Card UI separate from DebugHUD | Card UI is a temporary prototype/developer control surface for card-specific workflows, while DebugHUD is shared diagnostic tooling | Merging Card UI controls into DebugHUD was rejected because it would blur temporary prototype controls with reusable diagnostics |
+| Add debug drawing as runtime visual annotation | Runtime marks around requested scene areas help implementers and reviewers discuss the same visual target without turning the mark into production art | Permanent UI, real art, and ad hoc screenshots were rejected because this need is temporary, interactive, and tied to the running scene |
+| Allow scoped terminal self-logging | Implementers need a way to inspect diagnostic state while iterating, and terminal output is the fastest feedback path during local runs and tests | Persistent logs or broad noisy tracing were rejected because this feature only needs focused self-debugging output |
+| Treat automated tests and documented manual checks as part of debugging | The feature must let implementers QA their own work through repeatable scripts and explicit acceptance checks | Relying only on visual inspection was rejected because key toggles, non-functional inputs, and separation rules are easy to regress |
 | Store FPS visibility and sample data in `DebugHudState` | A resource makes diagnostic state explicit and easy to test without coupling it to entities | Component-only state was rejected because the FPS toggle is app-level diagnostic state |
 | Store inspector visibility in an `InspectorState` component | The inspector window is an entity-like diagnostic surface with position and size settings | A global bool was rejected because it would mix inspector window metadata with unrelated HUD state |
 | Treat `WASD` as non-toggle DebugHUD input indicators | The copied HUD pattern may show key hold state, but that state is diagnostic-only and must not drive card, camera, gameplay, selection, or toggles | Gameplay input handling was rejected because it would exceed the DebugHUD scope |

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_aspect_ratio_mask::{AspectRatioPlugin, Resolution};
+use bevy_aspect_ratio_mask::{AspectRatioMask, AspectRatioPlugin, Resolution};
 use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
     bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass},
@@ -13,6 +13,7 @@ use runtime::systems::{card_ui, inspector_ui};
 
 const GAME_VIEW_WIDTH: f32 = 1280.0;
 const GAME_VIEW_HEIGHT: f32 = 800.0;
+const APP_BACKGROUND_COLOR: Color = Color::srgb(0.08, 0.08, 0.08);
 
 pub struct GamePlugin;
 
@@ -22,6 +23,9 @@ impl Plugin for GamePlugin {
             resolution: Resolution {
                 width: GAME_VIEW_WIDTH,
                 height: GAME_VIEW_HEIGHT,
+            },
+            mask: AspectRatioMask {
+                color: APP_BACKGROUND_COLOR,
             },
             ..Default::default()
         })

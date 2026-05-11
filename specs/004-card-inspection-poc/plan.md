@@ -25,7 +25,7 @@ Add the V0.1 card inspection prototype to the existing Bevy runtime: one centere
 
 | Gate | Status | Notes |
 | ---- | ------ | ----- |
-| Active spec and repo guidance followed | ✅ | Implements `004-card-inspection-poc` and keeps `003-debug-hud` visible by default |
+| Active spec and repo guidance followed | ✅ | Implements `004-card-inspection-poc` and keeps `003-debugging` visible by default |
 | Source, assets, scripts, docs, and tests stay in approved locations | ✅ | Card-specific runtime code stays under `bevy/crates/game/src/runtime/`; reusable system-level runtime behavior remains in `bevy/crates/shared`; no new runtime assets are needed |
 | Visible feedback requirements respected | ✅ | DebugHUD remains the only HUD and is visible by default; no async loading flow is added |
 | Local state remains explicit | ✅ | No persistence is added beyond existing window placement behavior |

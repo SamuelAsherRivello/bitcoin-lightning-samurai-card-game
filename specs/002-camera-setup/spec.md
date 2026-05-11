@@ -100,5 +100,5 @@ A reviewer can still see later overlay diagnostics, including the DebugHUD, afte
 
 - The first visible 3D content will be origin-centered card content from `004-card-inspection-poc`.
 - The camera setup is a foundation feature and should stay minimal.
-- DebugHUD overlay rendering is owned by `003-debug-hud`, but this feature must not block it.
+- DebugHUD overlay rendering is owned by `003-debugging`, but this feature must not block it.
 - `bevy/crates/shared` owns reusable camera setup; `bevy/crates/game` owns card-specific scene content that uses the shared camera.

@@ -15,6 +15,7 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $PackageName = "bevy-card-game"
 $TargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
+$AssetHotReloadFeature = "asset-hot-reload"
 
 if (-not $env:RUST_BACKTRACE) {
     $env:RUST_BACKTRACE = "1"
@@ -41,7 +42,9 @@ if ($TargetTriple) {
 if ($Release) {
     $CompileParams.Release = $true
 } elseif (-not $NoFastDevFeature) {
-    $CompileParams.Features = @("fast-dev")
+    $CompileParams.Features = @($AssetHotReloadFeature, "fast-dev")
+} else {
+    $CompileParams.Features = @($AssetHotReloadFeature)
 }
 if ($UseSccache) {
     $CompileParams.UseSccache = $true

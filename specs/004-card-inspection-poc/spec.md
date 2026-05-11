@@ -13,8 +13,8 @@
 - Q: What smoothing response target should V0.1 use when the pointer moves to a new position? -> A: Very responsive: reaches the target orientation within 100 ms.
 - Q: What 3D card geometry should V0.1 require? -> A: Thin slab: front face plus slight thickness, no bevel.
 - Q: What camera behavior should V0.1 require during pointer-driven inspection? -> A: Fixed camera: camera remains stationary and only the card rotates.
-- Q: How should `003-debug-hud` relate to the no-HUD rule in `004-card-inspection-poc` when both are implemented? -> A: `003-debug-hud` replaces the no-HUD rule in `004`; the final app should show the DebugHUD by default.
-- Q: Should `004-card-inspection-poc` and `003-debug-hud` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
+- Q: How should `003-debugging` relate to the no-HUD rule in `004-card-inspection-poc` when both are implemented? -> A: `003-debugging` replaces the no-HUD rule in `004`; the final app should show the DebugHUD by default.
+- Q: Should `004-card-inspection-poc` and `003-debugging` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
 - Q: What should pointer input affect during card inspection? -> A: Pointer input rotates only the card; the camera remains fixed according to `002-camera-setup`.
 - Q: What visual detail should the V0.1 card placeholder include? -> A: Plain white thin slab, no bevel, no art, no text, with only minimal visible lighting needed to see it.
 - Q: Should the existing pointer tilt and smoothing targets remain? -> A: Keep maximum 20 degrees tilt from neutral on each axis and a 100 ms smoothing target.
@@ -24,16 +24,16 @@
 
 ### User Story 1 - Enter Direct Card POC (Priority: P1)
 
-A reviewer launches the prototype and immediately sees a single white trading-card placeholder centered in the scene, without menus, gameplay prompts, gameplay overlays, or additional cards. When `003-debug-hud` is implemented, the approved DebugHUD appears by default and is the only HUD exception.
+A reviewer launches the prototype and immediately sees a single white trading-card placeholder centered in the scene, without menus, gameplay prompts, gameplay overlays, or additional cards. When `003-debugging` is implemented, the approved DebugHUD appears by default and is the only HUD exception.
 
 **Why this priority**: This is the minimum visible proof that the prototype is focused on card presentation rather than gameplay or navigation.
 
-**Independent Test**: Launch the prototype and verify that the first visible state is one centered white card placeholder with no menu or interactive gameplay UI; if `003-debug-hud` is present, verify that only the approved DebugHUD is visible.
+**Independent Test**: Launch the prototype and verify that the first visible state is one centered white card placeholder with no menu or interactive gameplay UI; if `003-debugging` is present, verify that only the approved DebugHUD is visible.
 
 **Acceptance Scenarios**:
 
 1. **Given** the prototype is not running, **When** the reviewer launches it, **Then** the first visible screen shows one centered card placeholder.
-2. **Given** the prototype is running, **When** the reviewer observes the scene, **Then** no menus, gameplay text, counters, buttons, or additional cards are visible; the approved DebugHUD from `003-debug-hud` is allowed when that feature is implemented.
+2. **Given** the prototype is running, **When** the reviewer observes the scene, **Then** no menus, gameplay text, counters, buttons, or additional cards are visible; the approved DebugHUD from `003-debugging` is allowed when that feature is implemented.
 
 ---
 
@@ -96,7 +96,7 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 
 ### Functional Requirements
 
-- **FR-001**: The prototype MUST start directly in the card POC view without showing any menu, loading menu, gameplay overlay, or gameplay prompt; when `003-debug-hud` is implemented, its approved DebugHUD MUST be shown by default.
+- **FR-001**: The prototype MUST start directly in the card POC view without showing any menu, loading menu, gameplay overlay, or gameplay prompt; when `003-debugging` is implemented, its approved DebugHUD MUST be shown by default.
 - **FR-002**: The prototype MUST display exactly one card placeholder at the center of the visible scene.
 - **FR-003**: The card placeholder MUST use poker-size proportions based on the provided reference: 63 mm wide by 88 mm tall.
 - **FR-004**: The card placeholder MUST appear as a plain white vertical rectangular thin slab in V0.1, with a front face, slight thickness, no bevel, no art, no text, and only minimal visible lighting needed to see it.
@@ -106,7 +106,7 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - **FR-008**: Mouse-driven card rotation MUST transition smoothly over time rather than snapping immediately to each new pointer position, while reaching the target orientation within 100 ms.
 - **FR-009**: The card MUST remain centered during rotation and must not translate around the scene as part of the V0.1 interaction.
 - **FR-010**: The card MUST remain visible and recognizable as a card throughout the full supported pointer range by limiting pointer-driven tilt to a maximum of 20 degrees from neutral on each axis.
-- **FR-011**: V0.1 MUST NOT include gameplay, multiple cards, card art, card text content, card backs, rich material effects, textures, bevels, deck handling, selection, dragging, scoring, turns, rules, or HUD elements other than the approved `003-debug-hud` DebugHUD.
+- **FR-011**: V0.1 MUST NOT include gameplay, multiple cards, card art, card text content, card backs, rich material effects, textures, bevels, deck handling, selection, dragging, scoring, turns, rules, or HUD elements other than the approved `003-debugging` DebugHUD.
 - **FR-012**: The prototype scope MUST preserve future room for V0.2 to expand single-card rendering and card setup while still showing one centered card.
 - **FR-013**: The prototype scope MUST preserve future room for V0.3 to explore multiple cards and gameplay, without including those behaviors in V0.1.
 - **FR-014**: The camera MUST remain stationary according to `002-camera-setup` during pointer-driven inspection; pointer input MUST rotate only the card placeholder, not the camera or scene framing.
@@ -131,7 +131,7 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - **SC-003**: The card's visible height-to-width ratio matches 88:63 within 2% tolerance.
 - **SC-004**: During pointer movement tests to all four corners and the center, the card visibly follows the pointer direction in all 5 tested positions.
 - **SC-005**: In pointer movement tests, card orientation changes reach the target orientation within 100 ms, are perceived as smooth by at least 4 out of 5 reviewers, and show no abrupt snapping during ordinary mouse movement.
-- **SC-006**: In V0.1 acceptance review, reviewers identify no gameplay HUD, card art, card text, textures, bevels, additional cards, or deck behavior in the scene; the approved `003-debug-hud` DebugHUD is allowed.
+- **SC-006**: In V0.1 acceptance review, reviewers identify no gameplay HUD, card art, card text, textures, bevels, additional cards, or deck behavior in the scene; the approved `003-debugging` DebugHUD is allowed.
 - **SC-007**: During pointer tests at each screen corner, measured card tilt does not exceed 20 degrees from neutral on either axis.
 - **SC-008**: During pointer movement tests, reviewers observe no camera movement, orbiting, panning, zooming, or framing adjustment.
 - **SC-009**: Final acceptance verification passes for the card POC on Windows desktop and browser WebGPU, or any blocked target is documented with the exact blocker.
@@ -143,6 +143,6 @@ A reviewer sees only a simple white card placeholder in V0.1, formed as a thin s
 - A plain white card face is sufficient for V0.1; richer rendering, material effects, textures, and card setup are intentionally deferred to V0.2.
 - Multiple cards and gameplay are intentionally deferred to V0.3 or later.
 - Keyboard, touch, controller, and mobile-specific interactions are out of scope for V0.1.
-- Accessibility and localization requirements are not evaluated in V0.1 because the only allowed text is reviewer-facing diagnostic HUD text from `003-debug-hud`, and no player-facing menu or gameplay flow is included.
+- Accessibility and localization requirements are not evaluated in V0.1 because the only allowed text is reviewer-facing diagnostic HUD text from `003-debugging`, and no player-facing menu or gameplay flow is included.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.
 - `bevy/crates/game` owns card-specific POC behavior; `bevy/crates/shared` owns reusable system-level runtime behavior.

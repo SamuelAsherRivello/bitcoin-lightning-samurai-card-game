@@ -127,3 +127,4 @@
 - [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
 - [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
 - [Assumption about project layout, e.g., "New Rust files and folders follow typical lowercase Rust naming conventions"]
+- [Assumption about on-screen layout, e.g., "Visible 2D and 3D positions derive from the aspect-ratio-safe game view"]

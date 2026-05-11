@@ -132,7 +132,7 @@ A reviewer can press the DebugHUD `R` key to rebuild the reloadable app scene co
 - If the background source extends wider than the frame, it should remain clipped by the frame hole and never appear wider than that visible opening.
 - If the foreground extends wider than the frame, it may visibly exceed the frame width because it is not clipped by the frame, while still remaining inside the outer card bounds.
 - If the application window size changes, the layered card should remain centered and preserve its card proportions and layer alignment.
-- If the approved DebugHUD from `003-debug-hud` is visible, it should not obscure the card's layered visual effect during normal inspection.
+- If the approved DebugHUD from `003-debugging` is visible, it should not obscure the card's layered visual effect during normal inspection.
 - If the reviewer presses `T`, the card should cycle between available card types and should not flash, disappear, or show missing artwork.
 - If the generated texture assets fail to load, the prototype should show a clear fallback rather than silently reverting to manually constructed dot patterns or primitive placeholder art.
 - If the reviewer presses `R` repeatedly, each press should reload `AppScene` without toggling `F`, `I`, `H`, or `T`.
@@ -173,7 +173,7 @@ A reviewer can press the DebugHUD `R` key to rebuild the reloadable app scene co
 - **FR-029**: Pressing `T` MUST keep the card on a valid available CardType and MUST NOT show missing, blank, or invalid artwork.
 - **FR-030**: CardType artwork MUST be replaceable without changing CardStructure behavior, including layer order, clipping, apparent depth rules, parallax response, and HUD card type toggle behavior.
 - **FR-037**: The frame layer MUST be one CardStructure object with a center cutout and continuous frame UV mapping, so a CardType frame texture appears continuous rather than as four separately mapped border objects.
-- **FR-038**: The DebugHUD MUST include `R` as a non-toggle key that invokes the `AppScene` reload method carried forward from `bevy-zoo-game` `001-project-setup` and `003-debug-hud`.
+- **FR-038**: The DebugHUD MUST include `R` as a non-toggle key that invokes the `AppScene` reload method carried forward from `bevy-zoo-game` `001-project-setup` and `003-debugging`.
 - **FR-039**: Pressing `R` MUST rebuild reloadable card scene content, including the primary camera and card structure, without changing DebugHUD toggle state.
 - **FR-040**: The DebugHUD MUST include `H` as a toggle key for hot-reload auto-restart.
 - **FR-041**: The `H` hot-reload auto-restart value MUST default to `false`, persist as local runtime state through the project-approved `bevy-persistent` pattern, and restore on later desktop launches.

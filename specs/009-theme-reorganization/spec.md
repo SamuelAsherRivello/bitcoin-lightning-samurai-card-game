@@ -39,25 +39,29 @@ A developer can identify an asset's category from its name while relying on its 
 
 ---
 
-### User Story 3 - Load Cards as Card Bundles (Priority: P2)
+### User Story 3 - Use Purposeful Scene and Model/View Naming (Priority: P2)
 
-A developer can reason about each playable card as a single card bundle that includes its front, back, visual layers, and behavior contract, rather than as disconnected assets.
+A developer can distinguish app structure, data, and rendering by using `Scene` names for the persistent app-level scene, `Model` names for data, and `View` names for rendered presentation. `AppScene` is always present, while at most one active sub-screen view such as `GameView` or `CardBrowserView` is loaded on top.
 
-**Why this priority**: The card bundle concept makes card loading and documentation easier to extend as cards gain more layers, back art, and card-specific behavior.
+**Why this priority**: Scene/Model/View naming makes it clear whether code is managing the app container, storing data, or creating visuals. `CardViewBundle` keeps the card's front, back, layers, and visual behavior grouped without overloading the word model.
 
-**Independent Test**: Can be fully tested by reading the updated documentation and validating that each card is described as a card bundle with its required contents and expected behavior ownership.
+**Independent Test**: Can be fully tested by reading the updated documentation and validating that the persistent scene is described as `AppScene`, active sub-screen presentations are described as `GameView` and `CardBrowserView`, card data is described as `CardModel`, card rendering is described as `CardView`, and the card visual spawn bundle is described as `CardViewBundle`.
 
 **Acceptance Scenarios**:
 
-1. **Given** a developer reads card documentation, **When** the card concept is introduced, **Then** it is called a card bundle.
-2. **Given** a card bundle is described, **When** a developer reviews its contents, **Then** the bundle includes front presentation, back presentation, all visual layers, and card behavior.
-3. **Given** a card is loaded by the game, **When** a developer traces the card's assets and behavior, **Then** the relationship is represented as one card bundle rather than separate unrelated pieces.
+1. **Given** a developer reads app structure documentation, **When** the always-present scene is introduced, **Then** it is called `AppScene`.
+2. **Given** a developer reads active screen documentation, **When** the gameplay and browser presentations are introduced, **Then** they are called `GameView` and `CardBrowserView`.
+3. **Given** a developer reads card documentation, **When** card data is introduced, **Then** it is called `CardModel`.
+4. **Given** a developer reads card rendering documentation, **When** card visuals are introduced, **Then** they are called `CardView`.
+5. **Given** the visual bundle is described, **When** a developer reviews its contents, **Then** `CardViewBundle` includes front presentation, back presentation, all visual layers, and view behavior needed to render the card.
+6. **Given** a card is loaded by the game, **When** a developer traces the card's data and visuals, **Then** `CardModel` and `CardViewBundle` are distinct concepts rather than one ambiguous card model.
 
 ### Edge Cases
 
 - If only the Japan theme exists, the structure still uses a theme root so the current theme does not need a later migration when another theme is added.
 - If an existing asset name already starts with the correct category prefix, it remains valid only if it also avoids repeating the theme name.
-- If a card has placeholder art or incomplete behavior, it is still represented as a card bundle so placeholder and final cards follow the same concept.
+- If a card has placeholder art or incomplete behavior, it still has a `CardModel` and `CardViewBundle` so placeholder and final cards follow the same concept.
+- If the app usually shows one page at a time, `AppScene` remains the always-present exception while `GameView` or `CardBrowserView` is the active sub-screen loaded on top.
 - If non-theme shared assets remain in the project, they must not be confused with theme-owned cards, locations, or worlds.
 
 ## Requirements *(mandatory)*
@@ -73,20 +77,29 @@ A developer can reason about each playable card as a single card bundle that inc
 - **FR-007**: Theme-owned location asset names MUST begin with `location_`.
 - **FR-008**: Theme-owned world asset names MUST begin with `world_`.
 - **FR-009**: Theme-owned card, location, and world asset names MUST NOT repeat `japan` because theme identity is provided by the containing theme root.
-- **FR-010**: Documentation MUST refer to the loadable card concept as a card bundle.
-- **FR-011**: A card bundle MUST be documented as the complete card package containing front presentation, back presentation, all visual layers, and all card behavior needed for loading and play presentation.
-- **FR-012**: Card loading documentation MUST describe cards as being loaded through their card bundle rather than through unrelated individual assets.
-- **FR-013**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, card browser viewing, and card flipping.
-- **FR-014**: Existing world and location presentation from the current proof-of-concept MUST remain unchanged after reorganization, including active world display and visible tactical locations.
-- **FR-015**: The reorganization MUST preserve a clear distinction between theme-owned assets and reusable shared assets that are not specific to a theme.
+- **FR-010**: Documentation MUST use `Scene` for the persistent app-level scene, `Model` for data-holding concepts, and `View` for rendering/presentation concepts.
+- **FR-011**: The always-present app container MUST be documented as `AppScene`.
+- **FR-012**: The gameplay and card browser sub-screen presentations MUST be documented as `GameView` and `CardBrowserView`.
+- **FR-013**: Card data MUST be documented as `CardModel`.
+- **FR-014**: Card rendering MUST be documented as `CardView`, with `CardViewBundle` as the visual bundle that creates the rendered card.
+- **FR-015**: `CardViewBundle` MUST be documented as containing front presentation, back presentation, all visual layers, and view behavior needed for loading and play presentation.
+- **FR-016**: Card loading documentation MUST describe cards as loading data from `CardModel` and creating visuals through `CardViewBundle` rather than through unrelated individual assets.
+- **FR-017**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, card browser viewing, and card flipping.
+- **FR-018**: Existing world and location presentation from the current proof-of-concept MUST remain unchanged after reorganization, including active world display and visible tactical locations.
+- **FR-019**: The reorganization MUST preserve a clear distinction between theme-owned assets and reusable shared assets that are not specific to a theme.
 
 ### Key Entities
 
 - **Theme**: A top-level asset grouping that owns one coherent visual setting and contains its cards, locations, and worlds.
-- **Theme Card Category**: The theme-owned collection of card bundles and related card assets for that theme.
+- **Theme Card Category**: The theme-owned collection of card models, card view assets, and related card assets for that theme.
 - **Theme Location Category**: The theme-owned collection of tactical location assets for that theme.
 - **Theme World Category**: The theme-owned collection of world assets for that theme.
-- **Card Bundle**: The complete loadable card concept, containing front presentation, back presentation, all visual layers, and all behavior associated with that card.
+- **AppScene**: The always-present app-level scene that owns the durable runtime container and can host one active sub-screen view.
+- **GameView**: The gameplay sub-screen presentation loaded on top of `AppScene`.
+- **CardBrowserView**: The card browser sub-screen presentation loaded on top of `AppScene`.
+- **CardModel**: The card data concept, containing the card's identity, display name, asset references, and data needed to create the rendered card.
+- **CardView**: The rendered card presentation concept, responsible for visual composition and interaction-facing presentation.
+- **CardViewBundle**: The visual bundle used to create the rendered card view, containing front presentation, back presentation, all visual layers, and view behavior associated with that card.
 - **Shared Asset**: A reusable asset that does not belong to one theme and therefore remains outside theme-owned card, location, and world categories.
 
 ## Success Criteria *(mandatory)*
@@ -96,7 +109,7 @@ A developer can reason about each playable card as a single card bundle that inc
 - **SC-001**: A developer can locate the Japan theme's cards, locations, and worlds within 30 seconds by starting from the theme asset root.
 - **SC-002**: 100% of Japan theme card, location, and world assets use the required category prefix for their asset category.
 - **SC-003**: 0 Japan theme card, location, or world asset names include `japan` outside the theme root.
-- **SC-004**: A developer can identify the required contents of a card bundle from documentation within 2 minutes.
+- **SC-004**: A developer can identify the difference between `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` from documentation within 2 minutes.
 - **SC-005**: A tester can complete the existing card browsing and card flipping flow after the reorganization with no visible behavior regression.
 - **SC-006**: A tester can view the existing world and tactical location presentation after the reorganization with no visible behavior regression.
 
@@ -105,4 +118,4 @@ A developer can reason about each playable card as a single card bundle that inc
 - The current theme identity is Japan, and the theme root name remains explicit so future sibling themes can follow the same pattern.
 - Existing proof-of-concept gameplay and presentation behavior is retained; this feature focuses on organization, naming, loading concepts, and documentation.
 - Shared assets that are not specific to cards, locations, or worlds may remain outside the theme root when they are genuinely reusable across themes.
-- Placeholder cards and final cards use the same card bundle concept so the documentation does not need separate temporary terminology.
+- Placeholder cards and final cards use the same `CardModel` and `CardViewBundle` concepts so the documentation does not need separate temporary terminology.

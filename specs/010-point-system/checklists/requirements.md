@@ -1,7 +1,7 @@
-# Specification Quality Checklist: DebugHUD
+# Specification Quality Checklist: Point System
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-05-09
+**Purpose**: Validate specification completeness and quality before proceeding to planning  
+**Created**: 2026-05-11  
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,4 +31,4 @@
 
 ## Notes
 
-- Initial specification validation passed. This spec intentionally excludes toast, minimap, reticle, and gameplay HUD behavior.
+Initial draft is ready for user knowledge additions, `/speckit-clarify`, or `/speckit-plan`.
