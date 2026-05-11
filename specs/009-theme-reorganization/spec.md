@@ -5,6 +5,13 @@
 **Status**: Draft  
 **Input**: User description: "Let's do a 009 reorganization. While the game is set to have only one theme, I'd like to organize it in case we have more. So update the structure to be like this: bevy/crates/game/assets/themes/theme_japan/cards, bevy/crates/game/assets/themes/theme_japan/locations, bevy/crates/game/assets/themes/theme_japan/worlds. Start stuff within each folder with 'card_', 'location_', and 'world_' without mentioning japan in the naming. That is understood based on its location. Then use a bundle for loading the card. Refer to the card concept as a card bundle in the docs. The card bundle contains the front and back and all layers and all behavior."
 
+## Clarifications
+
+### Session 2026-05-11
+
+- Q: Should Scene/Model/View naming be documentation-only, targeted implementation rename, or full implementation rename? -> A: Full implementation rename: rename all matching structs, resources, systems, tests, labels, and docs to the approved Scene/Model/View vocabulary in 009.
+- Q: What coding standards should 009 apply while renaming and reorganizing runtime concepts? -> A: Split files by one primary concept, name files and primary items purposefully such as `FooPlugin`, `FooComponent`, `BarScene`, or `TempSystem`, name system functions as `[domain]_[schedule]_system`, and add a terse two-line `HUMAN:` / `AI:` purpose comment above each primary item.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Organize Theme Assets for Growth (Priority: P1)
@@ -55,6 +62,8 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 4. **Given** a developer reads card rendering documentation, **When** card visuals are introduced, **Then** they are called `CardView`.
 5. **Given** the visual bundle is described, **When** a developer reviews its contents, **Then** `CardViewBundle` includes front presentation, back presentation, all visual layers, and view behavior needed to render the card.
 6. **Given** a card is loaded by the game, **When** a developer traces the card's data and visuals, **Then** `CardModel` and `CardViewBundle` are distinct concepts rather than one ambiguous card model.
+7. **Given** a developer opens a runtime source file, **When** the file contains a primary plugin, component, scene, view, model, or system concept, **Then** the file contains only that primary concept and closely required supporting code.
+8. **Given** a developer reads a primary runtime item, **When** the item starts, **Then** a terse purpose comment includes one `HUMAN:` line and one `AI:` line.
 
 ### Edge Cases
 
@@ -62,6 +71,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - If an existing asset name already starts with the correct category prefix, it remains valid only if it also avoids repeating the theme name.
 - If a card has placeholder art or incomplete behavior, it still has a `CardModel` and `CardViewBundle` so placeholder and final cards follow the same concept.
 - If the app usually shows one page at a time, `AppScene` remains the always-present exception while `GameView` or `CardBrowserView` is the active sub-screen loaded on top.
+- If a support type is only meaningful inside one primary concept, it may stay in the same file; if it becomes reusable or independently meaningful, it must move to its own purposeful file.
 - If non-theme shared assets remain in the project, they must not be confused with theme-owned cards, locations, or worlds.
 
 ## Requirements *(mandatory)*
@@ -84,9 +94,14 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **FR-014**: Card rendering MUST be documented as `CardView`, with `CardViewBundle` as the visual bundle that creates the rendered card.
 - **FR-015**: `CardViewBundle` MUST be documented as containing front presentation, back presentation, all visual layers, and view behavior needed for loading and play presentation.
 - **FR-016**: Card loading documentation MUST describe cards as loading data from `CardModel` and creating visuals through `CardViewBundle` rather than through unrelated individual assets.
-- **FR-017**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, card browser viewing, and card flipping.
-- **FR-018**: Existing world and location presentation from the current proof-of-concept MUST remain unchanged after reorganization, including active world display and visible tactical locations.
-- **FR-019**: The reorganization MUST preserve a clear distinction between theme-owned assets and reusable shared assets that are not specific to a theme.
+- **FR-017**: All matching runtime structs, resources, systems, tests, labels, and documentation MUST be renamed to the approved Scene/Model/View vocabulary in 009.
+- **FR-018**: Legacy names such as `ActiveScene`, `GameSceneRoot`, `GameSceneEntity`, `CardBrowserSceneRoot`, `CardBrowserSceneEntity`, `CardType`, `CardTypeRegistry`, and `ActiveCardType` MUST NOT remain after implementation except in migration notes or historical references.
+- **FR-019**: Runtime source files changed by 009 MUST be split by one primary concept per file, with purposeful filenames and primary item names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
+- **FR-020**: Each primary plugin, component, scene, view, model, and system item changed or created by 009 MUST have a terse purpose comment immediately above it containing exactly one `HUMAN:` line for high-level human intent and one `AI:` line for implementation context or future AI guidance.
+- **FR-021**: Runtime system function names changed or created by 009 MUST follow `[domain]_[schedule]_system`, such as `player_update_system`, where the domain describes the feature area and the schedule describes when the system runs.
+- **FR-022**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, card browser viewing, and card flipping.
+- **FR-023**: Existing world and location presentation from the current proof-of-concept MUST remain unchanged after reorganization, including active world display and visible tactical locations.
+- **FR-024**: The reorganization MUST preserve a clear distinction between theme-owned assets and reusable shared assets that are not specific to a theme.
 
 ### Key Entities
 
@@ -100,6 +115,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **CardModel**: The card data concept, containing the card's identity, display name, asset references, and data needed to create the rendered card.
 - **CardView**: The rendered card presentation concept, responsible for visual composition and interaction-facing presentation.
 - **CardViewBundle**: The visual bundle used to create the rendered card view, containing front presentation, back presentation, all visual layers, and view behavior associated with that card.
+- **Primary Runtime Concept**: A plugin, component, scene, view, model, or system that owns a focused runtime responsibility and should live in a purposeful file centered on that concept.
 - **Shared Asset**: A reusable asset that does not belong to one theme and therefore remains outside theme-owned card, location, and world categories.
 
 ## Success Criteria *(mandatory)*
@@ -110,8 +126,9 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **SC-002**: 100% of Japan theme card, location, and world assets use the required category prefix for their asset category.
 - **SC-003**: 0 Japan theme card, location, or world asset names include `japan` outside the theme root.
 - **SC-004**: A developer can identify the difference between `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` from documentation within 2 minutes.
-- **SC-005**: A tester can complete the existing card browsing and card flipping flow after the reorganization with no visible behavior regression.
-- **SC-006**: A tester can view the existing world and tactical location presentation after the reorganization with no visible behavior regression.
+- **SC-005**: A developer can inspect five changed runtime files and confirm each file has one primary concept, a purposeful primary item name, and a `HUMAN:` / `AI:` comment block within 5 minutes.
+- **SC-006**: A tester can complete the existing card browsing and card flipping flow after the reorganization with no visible behavior regression.
+- **SC-007**: A tester can view the existing world and tactical location presentation after the reorganization with no visible behavior regression.
 
 ## Assumptions
 
@@ -119,3 +136,4 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - Existing proof-of-concept gameplay and presentation behavior is retained; this feature focuses on organization, naming, loading concepts, and documentation.
 - Shared assets that are not specific to cards, locations, or worlds may remain outside the theme root when they are genuinely reusable across themes.
 - Placeholder cards and final cards use the same `CardModel` and `CardViewBundle` concepts so the documentation does not need separate temporary terminology.
+- File separation applies to runtime source touched by 009; untouched legacy files may remain outside scope unless they must be edited for this feature.

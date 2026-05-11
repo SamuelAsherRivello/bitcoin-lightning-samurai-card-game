@@ -20,9 +20,9 @@ pub const CARD_WIDTH_WORLD_UNITS: f32 =
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
-pub const CARD_TYPE_SLOT_COUNT: usize = 4;
-pub const WORLD_THEME_COUNT: usize = 2;
-pub const TACTICAL_LOCATION_COUNT: usize = 6;
+pub const CARD_MODEL_SLOT_COUNT: usize = 4;
+pub const WORLD_MODEL_COUNT: usize = 2;
+pub const LOCATION_MODEL_COUNT: usize = 6;
 pub const ACTIVE_LOCATION_COUNT: usize = 3;
 pub const CARD_DEPTH_FACTOR_DEFAULT: f32 = 10.0;
 pub const CARD_DEPTH_FACTOR_MIN: f32 = 0.0;
@@ -31,27 +31,31 @@ pub const CARD_LAYER_SCALE_DEFAULT: f32 = 1.0;
 pub const CARD_LAYER_SCALE_MIN: f32 = 0.0;
 pub const CARD_LAYER_SCALE_MAX: f32 = 2.0;
 pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
-pub const CARD_BACK_TEXTURE_PATH: &str = "cards/card_structure/card_back_japan_realism.png";
-pub const CARD_SAFE_AREA_TEXTURE_PATH: &str = "cards/card_structure/safe_area.png";
-pub const KAGE_REN_CARD_TYPE_ID: &str = "kage_ren";
-pub const KAGE_REN_CARD_TYPE_NAME: &str = "KAGE REN";
-pub const LORD_DAICHI_CARD_TYPE_ID: &str = "lord_daichi";
-pub const LORD_DAICHI_CARD_TYPE_NAME: &str = "LORD DAICHI";
-pub const SISTER_HOTARU_CARD_TYPE_ID: &str = "sister_hotaru";
-pub const SISTER_HOTARU_CARD_TYPE_NAME: &str = "SISTER HOTARU";
-pub const YOKAI_PLACEHOLDER_CARD_TYPE_ID: &str = "yokai_placeholder";
-pub const YOKAI_PLACEHOLDER_CARD_TYPE_NAME: &str = "YOKAI TEST";
+pub const CARD_BACK_TEXTURE_PATH: &str = "themes/theme_japan/cards/card_back.png";
+pub const CARD_SAFE_AREA_TEXTURE_PATH: &str = "themes/theme_japan/cards/safe_area.png";
+pub const KAGE_REN_CARD_MODEL_ID: &str = "kage_ren";
+pub const KAGE_REN_CARD_MODEL_NAME: &str = "KAGE REN";
+pub const LORD_DAICHI_CARD_MODEL_ID: &str = "lord_daichi";
+pub const LORD_DAICHI_CARD_MODEL_NAME: &str = "LORD DAICHI";
+pub const SISTER_HOTARU_CARD_MODEL_ID: &str = "sister_hotaru";
+pub const SISTER_HOTARU_CARD_MODEL_NAME: &str = "SISTER HOTARU";
+pub const YOKAI_PLACEHOLDER_CARD_MODEL_ID: &str = "yokai_placeholder";
+pub const YOKAI_PLACEHOLDER_CARD_MODEL_NAME: &str = "YOKAI TEST";
 pub const BAMBOO_FOREST_WORLD_ID: &str = "bamboo_forest";
 pub const COASTAL_HARBOR_WORLD_ID: &str = "coastal_harbor";
 
+/// HUMAN: Frame counter shared by runtime systems.
+/// AI: Keep as the lightweight app tick resource; do not mix with gameplay turn state.
 #[derive(Resource, Debug, Default)]
 pub struct GameTicks(pub u64);
 
+/// HUMAN: Selects the single sub-screen view loaded on top of the persistent AppScene.
+/// AI: Variants are views, not scenes; AppScene remains always present.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Resource)]
-pub enum ActiveScene {
+pub enum ActiveView {
     #[default]
-    Game,
-    CardBrowser,
+    GameView,
+    CardBrowserView,
 }
 
 #[derive(Clone, Debug, Resource)]
@@ -112,8 +116,10 @@ impl CardInspectionDefaults {
     }
 }
 
+/// HUMAN: Card data model used to build a rendered CardView.
+/// AI: Keep asset paths here as data; rendering belongs in CardViewBundle and systems.
 #[derive(Clone, Debug, PartialEq)]
-pub struct CardType {
+pub struct CardModel {
     pub id: &'static str,
     pub display_name: &'static str,
     pub background_texture: &'static str,
@@ -128,15 +134,15 @@ pub struct CardType {
     pub title_y_ratio: f32,
 }
 
-impl CardType {
+impl CardModel {
     pub const fn kage_ren() -> Self {
         Self {
-            id: KAGE_REN_CARD_TYPE_ID,
-            display_name: KAGE_REN_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_kage_ren/background.png",
-            frame_texture: "cards/card_types/card_type_kage_ren/frame.png",
-            foreground_texture: "cards/card_types/card_type_kage_ren/foreground_character.png",
-            title_texture: "cards/card_types/card_type_kage_ren/title.png",
+            id: KAGE_REN_CARD_MODEL_ID,
+            display_name: KAGE_REN_CARD_MODEL_NAME,
+            background_texture: "themes/theme_japan/cards/card_kage_ren/background.png",
+            frame_texture: "themes/theme_japan/cards/card_kage_ren/frame.png",
+            foreground_texture: "themes/theme_japan/cards/card_kage_ren/foreground_character.png",
+            title_texture: "themes/theme_japan/cards/card_kage_ren/title.png",
             background_uses_frame_mask: true,
             foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
@@ -148,12 +154,12 @@ impl CardType {
 
     pub const fn lord_daichi() -> Self {
         Self {
-            id: LORD_DAICHI_CARD_TYPE_ID,
-            display_name: LORD_DAICHI_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_lord_daichi/background.png",
-            frame_texture: "cards/card_types/card_type_lord_daichi/frame.png",
-            foreground_texture: "cards/card_types/card_type_lord_daichi/foreground_character.png",
-            title_texture: "cards/card_types/card_type_lord_daichi/title.png",
+            id: LORD_DAICHI_CARD_MODEL_ID,
+            display_name: LORD_DAICHI_CARD_MODEL_NAME,
+            background_texture: "themes/theme_japan/cards/card_lord_daichi/background.png",
+            frame_texture: "themes/theme_japan/cards/card_lord_daichi/frame.png",
+            foreground_texture: "themes/theme_japan/cards/card_lord_daichi/foreground_character.png",
+            title_texture: "themes/theme_japan/cards/card_lord_daichi/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
@@ -165,12 +171,12 @@ impl CardType {
 
     pub const fn sister_hotaru() -> Self {
         Self {
-            id: SISTER_HOTARU_CARD_TYPE_ID,
-            display_name: SISTER_HOTARU_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_sister_hotaru/background.png",
-            frame_texture: "cards/card_types/card_type_sister_hotaru/frame.png",
-            foreground_texture: "cards/card_types/card_type_sister_hotaru/foreground_character.png",
-            title_texture: "cards/card_types/card_type_sister_hotaru/title.png",
+            id: SISTER_HOTARU_CARD_MODEL_ID,
+            display_name: SISTER_HOTARU_CARD_MODEL_NAME,
+            background_texture: "themes/theme_japan/cards/card_sister_hotaru/background.png",
+            frame_texture: "themes/theme_japan/cards/card_sister_hotaru/frame.png",
+            foreground_texture: "themes/theme_japan/cards/card_sister_hotaru/foreground_character.png",
+            title_texture: "themes/theme_japan/cards/card_sister_hotaru/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
@@ -182,12 +188,12 @@ impl CardType {
 
     pub const fn yokai_placeholder() -> Self {
         Self {
-            id: YOKAI_PLACEHOLDER_CARD_TYPE_ID,
-            display_name: YOKAI_PLACEHOLDER_CARD_TYPE_NAME,
-            background_texture: "cards/card_types/card_type_yokai_placeholder/background.png",
-            frame_texture: "cards/card_types/card_type_yokai_placeholder/frame.png",
-            foreground_texture: "cards/card_types/card_type_yokai_placeholder/foreground_character.png",
-            title_texture: "cards/card_types/card_type_yokai_placeholder/title.png",
+            id: YOKAI_PLACEHOLDER_CARD_MODEL_ID,
+            display_name: YOKAI_PLACEHOLDER_CARD_MODEL_NAME,
+            background_texture: "themes/theme_japan/cards/card_yokai_placeholder/background.png",
+            frame_texture: "themes/theme_japan/cards/card_yokai_placeholder/frame.png",
+            foreground_texture: "themes/theme_japan/cards/card_yokai_placeholder/foreground_character.png",
+            title_texture: "themes/theme_japan/cards/card_yokai_placeholder/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
@@ -198,26 +204,28 @@ impl CardType {
     }
 }
 
+/// HUMAN: Registry of available card data models.
+/// AI: This owns CardModel data only; avoid adding render handles or ECS entities here.
 #[derive(Clone, Debug, Resource)]
-pub struct CardTypeRegistry {
-    slots: Vec<Option<CardType>>,
+pub struct CardModelRegistry {
+    slots: Vec<Option<CardModel>>,
 }
 
-impl Default for CardTypeRegistry {
+impl Default for CardModelRegistry {
     fn default() -> Self {
         Self {
             slots: vec![
-                Some(CardType::kage_ren()),
-                Some(CardType::lord_daichi()),
-                Some(CardType::sister_hotaru()),
-                Some(CardType::yokai_placeholder()),
+                Some(CardModel::kage_ren()),
+                Some(CardModel::lord_daichi()),
+                Some(CardModel::sister_hotaru()),
+                Some(CardModel::yokai_placeholder()),
             ],
         }
     }
 }
 
-impl CardTypeRegistry {
-    pub fn card_types(&self) -> impl Iterator<Item = &CardType> {
+impl CardModelRegistry {
+    pub fn card_models(&self) -> impl Iterator<Item = &CardModel> {
         self.slots.iter().flatten()
     }
 
@@ -229,9 +237,9 @@ impl CardTypeRegistry {
         self.slots.iter().flatten().count()
     }
 
-    pub fn active_card_type(&self, active_card_type: &ActiveCardType) -> Option<&CardType> {
+    pub fn active_card_model(&self, active_card_model: &ActiveCardModel) -> Option<&CardModel> {
         self.slots
-            .get(active_card_type.index)
+            .get(active_card_model.index)
             .and_then(Option::as_ref)
             .or_else(|| self.slots.iter().flatten().next())
     }
@@ -241,7 +249,7 @@ impl CardTypeRegistry {
             .slots
             .iter()
             .enumerate()
-            .filter_map(|(index, card_type)| card_type.as_ref().map(|_| index))
+            .filter_map(|(index, card_model)| card_model.as_ref().map(|_| index))
             .collect();
 
         if available_indices.len() <= 1 {
@@ -256,19 +264,21 @@ impl CardTypeRegistry {
     }
 }
 
+/// HUMAN: World data model used by GameView background rendering.
+/// AI: Keep the model separate from spawned world background entities.
 #[derive(Clone, Debug, PartialEq)]
-pub struct WorldTheme {
+pub struct WorldModel {
     pub id: &'static str,
     pub display_name: &'static str,
     pub background_texture: &'static str,
 }
 
-impl WorldTheme {
+impl WorldModel {
     pub const fn bamboo_forest() -> Self {
         Self {
             id: BAMBOO_FOREST_WORLD_ID,
             display_name: "Bamboo Forest",
-            background_texture: "worlds/bamboo_forest/world_background.png",
+            background_texture: "themes/theme_japan/worlds/world_bamboo_forest/world_background.png",
         }
     }
 
@@ -276,28 +286,30 @@ impl WorldTheme {
         Self {
             id: COASTAL_HARBOR_WORLD_ID,
             display_name: "Coastal Harbor",
-            background_texture: "worlds/coastal_harbor/world_background.png",
+            background_texture: "themes/theme_japan/worlds/world_coastal_harbor/world_background.png",
         }
     }
 }
 
+/// HUMAN: Registry of available world data models.
+/// AI: Preserve current ordering because keyboard toggles and tests depend on it.
 #[derive(Clone, Debug, Resource)]
-pub struct WorldThemeRegistry {
-    themes: Vec<WorldTheme>,
+pub struct WorldModelRegistry {
+    themes: Vec<WorldModel>,
 }
 
-impl Default for WorldThemeRegistry {
+impl Default for WorldModelRegistry {
     fn default() -> Self {
         Self {
-            themes: vec![WorldTheme::bamboo_forest(), WorldTheme::coastal_harbor()],
+            themes: vec![WorldModel::bamboo_forest(), WorldModel::coastal_harbor()],
         }
     }
 }
 
-impl WorldThemeRegistry {
-    pub fn active_world_theme(&self, active_world_theme: &ActiveWorldTheme) -> &WorldTheme {
+impl WorldModelRegistry {
+    pub fn active_world_model(&self, active_world_model: &ActiveWorldModel) -> &WorldModel {
         self.themes
-            .get(active_world_theme.index)
+            .get(active_world_model.index)
             .or_else(|| self.themes.first())
             .expect("world theme registry must contain at least one theme")
     }
@@ -315,31 +327,35 @@ impl WorldThemeRegistry {
     }
 }
 
+/// HUMAN: Active world model selection.
+/// AI: Indexes WorldModelRegistry and should not store texture handles.
 #[derive(Debug, Resource)]
-pub struct ActiveWorldTheme {
+pub struct ActiveWorldModel {
     pub index: usize,
 }
 
-impl Default for ActiveWorldTheme {
+impl Default for ActiveWorldModel {
     fn default() -> Self {
         Self { index: 0 }
     }
 }
 
-impl ActiveWorldTheme {
-    pub fn toggle(&mut self, registry: &WorldThemeRegistry) {
+impl ActiveWorldModel {
+    pub fn toggle(&mut self, registry: &WorldModelRegistry) {
         self.index = registry.next_index(self.index);
     }
 }
 
+/// HUMAN: Location data model used by GameView location cards.
+/// AI: Keep location texture paths model-owned and theme-rooted.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TacticalLocation {
+pub struct LocationModel {
     pub id: &'static str,
     pub display_name: &'static str,
     pub texture: &'static str,
 }
 
-impl TacticalLocation {
+impl LocationModel {
     pub const fn new(id: &'static str, display_name: &'static str, texture: &'static str) -> Self {
         Self {
             id,
@@ -349,52 +365,54 @@ impl TacticalLocation {
     }
 }
 
+/// HUMAN: Registry of available location data models.
+/// AI: ActiveLocations chooses indices from this registry for the current view.
 #[derive(Clone, Debug, Resource)]
-pub struct TacticalLocationRegistry {
-    locations: Vec<TacticalLocation>,
+pub struct LocationModelRegistry {
+    locations: Vec<LocationModel>,
 }
 
-impl Default for TacticalLocationRegistry {
+impl Default for LocationModelRegistry {
     fn default() -> Self {
         Self {
             locations: vec![
-                TacticalLocation::new(
+                LocationModel::new(
                     "fortress_gate",
                     "Fortress Gate",
-                    "locations/fortress_gate/location.png",
+                    "themes/theme_japan/locations/location_fortress_gate/location.png",
                 ),
-                TacticalLocation::new(
+                LocationModel::new(
                     "bamboo_crossing",
                     "Bamboo Crossing",
-                    "locations/bamboo_crossing/location.png",
+                    "themes/theme_japan/locations/location_bamboo_crossing/location.png",
                 ),
-                TacticalLocation::new(
+                LocationModel::new(
                     "shrine_ruins",
                     "Shrine Ruins",
-                    "locations/shrine_ruins/location.png",
+                    "themes/theme_japan/locations/location_shrine_ruins/location.png",
                 ),
-                TacticalLocation::new(
+                LocationModel::new(
                     "battlefield",
                     "Battlefield",
-                    "locations/battlefield/location.png",
+                    "themes/theme_japan/locations/location_battlefield/location.png",
                 ),
-                TacticalLocation::new(
+                LocationModel::new(
                     "spirit_well",
                     "Spirit Well",
-                    "locations/spirit_well/location.png",
+                    "themes/theme_japan/locations/location_spirit_well/location.png",
                 ),
-                TacticalLocation::new(
+                LocationModel::new(
                     "market_square",
                     "Market Square",
-                    "locations/market_square/location.png",
+                    "themes/theme_japan/locations/location_market_square/location.png",
                 ),
             ],
         }
     }
 }
 
-impl TacticalLocationRegistry {
-    pub fn selected_locations(&self, active_locations: &ActiveLocations) -> Vec<&TacticalLocation> {
+impl LocationModelRegistry {
+    pub fn selected_locations(&self, active_locations: &ActiveLocations) -> Vec<&LocationModel> {
         active_locations
             .indices
             .iter()
@@ -425,31 +443,33 @@ impl Default for ActiveLocations {
 impl ActiveLocations {
     pub fn reroll(
         &mut self,
-        registry: &TacticalLocationRegistry,
-        active_world_theme: &ActiveWorldTheme,
+        registry: &LocationModelRegistry,
+        active_world_model: &ActiveWorldModel,
     ) {
         let count = registry.len().max(1);
         self.generation = self.generation.wrapping_add(1);
-        let start = (active_world_theme.index + self.generation) % count;
+        let start = (active_world_model.index + self.generation) % count;
         for (offset, index) in self.indices.iter_mut().enumerate() {
             *index = (start + offset) % count;
         }
     }
 }
 
+/// HUMAN: Active card model selection.
+/// AI: Indexes CardModelRegistry and drives CardViewBundle creation.
 #[derive(Debug, Resource)]
-pub struct ActiveCardType {
+pub struct ActiveCardModel {
     pub index: usize,
 }
 
-impl Default for ActiveCardType {
+impl Default for ActiveCardModel {
     fn default() -> Self {
         Self { index: 0 }
     }
 }
 
-impl ActiveCardType {
-    pub fn toggle(&mut self, registry: &CardTypeRegistry) {
+impl ActiveCardModel {
+    pub fn toggle(&mut self, registry: &CardModelRegistry) {
         self.index = registry.next_available_index(self.index);
     }
 }
@@ -915,39 +935,35 @@ mod tests {
     }
 
     #[test]
-    fn card_type_registry_has_japan_realism_characters() {
-        let registry = CardTypeRegistry::default();
-        let active_card_type = ActiveCardType::default();
+    fn card_model_registry_has_japan_realism_characters() {
+        let registry = CardModelRegistry::default();
+        let active_card_model = ActiveCardModel::default();
 
-        assert_eq!(registry.slot_count(), CARD_TYPE_SLOT_COUNT);
+        assert_eq!(registry.slot_count(), CARD_MODEL_SLOT_COUNT);
         assert_eq!(registry.available_count(), 4);
         assert_eq!(
             registry
-                .active_card_type(&active_card_type)
-                .map(|card_type| card_type.id),
-            Some(KAGE_REN_CARD_TYPE_ID)
+                .active_card_model(&active_card_model)
+                .map(|card_model| card_model.id),
+            Some(KAGE_REN_CARD_MODEL_ID)
         );
     }
 
     #[test]
-    fn card_type_textures_match_asset_directory_casing() {
-        let registry = CardTypeRegistry::default();
-        let asset_root = workspace_root_path()
-            .join("bevy")
-            .join("crates")
-            .join("game")
-            .join("assets");
+    fn card_model_textures_match_asset_directory_casing() {
+        let registry = CardModelRegistry::default();
+        let asset_root = game_asset_root_path();
 
-        for card_type in registry.slots.iter().flatten() {
+        for card_model in registry.slots.iter().flatten() {
             for texture_path in [
-                card_type.background_texture,
-                card_type.frame_texture,
-                card_type.foreground_texture,
-                card_type.title_texture,
+                card_model.background_texture,
+                card_model.frame_texture,
+                card_model.foreground_texture,
+                card_model.title_texture,
             ] {
                 assert!(
                     asset_root.join(texture_path).is_file(),
-                    "missing card type texture at {}",
+                    "missing card model texture at {}",
                     texture_path
                 );
             }
@@ -955,45 +971,152 @@ mod tests {
     }
 
     #[test]
-    fn card_type_toggle_cycles_between_four_japan_realism_cards() {
-        let registry = CardTypeRegistry::default();
-        let mut active_card_type = ActiveCardType::default();
+    fn theme_asset_root_contains_current_japan_cards_locations_and_worlds() {
+        let asset_root = game_asset_root_path();
+        for relative_path in [
+            "themes/theme_japan/cards/card_kage_ren/background.png",
+            "themes/theme_japan/cards/card_lord_daichi/background.png",
+            "themes/theme_japan/cards/card_sister_hotaru/background.png",
+            "themes/theme_japan/cards/card_yokai_placeholder/background.png",
+            "themes/theme_japan/cards/card_back.png",
+            "themes/theme_japan/cards/safe_area.png",
+            "themes/theme_japan/locations/location_fortress_gate/location.png",
+            "themes/theme_japan/locations/location_bamboo_crossing/location.png",
+            "themes/theme_japan/locations/location_shrine_ruins/location.png",
+            "themes/theme_japan/locations/location_battlefield/location.png",
+            "themes/theme_japan/locations/location_spirit_well/location.png",
+            "themes/theme_japan/locations/location_market_square/location.png",
+            "themes/theme_japan/worlds/world_bamboo_forest/world_background.png",
+            "themes/theme_japan/worlds/world_coastal_harbor/world_background.png",
+        ] {
+            assert!(
+                asset_root.join(relative_path).is_file(),
+                "missing theme asset at {relative_path}"
+            );
+        }
+    }
 
-        active_card_type.toggle(&registry);
-        assert_eq!(active_card_type.index, 1);
+    #[test]
+    fn runtime_model_paths_start_with_theme_root() {
+        let card_registry = CardModelRegistry::default();
+        for card_model in card_registry.card_models() {
+            for texture_path in [
+                card_model.background_texture,
+                card_model.frame_texture,
+                card_model.foreground_texture,
+                card_model.title_texture,
+            ] {
+                assert!(texture_path.starts_with("themes/theme_japan/cards/"));
+            }
+        }
+
+        let world_registry = WorldModelRegistry::default();
+        for world_model in &world_registry.themes {
+            assert!(
+                world_model
+                    .background_texture
+                    .starts_with("themes/theme_japan/worlds/")
+            );
+        }
+
+        let location_registry = LocationModelRegistry::default();
+        for location_model in &location_registry.locations {
+            assert!(
+                location_model
+                    .texture
+                    .starts_with("themes/theme_japan/locations/")
+            );
+        }
+    }
+
+    #[test]
+    fn theme_owned_folder_names_use_category_prefixes() {
+        let card_registry = CardModelRegistry::default();
+        for card_model in card_registry.card_models() {
+            assert!(theme_owned_name(card_model.background_texture).starts_with("card_"));
+        }
+
+        let world_registry = WorldModelRegistry::default();
+        for world_model in &world_registry.themes {
+            assert!(theme_owned_name(world_model.background_texture).starts_with("world_"));
+        }
+
+        let location_registry = LocationModelRegistry::default();
+        for location_model in &location_registry.locations {
+            assert!(theme_owned_name(location_model.texture).starts_with("location_"));
+        }
+    }
+
+    #[test]
+    fn theme_owned_paths_do_not_repeat_japan_after_theme_root() {
+        for path in theme_owned_runtime_paths() {
+            let after_root = path
+                .strip_prefix("themes/theme_japan/")
+                .expect("theme-owned path should start with theme root");
+            assert!(
+                !after_root.contains("japan"),
+                "theme-owned path repeats theme name: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn card_model_registry_paths_cover_card_view_bundle_presentation_assets() {
+        let registry = CardModelRegistry::default();
+        for card_model in registry.card_models() {
+            assert!(card_model.background_texture.ends_with("/background.png"));
+            assert!(card_model.frame_texture.ends_with("/frame.png"));
+            assert!(
+                card_model
+                    .foreground_texture
+                    .ends_with("/foreground_character.png")
+            );
+            assert!(card_model.title_texture.ends_with("/title.png"));
+            assert!(CARD_BACK_TEXTURE_PATH.ends_with("/card_back.png"));
+            assert!(CARD_SAFE_AREA_TEXTURE_PATH.ends_with("/safe_area.png"));
+        }
+    }
+
+    #[test]
+    fn card_model_toggle_cycles_between_four_japan_realism_cards() {
+        let registry = CardModelRegistry::default();
+        let mut active_card_model = ActiveCardModel::default();
+
+        active_card_model.toggle(&registry);
+        assert_eq!(active_card_model.index, 1);
         assert_eq!(
             registry
-                .active_card_type(&active_card_type)
-                .map(|card_type| card_type.display_name),
-            Some(LORD_DAICHI_CARD_TYPE_NAME)
+                .active_card_model(&active_card_model)
+                .map(|card_model| card_model.display_name),
+            Some(LORD_DAICHI_CARD_MODEL_NAME)
         );
 
-        active_card_type.toggle(&registry);
-        assert_eq!(active_card_type.index, 2);
+        active_card_model.toggle(&registry);
+        assert_eq!(active_card_model.index, 2);
         assert_eq!(
             registry
-                .active_card_type(&active_card_type)
-                .map(|card_type| card_type.display_name),
-            Some(SISTER_HOTARU_CARD_TYPE_NAME)
+                .active_card_model(&active_card_model)
+                .map(|card_model| card_model.display_name),
+            Some(SISTER_HOTARU_CARD_MODEL_NAME)
         );
 
-        active_card_type.toggle(&registry);
-        assert_eq!(active_card_type.index, 3);
+        active_card_model.toggle(&registry);
+        assert_eq!(active_card_model.index, 3);
         assert_eq!(
             registry
-                .active_card_type(&active_card_type)
-                .map(|card_type| card_type.display_name),
-            Some(YOKAI_PLACEHOLDER_CARD_TYPE_NAME)
+                .active_card_model(&active_card_model)
+                .map(|card_model| card_model.display_name),
+            Some(YOKAI_PLACEHOLDER_CARD_MODEL_NAME)
         );
 
-        active_card_type.toggle(&registry);
+        active_card_model.toggle(&registry);
 
-        assert_eq!(active_card_type.index, 0);
+        assert_eq!(active_card_model.index, 0);
         assert_eq!(
             registry
-                .active_card_type(&active_card_type)
-                .map(|card_type| card_type.display_name),
-            Some(KAGE_REN_CARD_TYPE_NAME)
+                .active_card_model(&active_card_model)
+                .map(|card_model| card_model.display_name),
+            Some(KAGE_REN_CARD_MODEL_NAME)
         );
     }
 
@@ -1046,51 +1169,51 @@ mod tests {
     }
 
     #[test]
-    fn card_back_texture_uses_card_structure_asset_path() {
+    fn card_back_texture_uses_theme_card_asset_path() {
         assert_eq!(
             CARD_BACK_TEXTURE_PATH,
-            "cards/card_structure/card_back_japan_realism.png"
+            "themes/theme_japan/cards/card_back.png"
         );
-        assert!(!CARD_BACK_TEXTURE_PATH.contains("card_type_"));
+        assert!(!CARD_BACK_TEXTURE_PATH.contains("card_model_"));
     }
 
     #[test]
-    fn world_theme_registry_cycles_between_bamboo_forest_and_coastal_harbor() {
-        let registry = WorldThemeRegistry::default();
-        let mut active_world_theme = ActiveWorldTheme::default();
+    fn world_model_registry_cycles_between_bamboo_forest_and_coastal_harbor() {
+        let registry = WorldModelRegistry::default();
+        let mut active_world_model = ActiveWorldModel::default();
 
-        assert_eq!(registry.len(), WORLD_THEME_COUNT);
+        assert_eq!(registry.len(), WORLD_MODEL_COUNT);
         assert_eq!(
-            registry.active_world_theme(&active_world_theme).id,
+            registry.active_world_model(&active_world_model).id,
             BAMBOO_FOREST_WORLD_ID
         );
 
-        active_world_theme.toggle(&registry);
+        active_world_model.toggle(&registry);
         assert_eq!(
-            registry.active_world_theme(&active_world_theme).id,
+            registry.active_world_model(&active_world_model).id,
             COASTAL_HARBOR_WORLD_ID
         );
 
-        active_world_theme.toggle(&registry);
+        active_world_model.toggle(&registry);
         assert_eq!(
-            registry.active_world_theme(&active_world_theme).id,
+            registry.active_world_model(&active_world_model).id,
             BAMBOO_FOREST_WORLD_ID
         );
     }
 
     #[test]
     fn active_locations_selects_three_locations_from_six() {
-        let registry = TacticalLocationRegistry::default();
+        let registry = LocationModelRegistry::default();
         let mut active_locations = ActiveLocations::default();
-        let active_world_theme = ActiveWorldTheme::default();
+        let active_world_model = ActiveWorldModel::default();
 
-        assert_eq!(registry.len(), TACTICAL_LOCATION_COUNT);
+        assert_eq!(registry.len(), LOCATION_MODEL_COUNT);
         assert_eq!(
             registry.selected_locations(&active_locations).len(),
             ACTIVE_LOCATION_COUNT
         );
 
-        active_locations.reroll(&registry, &active_world_theme);
+        active_locations.reroll(&registry, &active_world_model);
 
         assert_eq!(
             registry.selected_locations(&active_locations).len(),
@@ -1100,7 +1223,7 @@ mod tests {
             active_locations
                 .indices
                 .iter()
-                .all(|index| *index < TACTICAL_LOCATION_COUNT)
+                .all(|index| *index < LOCATION_MODEL_COUNT)
         );
     }
 
@@ -1172,5 +1295,41 @@ mod tests {
         assert_eq!(state.frame_layer_scale, CARD_LAYER_SCALE_MAX);
         assert_eq!(state.foreground_layer_scale, CARD_LAYER_SCALE_MAX);
         assert_eq!(state.title_layer_scale, CARD_LAYER_SCALE_MIN);
+    }
+
+    fn game_asset_root_path() -> PathBuf {
+        workspace_root_path()
+            .join("bevy")
+            .join("crates")
+            .join("game")
+            .join("assets")
+    }
+
+    fn theme_owned_name(path: &str) -> &str {
+        path.split('/')
+            .nth(3)
+            .expect("theme-owned path should include category-owned folder")
+    }
+
+    fn theme_owned_runtime_paths() -> Vec<&'static str> {
+        let card_registry = CardModelRegistry::default();
+        let world_registry = WorldModelRegistry::default();
+        let location_registry = LocationModelRegistry::default();
+        let mut paths = vec![CARD_BACK_TEXTURE_PATH, CARD_SAFE_AREA_TEXTURE_PATH];
+        for card_model in card_registry.card_models() {
+            paths.extend([
+                card_model.background_texture,
+                card_model.frame_texture,
+                card_model.foreground_texture,
+                card_model.title_texture,
+            ]);
+        }
+        for world_model in &world_registry.themes {
+            paths.push(world_model.background_texture);
+        }
+        for location_model in &location_registry.locations {
+            paths.push(location_model.texture);
+        }
+        paths
     }
 }

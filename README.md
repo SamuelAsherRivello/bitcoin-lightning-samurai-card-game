@@ -32,8 +32,8 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | Key | Behavior |
 | --- | -------- |
 | `W` / `A` / `S` / `D` | DebugHUD hold indicators for directional input state. |
-| `R` | Reloads the active AppScene child scene without restarting the app. |
-| `T` | In GameScene, cycles the active world between Bamboo Forest and Coastal Harbor; in Card Browser, cycles global CardUI presentation settings. |
+| `R` | Reloads the active AppScene child view without restarting the app. |
+| `T` | In GameView, cycles the active world between Bamboo Forest and Coastal Harbor; in Card Browser, cycles global CardUI presentation settings. |
 | `F` | Toggles the FPS readout. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
@@ -77,13 +77,16 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
 | `bevy/crates/game/src/runtime/systems` | Card-specific setup, pointer mapping, smoothing, and DebugHUD composition. |
 | `bevy/crates/game/src/runtime/plugins` | Game plugin composition and card POC tests. |
-| `bevy/crates/game/assets/cards/card_types/card_type_kage_ren` | Generated Kage Ren card textures. |
-| `bevy/crates/game/assets/cards/card_types/card_type_lord_daichi` | Generated Lord Daichi card textures. |
-| `bevy/crates/game/assets/cards/card_types/card_type_sister_hotaru` | Generated Sister Hotaru card textures. |
-| `bevy/crates/game/assets/cards/card_types/card_type_yokai_placeholder` | Generated temporary Yokai placeholder card textures. |
-| `bevy/crates/game/assets/worlds/bamboo_forest` | Generated Bamboo Forest world background. |
-| `bevy/crates/game/assets/worlds/coastal_harbor` | Generated Coastal Harbor world background. |
-| `bevy/crates/game/assets/locations` | Generated reusable tactical location textures. |
+| `bevy/crates/game/assets/themes/theme_japan/cards` | Theme-owned Japan card textures, card back, and safe-area presentation asset. |
+| `bevy/crates/game/assets/themes/theme_japan/cards/card_kage_ren` | Generated Kage Ren card textures. |
+| `bevy/crates/game/assets/themes/theme_japan/cards/card_lord_daichi` | Generated Lord Daichi card textures. |
+| `bevy/crates/game/assets/themes/theme_japan/cards/card_sister_hotaru` | Generated Sister Hotaru card textures. |
+| `bevy/crates/game/assets/themes/theme_japan/cards/card_yokai_placeholder` | Generated temporary Yokai placeholder card textures. |
+| `bevy/crates/game/assets/themes/theme_japan/locations` | Theme-owned Japan tactical location textures. |
+| `bevy/crates/game/assets/themes/theme_japan/worlds` | Theme-owned Japan world background textures. |
+| `bevy/crates/game/assets/themes/theme_japan/worlds/world_bamboo_forest` | Generated Bamboo Forest world background. |
+| `bevy/crates/game/assets/themes/theme_japan/worlds/world_coastal_harbor` | Generated Coastal Harbor world background. |
+| `bevy/crates/game/assets/shaders` | Shared shader assets that remain outside theme-owned folders. |
 | `bevy/crates/shared` | Reusable system-level Rust logic for shared runtime behavior. |
 | `bevy/crates/shared/src/window.rs` | Project-approved desktop window defaults: 1024x768. |
 | `data/local_storage` | Local persisted runtime state for window placement and DebugHUD input toggles. |
@@ -100,12 +103,23 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | Language | Rust 2024 |
 | Engine | Bevy 0.18.1 |
 | Runtime dependencies | `bevy-inspector-egui`, `bevy-persistent`, `serde`, `serde_json`; optional `bevy_hotpatching_experiments` for desktop code hot reload |
-| Architecture | Shared runtime crate plus game-specific ECS components, resources, systems, plugins, generated card-type assets, and local persisted runtime state |
+| Architecture | Shared runtime crate plus game-specific ECS components, resources, systems, plugins, generated theme assets, and local persisted runtime state |
 | Workspace | Cargo workspace rooted at this repository |
 
 ## Development Notes
 
-Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, card types, pointer mapping, smoothing, DebugHUD composition, inspector UI, and scene reload behavior belongs in `bevy/crates/game`.
+Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, card models, pointer mapping, smoothing, DebugHUD composition, inspector UI, and view reload behavior belongs in `bevy/crates/game`.
+
+## Runtime Concepts
+
+| Concept | Purpose |
+| ------- | ------- |
+| `AppScene` | Always-present app-level scene that owns persistent overlays such as DebugHUD. |
+| `GameView` | Gameplay sub-screen view loaded on top of `AppScene`. |
+| `CardBrowserView` | Focused card browser sub-screen view loaded on top of `AppScene`. |
+| `CardModel` | Card data model containing identity, display text, presentation paths, and tuning data. |
+| `CardView` | Rendered card presentation created from one `CardModel`. |
+| `CardViewBundle` | Bevy bundle for the root visual entity of a rendered card view. |
 
 ## GitHub Features
 

@@ -24,7 +24,7 @@
 | Category path | `bevy/crates/game/assets/themes/theme_japan/cards` |
 | Card folders | `card_kage_ren`, `card_lord_daichi`, `card_sister_hotaru`, `card_yokai_placeholder` |
 | Model/View naming | Card data is named `CardModel`; rendered card presentation is named `CardView`. |
-| View bundle contents | `CardViewBundle` contains front presentation layers, back presentation, view components, and view behavior for rendering one card. |
+| View bundle contents | `CardViewBundle` creates the root visual entity for one rendered card; card view systems spawn the front layers and back presentation below that root. |
 | Naming | Card folders start with `card_` and do not include `japan`; Rust data/rendering names use `Model` and `View` to disambiguate ownership. |
 | Behavior | Existing bottom-row display, click-to-browser navigation, `CardBrowserView` viewing, and flip behavior remain unchanged. |
 

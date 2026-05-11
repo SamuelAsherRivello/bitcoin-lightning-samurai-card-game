@@ -1,10 +1,11 @@
 <!--
 Sync Impact Report
-Version change: 1.4.0 -> 1.5.0
+Version change: 1.5.0 -> 1.6.0
 Modified principles:
-- IX. Aspect-Ratio-Relative Runtime Layout: added required game-view layout behavior.
+- VII. Implementation Standards: expanded with 009 Scene/Model/View naming, one-primary-concept file separation, system naming, and HUMAN/AI purpose comments.
+- X. Theme Asset Organization: added reusable theme asset layout and naming rules from 009.
 Added sections:
-- Core Principle IX. Aspect-Ratio-Relative Runtime Layout
+- Core Principle X. Theme Asset Organization
 Removed sections: None
 Templates requiring updates:
 - ✅ .specify/templates/spec-template.md
@@ -40,6 +41,12 @@ All implementation code MUST follow Rust and Bevy conventions, including explici
 
 All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms. All folders under `bevy/`, including runtime asset folders, MUST use lowercase `snake_case` names.
 
+Runtime source changed by a feature MUST be organized around one primary runtime concept per file. A primary runtime concept is a focused plugin, component, scene, view, model, or system. File and item names MUST be purposeful, using names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem` when those terms match the concept being represented.
+
+Runtime naming MUST distinguish app structure, data, and rendering. Use `Scene` for the persistent app-level scene, `Model` for data-holding concepts, and `View` for rendering or presentation concepts. The persistent app container is `AppScene`; active sub-screen presentations are views such as `GameView` and `CardBrowserView`.
+
+Runtime system functions changed or created by a feature MUST use `[domain]_[schedule]_system`, such as `player_update_system`. Each primary runtime item changed or created by a feature MUST have a terse purpose comment immediately above it with exactly one `HUMAN:` line for human-level intent and one `AI:` line for implementation context or future AI guidance.
+
 Specs and plans SHOULD record any framework-specific constraints before implementation begins.
 
 Generated projects SHOULD keep implementation, tests, documentation, scripts, and assets in clearly named locations.
@@ -54,17 +61,24 @@ The game MUST use the project aspect-ratio system for on-screen layout. All visi
 
 When the screen size, window size, or target viewport changes, on-screen positions MUST be recalculated from the aspect-ratio-safe game view so the composition remains stable across supported desktop and browser WebGPU targets. Fixed pixel values MAY be used only as dimensions inside the virtual game view; placement MUST still derive from the aspect-ratio layout.
 
+### X. Theme Asset Organization
+Theme-owned card, location, and world assets MUST live under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/`. Theme-owned asset folders MUST use category prefixes such as `card_<card_name>`, `location_<location_name>`, and `world_<world_name>` and MUST NOT repeat the theme name because the containing theme root provides that identity.
+
+Reusable assets that are not owned by one theme, such as shared shaders, MUST stay outside the theme-owned card, location, and world categories. Card data and card rendering MUST remain distinct: card data is represented as a `CardModel`, rendered card presentation as a `CardView`, and the visual bundle that creates the rendered card as a `CardViewBundle`.
+
 ## Project Constraints
 
 - Keep project-specific source layout documented in `README.md` and active specs.
 - Keep runtime assets under `bevy/crates/game/assets`.
 - Keep Rust workspace folders and files in typical Rust naming conventions, including lowercase crate and module directories.
+- Keep theme-owned card, location, and world assets under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with category-prefixed folders, and keep shared shaders under `bevy/crates/game/assets/shaders/`.
+- Keep Bevy runtime files focused on one primary runtime concept and use Scene/Model/View naming where it distinguishes app structure, data, and presentation.
 - Preserve the Codex and Specify workflow files unless a generated project intentionally replaces them.
 - Keep `documentation/` updated when README images or supporting docs change.
 - Keep `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` as replaceable README image slots.
 - Do not introduce unrelated refactors while implementing a feature spec.
 - Do not introduce rendering, shader, asset, UI, or input capabilities that only work on one target unless the active spec documents the temporary limitation and follow-up path.
-- Keep on-screen GameScene and Card Browser layout positions derived from the aspect-ratio-safe game view, including 3D overlays that visually align with 2D UI.
+- Keep on-screen `GameView` and `CardBrowserView` layout positions derived from the aspect-ratio-safe game view, including 3D overlays that visually align with 2D UI.
 
 ## Development Workflow
 
@@ -79,4 +93,4 @@ When the screen size, window size, or target viewport changes, on-screen positio
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.5.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-11
+**Version**: 1.6.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-11

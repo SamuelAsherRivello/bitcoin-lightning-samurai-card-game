@@ -23,8 +23,8 @@ if ($ResolvedOutputPath -ne $DefaultWebRoot) {
 
 $IndexPath = Join-Path $ResolvedOutputPath "index.html"
 $FallbackPath = Join-Path $ResolvedOutputPath "404.html"
-$SkyBoltTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "card_types") "card_type_skybolt") "title_skybolt.png"
-$TarTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "cards") "card_types") "card_type_tar") "title_tar.png"
+$KageRenTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "themes") "theme_japan") "cards") "card_kage_ren") "title.png"
+$LordDaichiTitlePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $ResolvedOutputPath "assets") "themes") "theme_japan") "cards") "card_lord_daichi") "title.png"
 
 if (-not (Test-Path $IndexPath -PathType Leaf)) {
     throw "Expected release index.html was not found: $IndexPath"
@@ -40,12 +40,12 @@ if (-not $WasmFile) {
     throw "Expected bevy_card_game_bg.wasm was not found in $ResolvedOutputPath."
 }
 
-if (-not (Test-Path $SkyBoltTitlePath -PathType Leaf)) {
-    throw "Expected SkyBolt title asset was not found: $SkyBoltTitlePath"
+if (-not (Test-Path $KageRenTitlePath -PathType Leaf)) {
+    throw "Expected Kage Ren title asset was not found: $KageRenTitlePath"
 }
 
-if (-not (Test-Path $TarTitlePath -PathType Leaf)) {
-    throw "Expected Tar title asset was not found: $TarTitlePath"
+if (-not (Test-Path $LordDaichiTitlePath -PathType Leaf)) {
+    throw "Expected Lord Daichi title asset was not found: $LordDaichiTitlePath"
 }
 
 Copy-Item -Path $IndexPath -Destination $FallbackPath -Force

@@ -34,6 +34,11 @@
 - Confirm the feature follows the active spec, constitution, and repo-local agent guidance.
 - Confirm source, assets, scripts, docs, and tests stay in the locations defined by this project.
 - Confirm Rust workspace folders and files use typical Rust naming conventions, including lowercase crate, module, and asset directories.
+- Confirm changed runtime files are organized around one primary concept per file with purposeful Plugin/Component/Scene/View/Model/System names.
+- Confirm changed runtime items include a terse `HUMAN:` and `AI:` purpose comment immediately above the primary item.
+- Confirm changed runtime system functions follow `[domain]_[schedule]_system`.
+- Confirm Bevy runtime naming uses `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation where those distinctions apply.
+- Confirm theme-owned card, location, and world assets use `assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with category-prefixed folders when a feature touches theme assets.
 - Confirm visible loading or toast-style feedback remains for template data loading, cache reads, cache writes, refreshes, and database creation.
 - Confirm browser builds keep localStorage snapshots and do not introduce browser SQLite or OPFS worker startup.
 - Confirm first-time native database/schema/seed setup remains in `create_database_if_missing()` and normal reads do not recreate or reseed existing data.

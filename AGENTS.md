@@ -40,6 +40,10 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.
 - Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
+- Keep changed Bevy runtime files focused on one primary concept per file; use purposeful names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
+- Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation. `AppScene` is always present; active sub-screen presentations are views such as `GameView` and `CardBrowserView`.
+- Name changed runtime system functions as `[domain]_[schedule]_system`, for example `player_update_system`.
+- Add a terse two-line purpose comment immediately above each changed or new primary runtime item: one `HUMAN:` line and one `AI:` line.
 - Follow `.codex/rules/bevy-runtime-structure.md` for Bevy crate ownership, ECS module boundaries, feature plugins, runtime assets, hot-reloadable systems, and tests.
 - Keep persistent overlays such as DebugHUD and Card UI inside the aspect-ratio safe area. For Bevy UI, spawn under the `bevy_aspect_ratio_mask::Hud` root; for egui windows, offset anchors by the 1280x800 safe-area margins.
 - Keep desktop window defaults in `bevy/crates/shared/src/window.rs`; update `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` there when changing the project-approved launch/fallback size.

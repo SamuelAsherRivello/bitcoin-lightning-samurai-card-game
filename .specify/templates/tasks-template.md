@@ -25,6 +25,10 @@ description: "Task list template for feature implementation"
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
+- For Bevy runtime work, include tasks that split changed files by one primary concept and use purposeful Plugin/Component/Scene/View/Model/System names.
+- For Bevy runtime systems, include tasks that name changed system functions as `[domain]_[schedule]_system`.
+- For changed Bevy runtime primary items, include tasks that add terse `HUMAN:` and `AI:` purpose comments.
+- For theme-owned assets, include tasks that place cards, locations, and worlds under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with category-prefixed folders.
 - For Bevy on-screen work, include tasks that keep visible 2D and 3D positions derived from the aspect-ratio-safe game view.
 
 <!-- 
@@ -158,6 +162,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Verify changed Bevy runtime files follow one-primary-concept, Scene/Model/View naming, system naming, and HUMAN/AI comment standards
 
 ---
 

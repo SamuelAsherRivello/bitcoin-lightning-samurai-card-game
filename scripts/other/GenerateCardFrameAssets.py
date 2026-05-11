@@ -8,7 +8,9 @@ WIDTH = 840
 HEIGHT = 1440
 SCALE = 2
 ROOT = Path(__file__).resolve().parents[2]
-CARD_TYPES = ROOT / "bevy" / "crates" / "game" / "assets" / "cards" / "card_types"
+THEME_CARDS = (
+    ROOT / "bevy" / "crates" / "game" / "assets" / "themes" / "theme_japan" / "cards"
+)
 
 
 def scaled(points):
@@ -64,7 +66,7 @@ def apply_mask(texture, mask):
 
 
 def save(image, folder):
-    path = CARD_TYPES / folder / "frame.png"
+    path = THEME_CARDS / folder / "frame.png"
     path.parent.mkdir(parents=True, exist_ok=True)
     downsample(image).save(path)
     print(path.relative_to(ROOT))
@@ -187,10 +189,10 @@ def make_yokai_placeholder():
 
 
 def main():
-    save(make_kage_ren(), "card_type_kage_ren")
-    save(make_lord_daichi(), "card_type_lord_daichi")
-    save(make_sister_hotaru(), "card_type_sister_hotaru")
-    save(make_yokai_placeholder(), "card_type_yokai_placeholder")
+    save(make_kage_ren(), "card_kage_ren")
+    save(make_lord_daichi(), "card_lord_daichi")
+    save(make_sister_hotaru(), "card_sister_hotaru")
+    save(make_yokai_placeholder(), "card_yokai_placeholder")
 
 
 if __name__ == "__main__":

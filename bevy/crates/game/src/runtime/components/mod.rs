@@ -1,30 +1,46 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::CardFace;
+use crate::runtime::resources::{CardFace, CardModel};
 
+/// HUMAN: Player marker for the local game participant.
+/// AI: Keep player state separate from card, scene, and view markers.
 #[derive(Component, Debug, Default)]
 pub struct Player;
 
+/// HUMAN: Primary camera marker for view-owned cameras.
+/// AI: This is view scoped; avoid Scene wording except for AppScene.
 #[derive(Component, Debug, Default)]
-pub struct PrimarySceneCamera;
+pub struct PrimaryViewCamera;
 
+/// HUMAN: Root marker for the always-present AppScene UI tree.
+/// AI: AppScene owns persistent overlays and hosts one active sub-screen view.
 #[derive(Component, Debug, Default)]
 pub struct AppSceneRoot;
 
+/// HUMAN: Marker for entities that belong to the always-present AppScene.
+/// AI: Use only for persistent app-level entities, not GameView or CardBrowserView children.
 #[derive(Component, Debug, Default)]
 pub struct AppSceneEntity;
 
+/// HUMAN: Root marker for the card browser sub-screen view.
+/// AI: CardBrowserView is loaded on top of AppScene and may be despawned/reloaded.
 #[derive(Component, Debug, Default)]
-pub struct CardBrowserSceneRoot;
+pub struct CardBrowserViewRoot;
 
+/// HUMAN: Marker for entities owned by CardBrowserView.
+/// AI: Keep card browser rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct CardBrowserSceneEntity;
+pub struct CardBrowserViewEntity;
 
+/// HUMAN: Root marker for the gameplay sub-screen view.
+/// AI: GameView is loaded on top of AppScene and may be despawned/reloaded.
 #[derive(Component, Debug, Default)]
-pub struct GameSceneRoot;
+pub struct GameViewRoot;
 
+/// HUMAN: Marker for entities owned by GameView.
+/// AI: Keep gameplay rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct GameSceneEntity;
+pub struct GameViewEntity;
 
 #[derive(Component, Debug, Default)]
 pub struct WorldBackground;
@@ -62,9 +78,36 @@ impl GameLocation {
     }
 }
 
+/// HUMAN: Root marker for a rendered card view.
+/// AI: Pair with CardViewBundle when spawning the root visual entity.
 #[derive(Component, Debug, Default)]
-pub struct CardPlaceholder;
+pub struct CardView;
 
+/// HUMAN: Bundle for the root visual entity of a rendered card.
+/// AI: This creates CardView roots from CardModel data; child layers are spawned by card view systems.
+#[derive(Bundle, Debug)]
+pub struct CardViewBundle {
+    name: Name,
+    card_view: CardView,
+    transform: Transform,
+    global_transform: GlobalTransform,
+    visibility: Visibility,
+}
+
+impl CardViewBundle {
+    pub fn new(card_model: &CardModel, transform: Transform) -> Self {
+        Self {
+            name: Name::new(format!("CardView {}", card_model.display_name)),
+            card_view: CardView,
+            transform,
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::Visible,
+        }
+    }
+}
+
+/// HUMAN: Marker for a visible face layer on a CardView.
+/// AI: Used by flip visibility systems; keep face semantics here, not in CardModel.
 #[derive(Component, Debug)]
 pub struct CardFaceLayer {
     pub face: CardFace,

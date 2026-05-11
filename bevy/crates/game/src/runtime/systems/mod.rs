@@ -30,22 +30,22 @@ use bevy_inspector_egui::{
 use bevy_persistent::prelude::Persistent;
 
 use crate::runtime::components::{
-    AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardBrowserSceneEntity,
-    CardBrowserSceneRoot, CardFaceLayer, CardFrameLayer, CardLayerRole, CardParallaxLayer,
-    CardPlaceholder, DebugHudFpsText, DebugHudKeyText, DebugHudText, EndTurnButton, GameLocation,
-    GameSceneEntity, GameSceneRoot, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview,
-    LocationRevealState, Player, PrimarySceneCamera, TurnUi, WorldBackground,
+    AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardBrowserViewEntity, CardBrowserViewRoot,
+    CardFaceLayer, CardFrameLayer, CardLayerRole, CardParallaxLayer, CardView, CardViewBundle,
+    DebugHudFpsText, DebugHudKeyText, DebugHudText, EndTurnButton, GameLocation, GameViewEntity,
+    GameViewRoot, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState,
+    Player, PrimaryViewCamera, TurnUi, WorldBackground,
 };
 use crate::runtime::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
-    ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CARD_BACK_TEXTURE_PATH,
+    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
-    CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardSettingsStore,
-    CardType, CardTypeRegistry, CardUiState, DebugHudInputStore, DebugHudState, GameTicks,
-    PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacement,
-    WindowPlacementState, WindowPlacementStore, WorldThemeRegistry, load_window_placement,
-    valid_window_placement,
+    CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardModel,
+    CardModelRegistry, CardSettingsStore, CardUiState, DebugHudInputStore, DebugHudState,
+    GameTicks, LocationModelRegistry, PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults,
+    WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
+    load_window_placement, valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -107,6 +107,8 @@ const END_TURN_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
 const END_TURN_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
 const END_TURN_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
 
+/// HUMAN: Spawns the local player entity for the app.
+/// AI: Startup system; keep player setup separate from AppScene and view setup.
 pub fn setup_game(mut commands: Commands) {
     commands.spawn((Player, Name::new(GameTitle::DISPLAY)));
 }
@@ -120,8 +122,8 @@ pub fn constrain_card_browser_camera_to_safe_area(
     mut camera_query: Query<
         &mut Camera,
         (
-            With<PrimarySceneCamera>,
-            With<CardBrowserSceneEntity>,
+            With<PrimaryViewCamera>,
+            With<CardBrowserViewEntity>,
             With<Camera3d>,
         ),
     >,
@@ -136,9 +138,9 @@ pub fn constrain_card_browser_camera_to_safe_area(
     }
 }
 
-pub fn constrain_game_scene_3d_cameras_to_safe_area(
+pub fn constrain_game_view_3d_cameras_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Camera, (With<GameSceneEntity>, With<Camera3d>)>,
+    mut camera_query: Query<&mut Camera, (With<GameViewEntity>, With<Camera3d>)>,
 ) {
     let Ok(window) = primary_window.single() else {
         return;
@@ -184,8 +186,8 @@ fn spawn_primary_camera(
     commands
         .spawn((
             Name::new("Primary 3D Camera"),
-            PrimarySceneCamera,
-            CardBrowserSceneEntity,
+            PrimaryViewCamera,
+            CardBrowserViewEntity,
             Camera3d::default(),
             NoIndirectDrawing,
             Projection::Perspective(PerspectiveProjection {
@@ -203,8 +205,8 @@ fn spawn_primary_camera(
 fn spawn_card_browser_ui_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("CardBrowserScene UI Camera"),
-            CardBrowserSceneEntity,
+            Name::new("CardBrowserView UI Camera"),
+            CardBrowserViewEntity,
             Camera2d,
             Camera {
                 order: 1,
@@ -224,11 +226,11 @@ fn spawn_card_browser_ui_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
+fn spawn_game_view_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("GameScene UI Camera"),
-            GameSceneEntity,
+            Name::new("GameView UI Camera"),
+            GameViewEntity,
             Camera2d,
             Camera {
                 order: 1,
@@ -247,7 +249,7 @@ fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_game_scene_card_camera(
+fn spawn_game_view_card_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
@@ -256,9 +258,9 @@ fn spawn_game_scene_card_camera(
 
     commands
         .spawn((
-            Name::new("GameScene 3D Card Camera"),
-            PrimarySceneCamera,
-            GameSceneEntity,
+            Name::new("GameView 3D Card Camera"),
+            PrimaryViewCamera,
+            GameViewEntity,
             Camera3d::default(),
             Camera {
                 order: 0,
@@ -276,7 +278,7 @@ fn spawn_game_scene_card_camera(
         .id()
 }
 
-fn spawn_game_scene_card_overlay_camera(
+fn spawn_game_view_card_overlay_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
@@ -285,9 +287,9 @@ fn spawn_game_scene_card_overlay_camera(
 
     commands
         .spawn((
-            Name::new("GameScene 3D Card Overlay Camera"),
-            PrimarySceneCamera,
-            GameSceneEntity,
+            Name::new("GameView 3D Card Overlay Camera"),
+            PrimaryViewCamera,
+            GameViewEntity,
             Camera3d::default(),
             Camera {
                 order: 2,
@@ -308,6 +310,8 @@ fn spawn_game_scene_card_overlay_camera(
 }
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
+/// HUMAN: Spawns the persistent AppScene and debug HUD.
+/// AI: AppScene remains present while GameView and CardBrowserView swap on top.
 pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
     let app_scene = commands
         .spawn((
@@ -333,18 +337,20 @@ pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
     }
 }
 
-pub fn setup_game_scene(
+/// HUMAN: Spawns the gameplay sub-screen view.
+/// AI: GameView is a view, not the persistent scene; keep AppScene parenting intact.
+pub fn setup_game_view(
     mut commands: Commands,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     hud: Option<Res<Hud>>,
     asset_server: Res<AssetServer>,
     camera_defaults: Option<Res<PrimaryCameraDefaults>>,
     card_defaults: Res<CardInspectionDefaults>,
-    card_type_registry: Res<CardTypeRegistry>,
-    active_card_type: Res<ActiveCardType>,
-    world_theme_registry: Res<WorldThemeRegistry>,
-    active_world_theme: Res<ActiveWorldTheme>,
-    tactical_location_registry: Res<TacticalLocationRegistry>,
+    card_model_registry: Res<CardModelRegistry>,
+    active_card_model: Res<ActiveCardModel>,
+    world_model_registry: Res<WorldModelRegistry>,
+    active_world_model: Res<ActiveWorldModel>,
+    location_model_registry: Res<LocationModelRegistry>,
     active_locations: Res<ActiveLocations>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -354,18 +360,18 @@ pub fn setup_game_scene(
     let camera_defaults = camera_defaults
         .as_deref()
         .unwrap_or(&fallback_camera_defaults);
-    spawn_game_scene_contents(
+    spawn_game_view_contents(
         &mut commands,
         app_scene_query.single().ok(),
         hud.as_ref().map(|hud| hud.0),
         &asset_server,
         camera_defaults,
         &card_defaults,
-        &card_type_registry,
-        &active_card_type,
-        &world_theme_registry,
-        &active_world_theme,
-        &tactical_location_registry,
+        &card_model_registry,
+        &active_card_model,
+        &world_model_registry,
+        &active_world_model,
+        &location_model_registry,
         &active_locations,
         &mut meshes,
         &mut materials,
@@ -373,27 +379,27 @@ pub fn setup_game_scene(
     );
 }
 
-fn spawn_game_scene_contents(
+fn spawn_game_view_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
     hud_parent: Option<Entity>,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
-    card_type_registry: &CardTypeRegistry,
-    active_card_type: &ActiveCardType,
-    world_theme_registry: &WorldThemeRegistry,
-    active_world_theme: &ActiveWorldTheme,
-    tactical_location_registry: &TacticalLocationRegistry,
+    card_model_registry: &CardModelRegistry,
+    active_card_model: &ActiveCardModel,
+    world_model_registry: &WorldModelRegistry,
+    active_world_model: &ActiveWorldModel,
+    location_model_registry: &LocationModelRegistry,
     active_locations: &ActiveLocations,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
     let mut scene = commands.spawn((
-        Name::new("GameScene"),
-        GameSceneRoot,
-        GameSceneEntity,
+        Name::new("GameView"),
+        GameViewRoot,
+        GameViewEntity,
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
@@ -405,30 +411,30 @@ fn spawn_game_scene_contents(
         Visibility::default(),
     ));
     scene.with_children(|parent| {
-        spawn_game_scene_ui(
+        spawn_game_view_ui(
             parent,
             asset_server,
-            tactical_location_registry,
+            location_model_registry,
             active_locations,
         );
     });
     let scene_entity = scene.id();
-    spawn_game_scene_camera(commands);
-    spawn_game_scene_card_camera(commands, camera_defaults);
-    spawn_game_scene_card_overlay_camera(commands, camera_defaults);
-    spawn_game_scene_world_background(
+    spawn_game_view_camera(commands);
+    spawn_game_view_card_camera(commands, camera_defaults);
+    spawn_game_view_card_overlay_camera(commands, camera_defaults);
+    spawn_game_view_world_background(
         commands,
         asset_server,
-        world_theme_registry,
-        active_world_theme,
+        world_model_registry,
+        active_world_model,
         meshes,
         materials,
     );
-    spawn_game_scene_hand_cards(
+    spawn_game_view_hand_cards(
         commands,
         asset_server,
         card_defaults,
-        card_type_registry,
+        card_model_registry,
         meshes,
         materials,
         masked_background_materials.as_deref_mut(),
@@ -437,19 +443,19 @@ fn spawn_game_scene_contents(
     if let Some(parent) = hud_parent.or(app_scene_parent) {
         commands.entity(parent).add_child(scene_entity);
     }
-    let _ = active_card_type;
+    let _ = active_card_model;
 }
 
-fn spawn_game_scene_ui(
+fn spawn_game_view_ui(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
-    tactical_location_registry: &TacticalLocationRegistry,
+    location_model_registry: &LocationModelRegistry,
     active_locations: &ActiveLocations,
 ) {
     parent
         .spawn((
-            Name::new("GameScene UI"),
-            GameSceneEntity,
+            Name::new("GameView UI"),
+            GameViewEntity,
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -464,7 +470,7 @@ fn spawn_game_scene_ui(
             spawn_location_row(
                 parent,
                 asset_server,
-                tactical_location_registry,
+                location_model_registry,
                 active_locations,
             );
             spawn_local_player_hand(parent);
@@ -472,26 +478,26 @@ fn spawn_game_scene_ui(
         });
 }
 
-fn spawn_game_scene_world_background(
+fn spawn_game_view_world_background(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    world_theme_registry: &WorldThemeRegistry,
-    active_world_theme: &ActiveWorldTheme,
+    world_model_registry: &WorldModelRegistry,
+    active_world_model: &ActiveWorldModel,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) -> Entity {
-    let world_theme = world_theme_registry.active_world_theme(active_world_theme);
-    let background_size = game_scene_world_background_size();
+    let world_model = world_model_registry.active_world_model(active_world_model);
+    let background_size = game_view_world_background_size();
     commands
         .spawn((
-            Name::new(format!("{} World Background", world_theme.display_name)),
+            Name::new(format!("{} World Background", world_model.display_name)),
             WorldBackground,
-            GameSceneEntity,
+            GameViewEntity,
             Mesh3d(meshes.add(Rectangle::new(background_size.x, background_size.y))),
-            MeshMaterial3d(card_type_material(
+            MeshMaterial3d(card_model_material(
                 asset_server,
                 materials,
-                world_theme.background_texture,
+                world_model.background_texture,
                 AlphaMode::Opaque,
                 BACKGROUND_DEPTH_BIAS,
             )),
@@ -504,13 +510,13 @@ fn spawn_game_scene_world_background(
 fn spawn_location_row(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
-    tactical_location_registry: &TacticalLocationRegistry,
+    location_model_registry: &LocationModelRegistry,
     active_locations: &ActiveLocations,
 ) {
     parent
         .spawn((
-            Name::new("GameScene Location Row"),
-            GameSceneEntity,
+            Name::new("GameView Location Row"),
+            GameViewEntity,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Percent(28.0),
@@ -528,7 +534,7 @@ fn spawn_location_row(
             Visibility::Visible,
         ))
         .with_children(|parent| {
-            for (index, location) in tactical_location_registry
+            for (index, location) in location_model_registry
                 .selected_locations(active_locations)
                 .into_iter()
                 .enumerate()
@@ -575,15 +581,15 @@ fn spawn_location_ui(
     });
 }
 
-fn game_scene_perspective_view_size_at_z(z: f32) -> Vec2 {
+fn game_view_perspective_view_size_at_z(z: f32) -> Vec2 {
     let distance = (GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
     let height = 2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance;
 
     Vec2::new(height * GAME_VIEW_ASPECT_RATIO, height)
 }
 
-fn game_scene_world_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
-    let view_size = game_scene_perspective_view_size_at_z(z);
+fn game_view_world_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
+    let view_size = game_view_perspective_view_size_at_z(z);
 
     Vec3::new(
         ((game_view_position.x / GAME_VIEW_WIDTH) - 0.5) * view_size.x,
@@ -592,12 +598,12 @@ fn game_scene_world_position_from_game_view(game_view_position: Vec2, z: f32) ->
     )
 }
 
-fn game_scene_world_height_for_game_view_height(game_view_height: f32, z: f32) -> f32 {
-    game_scene_perspective_view_size_at_z(z).y * (game_view_height / GAME_VIEW_HEIGHT)
+fn game_view_world_height_for_game_view_height(game_view_height: f32, z: f32) -> f32 {
+    game_view_perspective_view_size_at_z(z).y * (game_view_height / GAME_VIEW_HEIGHT)
 }
 
-fn game_scene_world_background_size() -> Vec2 {
-    game_scene_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
+fn game_view_world_background_size() -> Vec2 {
+    game_view_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
         * GAME_SCENE_WORLD_BACKGROUND_BLEED
 }
 
@@ -626,7 +632,7 @@ fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     parent.spawn((
         Name::new("Local Player Hand"),
         LocalPlayerHand,
-        GameSceneEntity,
+        GameViewEntity,
         Node {
             position_type: PositionType::Absolute,
             left: Val::Percent(GAME_SCENE_HAND_LEFT_PERCENT),
@@ -645,25 +651,25 @@ fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     ));
 }
 
-fn spawn_game_scene_hand_cards(
+fn spawn_game_view_hand_cards(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
-    card_type_registry: &CardTypeRegistry,
+    card_model_registry: &CardModelRegistry,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
-    let cards: Vec<CardType> = card_type_registry.card_types().cloned().collect();
-    let hitboxes = game_scene_card_hitboxes();
-    let card_world_scale = game_scene_world_height_for_game_view_height(
+    let cards: Vec<CardModel> = card_model_registry.card_models().cloned().collect();
+    let hitboxes = game_view_card_hitboxes();
+    let card_world_scale = game_view_world_height_for_game_view_height(
         GAME_SCENE_HAND_CARD_HEIGHT,
         GAME_SCENE_HAND_CARD_WORLD_Z,
     ) / card_defaults.height;
 
-    for (index, card_type) in cards.into_iter().enumerate() {
+    for (index, card_model) in cards.into_iter().enumerate() {
         let (card_min, card_max) = hitboxes[index];
-        let card_position = game_scene_world_position_from_game_view(
+        let card_position = game_view_world_position_from_game_view(
             (card_min + card_max) * 0.5,
             GAME_SCENE_HAND_CARD_WORLD_Z,
         );
@@ -671,7 +677,7 @@ fn spawn_game_scene_hand_cards(
             commands,
             asset_server,
             card_defaults,
-            card_type,
+            card_model,
             meshes,
             materials,
             masked_background_materials.as_deref_mut(),
@@ -684,7 +690,7 @@ fn spawn_game_scene_hand_cards(
         );
         commands
             .entity(card)
-            .insert((GameSceneEntity, LocalPlayerHandCardPreview))
+            .insert((GameViewEntity, LocalPlayerHandCardPreview))
             .observe(card_click_navigation);
     }
 }
@@ -694,7 +700,7 @@ fn spawn_turn_ui(parent: &mut ChildSpawnerCommands) {
         .spawn((
             Name::new("TurnUI"),
             TurnUi,
-            GameSceneEntity,
+            GameViewEntity,
             Button,
             Node {
                 position_type: PositionType::Absolute,
@@ -731,8 +737,8 @@ fn spawn_turn_ui(parent: &mut ChildSpawnerCommands) {
 fn spawn_card_browser_light(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("CardBrowserScene Key Light"),
-            CardBrowserSceneEntity,
+            Name::new("CardBrowserView Key Light"),
+            CardBrowserViewEntity,
             DirectionalLight {
                 illuminance: 1500.0,
                 ..Default::default()
@@ -742,25 +748,27 @@ fn spawn_card_browser_light(commands: &mut Commands) -> Entity {
         .id()
 }
 
-pub fn setup_card_browser_scene(
+/// HUMAN: Spawns the card browser sub-screen view.
+/// AI: CardBrowserView presents a CardView built from the active CardModel.
+pub fn setup_card_browser_view(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     camera_defaults: Res<PrimaryCameraDefaults>,
     card_defaults: Res<CardInspectionDefaults>,
-    card_type_registry: Res<CardTypeRegistry>,
-    active_card_type: Res<ActiveCardType>,
+    card_model_registry: Res<CardModelRegistry>,
+    active_card_model: Res<ActiveCardModel>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
 ) {
-    spawn_card_browser_scene_contents(
+    spawn_card_browser_view_contents(
         &mut commands,
         &asset_server,
         &camera_defaults,
         &card_defaults,
-        &card_type_registry,
-        &active_card_type,
+        &card_model_registry,
+        &active_card_model,
         &mut meshes,
         &mut materials,
         masked_background_materials.map(|materials| materials.into_inner()),
@@ -770,13 +778,13 @@ pub fn setup_card_browser_scene(
     );
 }
 
-fn spawn_card_browser_scene_contents(
+fn spawn_card_browser_view_contents(
     commands: &mut Commands,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
-    card_type_registry: &CardTypeRegistry,
-    active_card_type: &ActiveCardType,
+    card_model_registry: &CardModelRegistry,
+    active_card_model: &ActiveCardModel,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
@@ -786,9 +794,9 @@ fn spawn_card_browser_scene_contents(
 ) {
     let scene_root = commands
         .spawn((
-            Name::new("CardBrowserScene"),
-            CardBrowserSceneRoot,
-            CardBrowserSceneEntity,
+            Name::new("CardBrowserView"),
+            CardBrowserViewRoot,
+            CardBrowserViewEntity,
             Transform::default(),
             GlobalTransform::default(),
             Visibility::default(),
@@ -801,8 +809,8 @@ fn spawn_card_browser_scene_contents(
         commands,
         asset_server,
         card_defaults,
-        card_type_registry,
-        active_card_type,
+        card_model_registry,
+        active_card_model,
         meshes,
         materials,
         masked_background_materials,
@@ -817,7 +825,7 @@ fn spawn_card_browser_scene_contents(
     commands.entity(scene_root).add_child(card);
     commands
         .entity(card)
-        .insert(CardBrowserSceneEntity)
+        .insert(CardBrowserViewEntity)
         .observe(card_click_navigation);
 }
 
@@ -825,8 +833,8 @@ pub fn setup_card_placeholder(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
-    card_type_registry: Res<CardTypeRegistry>,
-    active_card_type: Res<ActiveCardType>,
+    card_model_registry: Res<CardModelRegistry>,
+    active_card_model: Res<ActiveCardModel>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -835,8 +843,8 @@ pub fn setup_card_placeholder(
         &mut commands,
         &asset_server,
         &card_defaults,
-        &card_type_registry,
-        &active_card_type,
+        &card_model_registry,
+        &active_card_model,
         &mut meshes,
         &mut materials,
         masked_background_materials.map(|materials| materials.into_inner()),
@@ -849,23 +857,23 @@ fn spawn_card_structure(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
-    card_type_registry: &CardTypeRegistry,
-    active_card_type: &ActiveCardType,
+    card_model_registry: &CardModelRegistry,
+    active_card_model: &ActiveCardModel,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     visible_face: CardFace,
     initial_rotation: Quat,
 ) -> Entity {
-    let card_type = card_type_registry
-        .active_card_type(&active_card_type)
+    let card_model = card_model_registry
+        .active_card_model(&active_card_model)
         .cloned()
-        .unwrap_or_else(CardType::kage_ren);
+        .unwrap_or_else(CardModel::kage_ren);
     spawn_card_structure_for_type(
         commands,
         asset_server,
         card_defaults,
-        card_type,
+        card_model,
         meshes,
         materials,
         masked_background_materials,
@@ -882,49 +890,49 @@ fn spawn_card_structure_for_type(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
-    card_type: CardType,
+    card_model: CardModel,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     visible_face: CardFace,
     transform: Transform,
 ) -> Entity {
-    let background_material = card_type_material(
+    let background_material = card_model_material(
         asset_server,
         materials,
-        card_type.background_texture,
+        card_model.background_texture,
         AlphaMode::Opaque,
         BACKGROUND_DEPTH_BIAS,
     );
-    let frame_material = card_type_material(
+    let frame_material = card_model_material(
         asset_server,
         materials,
-        card_type.frame_texture,
+        card_model.frame_texture,
         AlphaMode::Opaque,
         FRAME_DEPTH_BIAS,
     );
-    let foreground_material = card_type_material(
+    let foreground_material = card_model_material(
         asset_server,
         materials,
-        card_type.foreground_texture,
+        card_model.foreground_texture,
         AlphaMode::AlphaToCoverage,
         FOREGROUND_DEPTH_BIAS,
     );
-    let title_material = card_type_material(
+    let title_material = card_model_material(
         asset_server,
         materials,
-        card_type.title_texture,
+        card_model.title_texture,
         AlphaMode::AlphaToCoverage,
         TITLE_DEPTH_BIAS,
     );
-    let safe_area_material = card_type_material(
+    let safe_area_material = card_model_material(
         asset_server,
         materials,
         CARD_SAFE_AREA_TEXTURE_PATH,
         AlphaMode::Blend,
         SAFE_AREA_DEPTH_BIAS,
     );
-    let card_back_material = card_type_material(
+    let card_back_material = card_model_material(
         asset_server,
         materials,
         CARD_BACK_TEXTURE_PATH,
@@ -941,26 +949,20 @@ fn spawn_card_structure_for_type(
     let foreground_z = card_front_z + (LAYER_RENDER_Z_STEP * 5.0);
     let title_z = card_front_z + (LAYER_RENDER_Z_STEP * 7.0);
 
-    let background_mesh = if card_type.background_uses_frame_mask {
+    let background_mesh = if card_model.background_uses_frame_mask {
         meshes.add(background_frame_mask_mesh(card_defaults, Vec2::ZERO))
     } else {
         meshes.add(background_aperture_mesh(&frame_dimensions, Vec2::ZERO))
     };
     let frame_mesh = meshes.add(frame_cutout_mesh(card_defaults, &frame_dimensions));
-    let foreground_width = card_defaults.width * card_type.foreground_width_ratio;
-    let foreground_height = card_defaults.height * card_type.foreground_height_ratio;
+    let foreground_width = card_defaults.width * card_model.foreground_width_ratio;
+    let foreground_height = card_defaults.height * card_model.foreground_height_ratio;
     let foreground_mesh = meshes.add(Rectangle::new(foreground_width, foreground_height));
     let safe_area_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let title_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let card_back_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
 
-    let mut scene_root = commands.spawn((
-        Name::new(format!("CardStructure {}", card_type.display_name)),
-        CardPlaceholder,
-        transform,
-        GlobalTransform::default(),
-        Visibility::Visible,
-    ));
+    let mut scene_root = commands.spawn(CardViewBundle::new(&card_model, transform));
     scene_root.with_children(|parent| {
         spawn_card_back_plane(
             parent,
@@ -970,15 +972,15 @@ fn spawn_card_structure_for_type(
             visible_face == CardFace::Back,
         );
 
-        if card_type.background_uses_frame_mask {
+        if card_model.background_uses_frame_mask {
             if let Some(masked_background_materials) = masked_background_materials {
                 spawn_masked_background_plane(
                     parent,
-                    Name::new(format!("Card Background {}", card_type.display_name)),
+                    Name::new(format!("Card Background {}", card_model.display_name)),
                     background_mesh,
                     masked_background_materials.add(CardBackgroundMaskMaterial {
-                        background_texture: asset_server.load(card_type.background_texture),
-                        frame_texture: asset_server.load(card_type.frame_texture),
+                        background_texture: asset_server.load(card_model.background_texture),
+                        frame_texture: asset_server.load(card_model.frame_texture),
                         inner_aperture: frame_mask_inner_aperture,
                         alpha_mode: AlphaMode::Blend,
                     }),
@@ -989,7 +991,7 @@ fn spawn_card_structure_for_type(
             } else {
                 spawn_parallax_plane(
                     parent,
-                    Name::new(format!("Card Background {}", card_type.display_name)),
+                    Name::new(format!("Card Background {}", card_model.display_name)),
                     background_mesh,
                     background_material,
                     CardLayerRole::Background,
@@ -1003,7 +1005,7 @@ fn spawn_card_structure_for_type(
         } else {
             spawn_parallax_plane(
                 parent,
-                Name::new(format!("Card Background {}", card_type.display_name)),
+                Name::new(format!("Card Background {}", card_model.display_name)),
                 background_mesh,
                 background_material,
                 CardLayerRole::Background,
@@ -1045,15 +1047,15 @@ fn spawn_card_structure_for_type(
             parent,
             Name::new(format!(
                 "Card Foreground {} Character",
-                card_type.display_name
+                card_model.display_name
             )),
             foreground_mesh,
             foreground_material,
             CardLayerRole::Foreground,
             FOREGROUND_APPARENT_DEPTH,
             Vec3::new(
-                card_defaults.width * card_type.foreground_x_ratio,
-                card_defaults.height * card_type.foreground_y_ratio,
+                card_defaults.width * card_model.foreground_x_ratio,
+                card_defaults.height * card_model.foreground_y_ratio,
                 foreground_z,
             ),
             None,
@@ -1062,7 +1064,7 @@ fn spawn_card_structure_for_type(
         );
         spawn_parallax_plane(
             parent,
-            Name::new(format!("Card Title {}", card_type.display_name)),
+            Name::new(format!("Card Title {}", card_model.display_name)),
             title_mesh,
             title_material,
             CardLayerRole::Title,
@@ -1295,7 +1297,7 @@ fn add_frame_quad(
     indices.extend_from_slice(&[start, start + 1, start + 2, start, start + 2, start + 3]);
 }
 
-fn card_type_material(
+fn card_model_material(
     asset_server: &AssetServer,
     materials: &mut Assets<StandardMaterial>,
     texture_path: &'static str,
@@ -1444,13 +1446,13 @@ pub fn smooth_card_rotation(
     card_defaults: Res<CardInspectionDefaults>,
     card_state: Res<CardInspectionState>,
     flip_state: Res<CardFlipState>,
-    mut card_query: Query<&mut Transform, (With<CardPlaceholder>, With<CardBrowserSceneEntity>)>,
+    mut card_query: Query<&mut Transform, (With<CardView>, With<CardBrowserViewEntity>)>,
     mut game_card_query: Query<
         &mut Transform,
         (
             With<LocalPlayerHandCardPreview>,
-            With<GameSceneEntity>,
-            Without<CardBrowserSceneEntity>,
+            With<GameViewEntity>,
+            Without<CardBrowserViewEntity>,
         ),
     >,
 ) {
@@ -1469,16 +1471,16 @@ pub fn smooth_card_rotation(
     }
 }
 
-pub fn log_game_scene_card_render_diagnostics(
+pub fn log_game_view_card_render_diagnostics(
     mut has_logged: Local<bool>,
-    active_scene: Res<ActiveScene>,
+    active_view: Res<ActiveView>,
     card_query: Query<
         (&Name, &Transform, &GlobalTransform),
         (
             With<LocalPlayerHandCardPreview>,
-            With<CardPlaceholder>,
-            With<GameSceneEntity>,
-            Without<CardBrowserSceneEntity>,
+            With<CardView>,
+            With<GameViewEntity>,
+            Without<CardBrowserViewEntity>,
         ),
     >,
     layer_query: Query<
@@ -1486,12 +1488,12 @@ pub fn log_game_scene_card_render_diagnostics(
         (
             With<CardParallaxLayer>,
             With<CardFaceLayer>,
-            Without<CardBrowserSceneEntity>,
+            Without<CardBrowserViewEntity>,
         ),
     >,
-    camera_query: Query<(&Name, &Camera, Option<&Projection>), With<GameSceneEntity>>,
+    camera_query: Query<(&Name, &Camera, Option<&Projection>), With<GameViewEntity>>,
 ) {
-    if *has_logged || *active_scene != ActiveScene::Game {
+    if *has_logged || *active_view != ActiveView::GameView {
         return;
     }
 
@@ -1545,7 +1547,7 @@ pub fn log_game_scene_card_render_diagnostics(
         .collect();
 
     info!(
-        "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]",
+        "GameView 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]",
         cards.len(),
         layer_details.len(),
         cameras.len(),
@@ -1562,7 +1564,7 @@ pub fn log_game_scene_card_render_diagnostics(
             std::fs::write(
                 diagnostic_path,
                 format!(
-                    "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]\n",
+                    "GameView 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]\n",
                     cards.len(),
                     layer_details.len(),
                     cameras.len(),
@@ -1573,7 +1575,7 @@ pub fn log_game_scene_card_render_diagnostics(
             )
         });
     if let Err(error) = diagnostic_result {
-        warn!("Failed to write GameScene render diagnostics: {error}");
+        warn!("Failed to write GameView render diagnostics: {error}");
     }
     *has_logged = true;
 }
@@ -1722,27 +1724,29 @@ pub fn update_card_frame_shine(
     }
 }
 
-pub fn toggle_card_type(
+/// HUMAN: Handles T-key model/view cycling behavior.
+/// AI: Uses domain_schedule_system naming; GameView toggles world models, CardBrowserView toggles card UI depth.
+pub fn card_model_input_system(
     keys: Res<ButtonInput<KeyCode>>,
-    active_card_type: Res<ActiveCardType>,
+    active_card_model: Res<ActiveCardModel>,
     mut card_ui_state: ResMut<CardUiState>,
     mut persistent_settings: Option<ResMut<Persistent<CardSettingsStore>>>,
     flip_state: Res<CardFlipState>,
-    mut scene: SceneChangeParams,
+    mut scene: ViewChangeParams,
 ) {
     if !keys.just_pressed(KeyCode::KeyT) {
         return;
     }
 
-    match *scene.active_scene {
-        ActiveScene::Game => {
-            scene.active_world_theme.toggle(&scene.world_theme_registry);
+    match *scene.active_view {
+        ActiveView::GameView => {
+            scene.active_world_model.toggle(&scene.world_model_registry);
             scene
                 .active_locations
-                .reroll(&scene.tactical_location_registry, &scene.active_world_theme);
-            scene.reload_active_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
+                .reroll(&scene.location_model_registry, &scene.active_world_model);
+            scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
         }
-        ActiveScene::CardBrowser => {
+        ActiveView::CardBrowserView => {
             card_ui_state.depth_factor = next_card_ui_depth_factor(card_ui_state.depth_factor);
             if let Some(persistent_settings) = persistent_settings.as_deref_mut() {
                 if let Err(error) =
@@ -1753,7 +1757,11 @@ pub fn toggle_card_type(
             }
             let initial_rotation =
                 composed_rotation_for_face(&scene.card_state, flip_state.visible_face);
-            scene.reload_active_scene(&active_card_type, flip_state.visible_face, initial_rotation);
+            scene.reload_active_view(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
         }
     }
 }
@@ -1771,16 +1779,16 @@ fn next_card_ui_depth_factor(current: f32) -> f32 {
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
 pub fn restart_app_scene(
     keys: Res<ButtonInput<KeyCode>>,
-    active_card_type: Res<ActiveCardType>,
+    active_card_model: Res<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
     mut ticks: ResMut<GameTicks>,
-    mut scene: SceneChangeParams,
+    mut scene: ViewChangeParams,
 ) {
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
     }
 
-    scene.reload_active_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
+    scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
     ticks.0 = 0;
@@ -1802,10 +1810,10 @@ pub fn record_desktop_hot_reload_patch_message() {}
 pub fn hot_reload_auto_restart_app_scene(
     mut last_seen_patch_count: Local<u64>,
     hud_state: Res<DebugHudState>,
-    active_card_type: Res<ActiveCardType>,
+    active_card_model: Res<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
     mut ticks: ResMut<GameTicks>,
-    mut scene: SceneChangeParams,
+    mut scene: ViewChangeParams,
 ) {
     let patch_count = desktop_hot_reload_patch_count();
     if patch_count == *last_seen_patch_count {
@@ -1818,7 +1826,7 @@ pub fn hot_reload_auto_restart_app_scene(
         return;
     }
 
-    scene.reload_active_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
+    scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
     ticks.0 = 0;
@@ -1828,49 +1836,45 @@ pub fn hot_reload_auto_restart_app_scene(
 pub fn hot_reload_auto_restart_app_scene() {}
 
 #[derive(SystemParam)]
-pub struct SceneChangeParams<'w, 's> {
+pub struct ViewChangeParams<'w, 's> {
     commands: Commands<'w, 's>,
-    active_scene: ResMut<'w, ActiveScene>,
+    active_view: ResMut<'w, ActiveView>,
     app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
     hud: Option<Res<'w, Hud>>,
-    game_scene_roots: Query<'w, 's, Entity, With<GameSceneRoot>>,
-    standalone_game_scene_entities: Query<
+    game_view_roots: Query<'w, 's, Entity, With<GameViewRoot>>,
+    standalone_game_view_entities: Query<
         'w,
         's,
         Entity,
         (
-            With<GameSceneEntity>,
-            Without<GameSceneRoot>,
+            With<GameViewEntity>,
+            Without<GameViewRoot>,
             Without<ChildOf>,
         ),
     >,
-    card_browser_scene_roots: Query<'w, 's, Entity, With<CardBrowserSceneRoot>>,
+    card_browser_view_roots: Query<'w, 's, Entity, With<CardBrowserViewRoot>>,
     primary_window_query: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     card_browser_camera_query: Query<
         'w,
         's,
         (&'static Camera, &'static GlobalTransform),
         (
-            With<PrimarySceneCamera>,
-            With<CardBrowserSceneEntity>,
+            With<PrimaryViewCamera>,
+            With<CardBrowserViewEntity>,
             With<Camera3d>,
         ),
     >,
-    card_browser_card_query: Query<
-        'w,
-        's,
-        &'static GlobalTransform,
-        (With<CardPlaceholder>, With<CardBrowserSceneEntity>),
-    >,
+    card_browser_card_query:
+        Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<CardBrowserViewEntity>)>,
     mouse_buttons: Res<'w, ButtonInput<MouseButton>>,
     touches: Res<'w, Touches>,
     asset_server: Res<'w, AssetServer>,
     camera_defaults: Res<'w, PrimaryCameraDefaults>,
     card_defaults: Res<'w, CardInspectionDefaults>,
-    card_type_registry: Res<'w, CardTypeRegistry>,
-    world_theme_registry: Res<'w, WorldThemeRegistry>,
-    active_world_theme: ResMut<'w, ActiveWorldTheme>,
-    tactical_location_registry: Res<'w, TacticalLocationRegistry>,
+    card_model_registry: Res<'w, CardModelRegistry>,
+    world_model_registry: Res<'w, WorldModelRegistry>,
+    active_world_model: ResMut<'w, ActiveWorldModel>,
+    location_model_registry: Res<'w, LocationModelRegistry>,
     active_locations: ResMut<'w, ActiveLocations>,
     card_state: ResMut<'w, CardInspectionState>,
     meshes: ResMut<'w, Assets<Mesh>>,
@@ -1878,35 +1882,35 @@ pub struct SceneChangeParams<'w, 's> {
     masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
 }
 
-impl SceneChangeParams<'_, '_> {
-    fn despawn_game_scene(&mut self) {
-        for entity in self.game_scene_roots.iter() {
+impl ViewChangeParams<'_, '_> {
+    fn despawn_game_view(&mut self) {
+        for entity in self.game_view_roots.iter() {
             self.commands.entity(entity).despawn();
         }
-        for entity in self.standalone_game_scene_entities.iter() {
-            self.commands.entity(entity).despawn();
-        }
-    }
-
-    fn despawn_card_browser_scene(&mut self) {
-        for entity in self.card_browser_scene_roots.iter() {
+        for entity in self.standalone_game_view_entities.iter() {
             self.commands.entity(entity).despawn();
         }
     }
 
-    fn spawn_game_scene(&mut self, active_card_type: &ActiveCardType) {
-        spawn_game_scene_contents(
+    fn despawn_card_browser_view(&mut self) {
+        for entity in self.card_browser_view_roots.iter() {
+            self.commands.entity(entity).despawn();
+        }
+    }
+
+    fn spawn_game_view(&mut self, active_card_model: &ActiveCardModel) {
+        spawn_game_view_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
             self.hud.as_ref().map(|hud| hud.0),
             &self.asset_server,
             &self.camera_defaults,
             &self.card_defaults,
-            &self.card_type_registry,
-            active_card_type,
-            &self.world_theme_registry,
-            &self.active_world_theme,
-            &self.tactical_location_registry,
+            &self.card_model_registry,
+            active_card_model,
+            &self.world_model_registry,
+            &self.active_world_model,
+            &self.location_model_registry,
             &self.active_locations,
             &mut self.meshes,
             &mut self.materials,
@@ -1914,19 +1918,19 @@ impl SceneChangeParams<'_, '_> {
         );
     }
 
-    fn spawn_card_browser_scene(
+    fn spawn_card_browser_view(
         &mut self,
-        active_card_type: &ActiveCardType,
+        active_card_model: &ActiveCardModel,
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
-        spawn_card_browser_scene_contents(
+        spawn_card_browser_view_contents(
             &mut self.commands,
             &self.asset_server,
             &self.camera_defaults,
             &self.card_defaults,
-            &self.card_type_registry,
-            active_card_type,
+            &self.card_model_registry,
+            active_card_model,
             &mut self.meshes,
             &mut self.materials,
             self.masked_background_materials.as_deref_mut(),
@@ -1936,42 +1940,42 @@ impl SceneChangeParams<'_, '_> {
         );
     }
 
-    fn reload_active_scene(
+    fn reload_active_view(
         &mut self,
-        active_card_type: &ActiveCardType,
+        active_card_model: &ActiveCardModel,
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
-        match *self.active_scene {
-            ActiveScene::Game => {
-                self.despawn_game_scene();
-                spawn_game_scene_contents(
+        match *self.active_view {
+            ActiveView::GameView => {
+                self.despawn_game_view();
+                spawn_game_view_contents(
                     &mut self.commands,
                     self.app_scene_query.single().ok(),
                     self.hud.as_ref().map(|hud| hud.0),
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
-                    &self.card_type_registry,
-                    active_card_type,
-                    &self.world_theme_registry,
-                    &self.active_world_theme,
-                    &self.tactical_location_registry,
+                    &self.card_model_registry,
+                    active_card_model,
+                    &self.world_model_registry,
+                    &self.active_world_model,
+                    &self.location_model_registry,
                     &self.active_locations,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                 );
             }
-            ActiveScene::CardBrowser => {
-                self.despawn_card_browser_scene();
-                spawn_card_browser_scene_contents(
+            ActiveView::CardBrowserView => {
+                self.despawn_card_browser_view();
+                spawn_card_browser_view_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
-                    &self.card_type_registry,
-                    active_card_type,
+                    &self.card_model_registry,
+                    active_card_model,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
@@ -1984,9 +1988,11 @@ impl SceneChangeParams<'_, '_> {
     }
 }
 
-pub fn toggle_active_scene(
-    mut params: SceneChangeParams,
-    mut active_card_type: ResMut<ActiveCardType>,
+/// HUMAN: Handles pointer navigation between GameView and CardBrowserView.
+/// AI: Uses domain_schedule_system naming; this is the only input path that swaps active views.
+pub fn view_input_system(
+    mut params: ViewChangeParams,
+    mut active_card_model: ResMut<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
 ) {
     let Ok(primary_window) = params.primary_window_query.single() else {
@@ -1998,23 +2004,23 @@ pub fn toggle_active_scene(
         return;
     };
 
-    match *params.active_scene {
-        ActiveScene::Game => {
+    match *params.active_view {
+        ActiveView::GameView => {
             let window_size = Vec2::new(
                 primary_window.resolution.width(),
                 primary_window.resolution.height(),
             );
-            let Some(card_index) = game_scene_card_index_at(pointer_position, window_size) else {
+            let Some(card_index) = game_view_card_index_at(pointer_position, window_size) else {
                 return;
             };
 
-            active_card_type.index = card_index;
+            active_card_model.index = card_index;
             *flip_state = CardFlipState::default();
-            params.despawn_game_scene();
-            params.spawn_card_browser_scene(&active_card_type, CardFace::Front, Quat::IDENTITY);
-            *params.active_scene = ActiveScene::CardBrowser;
+            params.despawn_game_view();
+            params.spawn_card_browser_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
+            *params.active_view = ActiveView::CardBrowserView;
         }
-        ActiveScene::CardBrowser => {
+        ActiveView::CardBrowserView => {
             if !is_card_browser_card_hit(
                 pointer_position,
                 params.card_browser_camera_query.single().ok(),
@@ -2024,24 +2030,24 @@ pub fn toggle_active_scene(
                 return;
             }
 
-            params.despawn_card_browser_scene();
-            params.spawn_game_scene(&active_card_type);
-            *params.active_scene = ActiveScene::Game;
+            params.despawn_card_browser_view();
+            params.spawn_game_view(&active_card_model);
+            *params.active_view = ActiveView::GameView;
         }
     }
 }
 
 fn card_click_navigation(
     _click: On<Pointer<Click>>,
-    mut params: SceneChangeParams,
-    active_card_type: Res<ActiveCardType>,
+    mut params: ViewChangeParams,
+    active_card_model: Res<ActiveCardModel>,
 ) {
-    match *params.active_scene {
-        ActiveScene::Game => {}
-        ActiveScene::CardBrowser => {
-            params.despawn_card_browser_scene();
-            params.spawn_game_scene(&active_card_type);
-            *params.active_scene = ActiveScene::Game;
+    match *params.active_view {
+        ActiveView::GameView => {}
+        ActiveView::CardBrowserView => {
+            params.despawn_card_browser_view();
+            params.spawn_game_view(&active_card_model);
+            *params.active_view = ActiveView::GameView;
         }
     }
 }
@@ -2072,11 +2078,11 @@ fn just_pressed_pointer_position(
 }
 
 #[cfg(test)]
-fn is_game_scene_card_hit(pointer_position: Vec2, window_size: Vec2) -> bool {
-    game_scene_card_index_at(pointer_position, window_size).is_some()
+fn is_game_view_card_hit(pointer_position: Vec2, window_size: Vec2) -> bool {
+    game_view_card_index_at(pointer_position, window_size).is_some()
 }
 
-fn game_scene_card_index_at(pointer_position: Vec2, window_size: Vec2) -> Option<usize> {
+fn game_view_card_index_at(pointer_position: Vec2, window_size: Vec2) -> Option<usize> {
     if window_size.x <= 0.0 || window_size.y <= 0.0 {
         return None;
     }
@@ -2084,7 +2090,7 @@ fn game_scene_card_index_at(pointer_position: Vec2, window_size: Vec2) -> Option
     let Some(pointer_position) = window_pointer_to_game_view(pointer_position, window_size) else {
         return None;
     };
-    game_scene_card_hitboxes().iter().position(|(min, max)| {
+    game_view_card_hitboxes().iter().position(|(min, max)| {
         pointer_position.x >= min.x
             && pointer_position.x <= max.x
             && pointer_position.y >= min.y
@@ -2154,7 +2160,7 @@ fn game_view_pointer_to_window(pointer_position: Vec2, window_size: Vec2) -> Vec
     offset + (pointer_position * scale)
 }
 
-fn game_scene_card_hitboxes() -> Vec<(Vec2, Vec2)> {
+fn game_view_card_hitboxes() -> Vec<(Vec2, Vec2)> {
     let hand_min = Vec2::new(
         GAME_VIEW_WIDTH * (GAME_SCENE_HAND_LEFT_PERCENT * 0.01),
         GAME_VIEW_HEIGHT
@@ -2296,7 +2302,7 @@ pub fn setup_debug_hud(mut commands: Commands) {
 fn spawn_debug_hud(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Text::new("Scene: GameScene\nFrame: 0\nKEYS: "),
+            Text::new("Scene: GameView\nFrame: 0\nKEYS: "),
             TextFont {
                 font_size: DEBUG_HUD_FONT_SIZE,
                 ..Default::default()
@@ -2349,7 +2355,7 @@ pub struct DebugHudUpdateParams<'w, 's> {
     keys: Res<'w, ButtonInput<KeyCode>>,
     time: Res<'w, Time>,
     ticks: Res<'w, GameTicks>,
-    active_scene: Res<'w, ActiveScene>,
+    active_view: Res<'w, ActiveView>,
     hud_state: ResMut<'w, DebugHudState>,
     inspector_query: Query<'w, 's, &'static InspectorState>,
     text_query: Query<'w, 's, &'static mut Text, With<DebugHudText>>,
@@ -2400,9 +2406,9 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
         };
     }
 
-    let scene_name = match *params.active_scene {
-        ActiveScene::Game => "GameScene",
-        ActiveScene::CardBrowser => "CardBrowserScene",
+    let scene_name = match *params.active_view {
+        ActiveView::GameView => "GameView",
+        ActiveView::CardBrowserView => "CardBrowserView",
     };
     let full_text = format!("Scene: {scene_name}\nFrame: {}\nKEYS: ", params.ticks.0);
     for mut text in &mut params.text_query {
@@ -2772,11 +2778,11 @@ pub fn inspector_ui(world: &mut World) {
 }
 
 pub fn card_ui(world: &mut World) {
-    let active_scene = world
-        .get_resource::<ActiveScene>()
+    let active_view = world
+        .get_resource::<ActiveView>()
         .copied()
         .unwrap_or_default();
-    if !should_show_card_ui(active_scene) {
+    if !should_show_card_ui(active_view) {
         return;
     }
 
@@ -2877,8 +2883,8 @@ pub fn card_ui(world: &mut World) {
     }
 }
 
-fn should_show_card_ui(active_scene: ActiveScene) -> bool {
-    active_scene == ActiveScene::CardBrowser
+fn should_show_card_ui(active_view: ActiveView) -> bool {
+    active_view == ActiveView::CardBrowserView
 }
 
 fn depth_factor_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -3290,7 +3296,7 @@ mod tests {
     fn active_child_scene_root_count(app: &mut App) -> usize {
         let mut scene_query = app
             .world_mut()
-            .query_filtered::<Entity, Or<(With<GameSceneRoot>, With<CardBrowserSceneRoot>)>>();
+            .query_filtered::<Entity, Or<(With<GameViewRoot>, With<CardBrowserViewRoot>)>>();
         scene_query.iter(app.world()).count()
     }
 
@@ -3363,10 +3369,10 @@ mod tests {
     }
 
     #[test]
-    fn debug_hud_title_shows_active_scene_without_card_type_status() {
+    fn debug_hud_title_shows_active_view_without_card_model_status() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
-            .init_resource::<ActiveScene>()
+            .init_resource::<ActiveView>()
             .add_systems(Startup, setup_debug_hud);
 
         app.update();
@@ -3376,8 +3382,8 @@ mod tests {
             .query_filtered::<&Text, With<DebugHudText>>();
         let hud_text = hud_query.single(app.world()).unwrap();
 
-        assert!(hud_text.0.starts_with("Scene: GameScene\nFrame: 0"));
-        assert!(!hud_text.0.contains("CardType:"));
+        assert!(hud_text.0.starts_with("Scene: GameView\nFrame: 0"));
+        assert!(!hud_text.0.contains("CardModel:"));
     }
 
     #[test]
@@ -3401,7 +3407,7 @@ mod tests {
 
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<Entity, With<PrimarySceneCamera>>();
+            .query_filtered::<Entity, With<PrimaryViewCamera>>();
         assert_eq!(camera_query.iter(app.world()).count(), 0);
 
         let mut light_query = app
@@ -3425,14 +3431,12 @@ mod tests {
         let app_scene_children = app.world().get::<Children>(app_scene_entity).unwrap();
         assert!(app_scene_children.contains(&hud_entities[0]));
 
-        let mut card_query = app
-            .world_mut()
-            .query_filtered::<Entity, With<CardPlaceholder>>();
+        let mut card_query = app.world_mut().query_filtered::<Entity, With<CardView>>();
         assert_eq!(card_query.iter(app.world()).count(), 0);
     }
 
     #[test]
-    fn card_browser_scene_owns_camera_light_and_card() {
+    fn card_browser_view_owns_camera_light_and_card() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3441,16 +3445,15 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<&Transform, (With<PrimarySceneCamera>, With<CardBrowserSceneEntity>)>(
-            );
+            .query_filtered::<&Transform, (With<PrimaryViewCamera>, With<CardBrowserViewEntity>)>();
         let camera_transform = camera_query.single(app.world()).unwrap();
         assert_eq!(
             camera_transform.translation.z,
@@ -3459,14 +3462,14 @@ mod tests {
 
         let mut light_query = app
             .world_mut()
-            .query_filtered::<Entity, (With<DirectionalLight>, With<CardBrowserSceneEntity>)>();
+            .query_filtered::<Entity, (With<DirectionalLight>, With<CardBrowserViewEntity>)>();
         assert_eq!(light_query.iter(app.world()).count(), 1);
 
         let mut ui_camera_query = app
             .world_mut()
             .query_filtered::<(&Camera, Option<&PrimaryEguiContext>), (
                 With<Camera2d>,
-                With<CardBrowserSceneEntity>,
+                With<CardBrowserViewEntity>,
             )>();
         let (ui_camera, egui_context) = ui_camera_query.single(app.world()).unwrap();
         assert_eq!(ui_camera.order, 1);
@@ -3475,7 +3478,7 @@ mod tests {
 
         let mut card_query = app
             .world_mut()
-            .query_filtered::<&Transform, (With<CardPlaceholder>, With<CardBrowserSceneEntity>)>();
+            .query_filtered::<&Transform, (With<CardView>, With<CardBrowserViewEntity>)>();
         let card_transform = card_query.single(app.world()).unwrap();
         let expected_card_scale =
             card_browser_centered_card_scale(app.world().resource::<CardInspectionDefaults>());
@@ -3486,7 +3489,7 @@ mod tests {
     }
 
     #[test]
-    fn card_browser_scene_root_does_not_inherit_ui_layout_transform() {
+    fn card_browser_view_root_does_not_inherit_ui_layout_transform() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3495,16 +3498,16 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
             .add_systems(Startup, setup_app_scene)
-            .add_systems(Startup, setup_card_browser_scene);
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
         let mut root_query = app
             .world_mut()
-            .query_filtered::<(Option<&ChildOf>, &Transform), With<CardBrowserSceneRoot>>();
+            .query_filtered::<(Option<&ChildOf>, &Transform), With<CardBrowserViewRoot>>();
         let (parent, transform) = root_query.single(app.world()).unwrap();
         assert!(parent.is_none());
         assert_eq!(transform.translation, Vec3::ZERO);
@@ -3529,7 +3532,7 @@ mod tests {
     }
 
     #[test]
-    fn game_scene_3d_cameras_use_centered_safe_area_viewport() {
+    fn game_view_3d_cameras_use_centered_safe_area_viewport() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3538,14 +3541,14 @@ mod tests {
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
-            .add_systems(Startup, setup_game_scene)
-            .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area);
+            .add_systems(Startup, setup_game_view)
+            .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area);
         app.world_mut().spawn((
             Window {
                 resolution: WindowResolution::new(1280, 1536),
@@ -3560,7 +3563,7 @@ mod tests {
         let expected_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<&Camera, (With<GameSceneEntity>, With<Camera3d>)>();
+            .query_filtered::<&Camera, (With<GameViewEntity>, With<Camera3d>)>();
         let cameras: Vec<&Camera> = camera_query.iter(app.world()).collect();
         assert_eq!(cameras.len(), 2);
         for camera in cameras {
@@ -3575,7 +3578,7 @@ mod tests {
     }
 
     #[test]
-    fn game_scene_owns_camera_world_background_and_three_locations() {
+    fn game_view_owns_camera_world_background_and_three_locations() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3583,24 +3586,24 @@ mod tests {
             .init_resource::<Assets<CardBackgroundMaskMaterial>>()
             .init_asset::<Image>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
-            .add_systems(Startup, setup_game_scene);
+            .add_systems(Startup, setup_game_view);
 
         app.update();
 
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<Entity, (With<PrimarySceneCamera>, With<GameSceneEntity>)>();
+            .query_filtered::<Entity, (With<PrimaryViewCamera>, With<GameViewEntity>)>();
         assert_eq!(camera_query.iter(app.world()).count(), 2);
 
         let mut light_query = app
             .world_mut()
-            .query_filtered::<Entity, (With<DirectionalLight>, With<GameSceneEntity>)>();
+            .query_filtered::<Entity, (With<DirectionalLight>, With<GameViewEntity>)>();
         assert_eq!(light_query.iter(app.world()).count(), 0);
 
         let mut background_query = app.world_mut().query_filtered::<(
@@ -3619,7 +3622,7 @@ mod tests {
             .unwrap();
         let (background_width, background_height) =
             mesh_bounds(background_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
-        let expected_background_size = game_scene_world_background_size();
+        let expected_background_size = game_view_world_background_size();
         assert_close(background_width, expected_background_size.x);
         assert_close(background_height, expected_background_size.y);
 
@@ -3654,9 +3657,9 @@ mod tests {
 
         let mut preview_query = app.world_mut().query_filtered::<&Transform, (
             With<LocalPlayerHandCardPreview>,
-            With<CardPlaceholder>,
-            With<GameSceneEntity>,
-            Without<CardBrowserSceneEntity>,
+            With<CardView>,
+            With<GameViewEntity>,
+            Without<CardBrowserViewEntity>,
         )>();
         let mut preview_transforms: Vec<Transform> =
             preview_query.iter(app.world()).copied().collect();
@@ -3668,13 +3671,13 @@ mod tests {
         });
         assert_eq!(preview_transforms.len(), 4);
 
-        let expected_scale = game_scene_world_height_for_game_view_height(
+        let expected_scale = game_view_world_height_for_game_view_height(
             GAME_SCENE_HAND_CARD_HEIGHT,
             GAME_SCENE_HAND_CARD_WORLD_Z,
         ) / app.world().resource::<CardInspectionDefaults>().height;
         for (index, transform) in preview_transforms.iter().enumerate() {
-            let (card_min, card_max) = game_scene_card_hitboxes()[index];
-            let expected_translation = game_scene_world_position_from_game_view(
+            let (card_min, card_max) = game_view_card_hitboxes()[index];
+            let expected_translation = game_view_world_position_from_game_view(
                 (card_min + card_max) * 0.5,
                 GAME_SCENE_HAND_CARD_WORLD_Z,
             );
@@ -3689,13 +3692,13 @@ mod tests {
         let mut preview_layer_query = app.world_mut().query_filtered::<Entity, (
             With<CardParallaxLayer>,
             With<CardFaceLayer>,
-            Without<CardBrowserSceneEntity>,
+            Without<CardBrowserViewEntity>,
         )>();
         assert_eq!(preview_layer_query.iter(app.world()).count(), 20);
 
         let mut preview_camera_query = app
             .world_mut()
-            .query_filtered::<&Camera, (With<Camera3d>, With<GameSceneEntity>)>();
+            .query_filtered::<&Camera, (With<Camera3d>, With<GameViewEntity>)>();
         let mut preview_camera_orders: Vec<isize> = preview_camera_query
             .iter(app.world())
             .map(|camera| camera.order)
@@ -3705,14 +3708,14 @@ mod tests {
 
         let mut ui_camera_query = app
             .world_mut()
-            .query_filtered::<&Camera, (With<Camera2d>, With<GameSceneEntity>)>();
+            .query_filtered::<&Camera, (With<Camera2d>, With<GameViewEntity>)>();
         let ui_camera = ui_camera_query.single(app.world()).unwrap();
         assert_eq!(ui_camera.order, 1);
         assert!(matches!(ui_camera.clear_color, ClearColorConfig::None));
     }
 
     #[test]
-    fn game_scene_hand_preview_transform_chain_has_global_transforms() {
+    fn game_view_hand_preview_transform_chain_has_global_transforms() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3721,37 +3724,37 @@ mod tests {
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
             .add_systems(Startup, setup_app_scene)
-            .add_systems(Startup, setup_game_scene);
+            .add_systems(Startup, setup_game_view);
 
         app.update();
 
         let mut transform_parent_query =
             app.world_mut()
                 .query_filtered::<(&Name, &Transform, &GlobalTransform), Or<(
-                    With<GameSceneRoot>,
+                    With<GameViewRoot>,
                     With<LocalPlayerHand>,
                 )>>();
         let transform_parent_names: Vec<&str> = transform_parent_query
             .iter(app.world())
             .map(|(name, _, _)| name.as_str())
             .collect();
-        assert!(transform_parent_names.contains(&"GameScene"));
+        assert!(transform_parent_names.contains(&"GameView"));
         assert!(transform_parent_names.contains(&"Local Player Hand"));
 
-        let mut game_scene_ui_query =
+        let mut game_view_ui_query =
             app.world_mut()
-                .query::<(&Name, &Transform, &GlobalTransform, &GameSceneEntity)>();
+                .query::<(&Name, &Transform, &GlobalTransform, &GameViewEntity)>();
         assert!(
-            game_scene_ui_query
+            game_view_ui_query
                 .iter(app.world())
-                .any(|(name, _, _, _)| name.as_str() == "GameScene UI")
+                .any(|(name, _, _, _)| name.as_str() == "GameView UI")
         );
 
         let mut preview_query = app.world_mut().query_filtered::<
@@ -3762,7 +3765,7 @@ mod tests {
     }
 
     #[test]
-    fn browser_card_rotation_system_does_not_recenter_game_scene_hand_card() {
+    fn browser_card_rotation_system_does_not_recenter_game_view_hand_card() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -3771,13 +3774,13 @@ mod tests {
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
-            .add_systems(Startup, setup_game_scene)
+            .add_systems(Startup, setup_game_view)
             .add_systems(Update, smooth_card_rotation);
 
         app.update();
@@ -3785,8 +3788,8 @@ mod tests {
 
         let mut preview_query = app.world_mut().query_filtered::<&Transform, (
             With<LocalPlayerHandCardPreview>,
-            With<GameSceneEntity>,
-            Without<CardBrowserSceneEntity>,
+            With<GameViewEntity>,
+            Without<CardBrowserViewEntity>,
         )>();
         let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
         assert_eq!(initial_transforms.len(), 4);
@@ -3804,43 +3807,43 @@ mod tests {
     }
 
     #[test]
-    fn game_scene_card_hitbox_accepts_only_lower_center_card_area() {
+    fn game_view_card_hitbox_accepts_only_lower_center_card_area() {
         let window_size = Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32);
         assert_close(
             GAME_SCENE_HAND_CARD_WIDTH / GAME_SCENE_HAND_CARD_HEIGHT,
             CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT,
         );
 
-        let hitboxes = game_scene_card_hitboxes();
+        let hitboxes = game_view_card_hitboxes();
         assert_eq!(hitboxes.len(), 4);
         let (card_min, card_max) = hitboxes[0];
         let card_center = (card_min + card_max) * 0.5;
         let window_card_center = game_view_pointer_to_window(card_center, window_size);
 
-        assert!(is_game_scene_card_hit(window_card_center, window_size));
-        assert!(is_game_scene_card_hit(
+        assert!(is_game_view_card_hit(window_card_center, window_size));
+        assert!(is_game_view_card_hit(
             game_view_pointer_to_window(card_min + Vec2::splat(0.5), window_size),
             window_size
         ));
-        assert!(is_game_scene_card_hit(
+        assert!(is_game_view_card_hit(
             game_view_pointer_to_window(card_max - Vec2::splat(0.5), window_size),
             window_size
         ));
-        assert!(!is_game_scene_card_hit(
+        assert!(!is_game_view_card_hit(
             game_view_pointer_to_window(
                 Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT * 0.5),
                 window_size
             ),
             window_size
         ));
-        assert!(!is_game_scene_card_hit(
+        assert!(!is_game_view_card_hit(
             game_view_pointer_to_window(card_min - Vec2::splat(1.0), window_size),
             window_size
         ));
 
         let last_center = (hitboxes[3].0 + hitboxes[3].1) * 0.5;
         assert_eq!(
-            game_scene_card_index_at(
+            game_view_card_index_at(
                 game_view_pointer_to_window(last_center, window_size),
                 window_size
             ),
@@ -3857,30 +3860,30 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<ButtonInput<MouseButton>>()
             .init_resource::<Touches>()
-            .init_resource::<ActiveScene>()
+            .init_resource::<ActiveView>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
-            .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
-            .add_systems(Update, toggle_active_scene);
+            .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
+            .add_systems(Update, view_input_system);
         let window = spawn_test_primary_window(&mut app);
 
         app.update();
-        assert_eq!(*app.world().resource::<ActiveScene>(), ActiveScene::Game);
+        assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
         assert_eq!(active_child_scene_root_count(&mut app), 1);
 
         app.world_mut()
             .get_mut::<Window>(window)
             .unwrap()
             .set_cursor_position(Some(game_view_pointer_to_window(
-                (game_scene_card_hitboxes()[2].0 + game_scene_card_hitboxes()[2].1) * 0.5,
+                (game_view_card_hitboxes()[2].0 + game_view_card_hitboxes()[2].1) * 0.5,
                 Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32),
             )));
         app.world_mut()
@@ -3889,33 +3892,33 @@ mod tests {
         app.update();
 
         assert_eq!(
-            *app.world().resource::<ActiveScene>(),
-            ActiveScene::CardBrowser
+            *app.world().resource::<ActiveView>(),
+            ActiveView::CardBrowserView
         );
-        assert_eq!(app.world().resource::<ActiveCardType>().index, 2);
+        assert_eq!(app.world().resource::<ActiveCardModel>().index, 2);
         assert_eq!(active_child_scene_root_count(&mut app), 1);
-        let mut game_scene_query = app
+        let mut game_view_query = app
             .world_mut()
-            .query_filtered::<Entity, With<GameSceneRoot>>();
-        assert_eq!(game_scene_query.iter(app.world()).count(), 0);
+            .query_filtered::<Entity, With<GameViewRoot>>();
+        assert_eq!(game_view_query.iter(app.world()).count(), 0);
         let mut card_scene_query = app
             .world_mut()
-            .query_filtered::<Entity, With<CardBrowserSceneEntity>>();
+            .query_filtered::<Entity, With<CardBrowserViewEntity>>();
         assert!(card_scene_query.iter(app.world()).count() > 0);
-        let mut game_scene_entity_query = app
+        let mut game_view_entity_query = app
             .world_mut()
-            .query_filtered::<Entity, With<GameSceneEntity>>();
-        assert_eq!(game_scene_entity_query.iter(app.world()).count(), 0);
+            .query_filtered::<Entity, With<GameViewEntity>>();
+        assert_eq!(game_view_entity_query.iter(app.world()).count(), 0);
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<Entity, With<PrimarySceneCamera>>();
+            .query_filtered::<Entity, With<PrimaryViewCamera>>();
         assert_eq!(camera_query.iter(app.world()).count(), 1);
     }
 
     #[test]
-    fn card_ui_visibility_follows_card_browser_scene() {
-        assert!(!should_show_card_ui(ActiveScene::Game));
-        assert!(should_show_card_ui(ActiveScene::CardBrowser));
+    fn card_ui_visibility_follows_card_browser_view() {
+        assert!(!should_show_card_ui(ActiveView::GameView));
+        assert!(should_show_card_ui(ActiveView::CardBrowserView));
     }
 
     #[test]
@@ -4030,9 +4033,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4058,15 +4061,13 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
-        let mut card_query = app
-            .world_mut()
-            .query_filtered::<Entity, With<CardPlaceholder>>();
+        let mut card_query = app.world_mut().query_filtered::<Entity, With<CardView>>();
         assert_eq!(card_query.iter(app.world()).count(), 1);
 
         let mut back_query = app
@@ -4091,9 +4092,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4192,23 +4193,23 @@ mod tests {
             .init_resource::<ButtonInput<MouseButton>>()
             .init_resource::<Touches>()
             .init_resource::<GameTicks>()
-            .init_resource::<ActiveScene>()
+            .init_resource::<ActiveView>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
             .init_resource::<CardUiState>()
-            .add_systems(Startup, setup_card_browser_scene)
-            .add_systems(Update, toggle_card_type);
+            .add_systems(Startup, setup_card_browser_view)
+            .add_systems(Update, card_model_input_system);
 
         app.update();
-        *app.world_mut().resource_mut::<ActiveScene>() = ActiveScene::CardBrowser;
+        *app.world_mut().resource_mut::<ActiveView>() = ActiveView::CardBrowserView;
         {
             app.world_mut()
                 .resource_mut::<CardInspectionState>()
@@ -4227,7 +4228,7 @@ mod tests {
             .press(KeyCode::KeyT);
         app.update();
 
-        assert_eq!(app.world().resource::<ActiveCardType>().index, 0);
+        assert_eq!(app.world().resource::<ActiveCardModel>().index, 0);
         assert_eq!(
             app.world().resource::<CardUiState>().depth_factor,
             CARD_DEPTH_FACTOR_MAX
@@ -4242,7 +4243,7 @@ mod tests {
         assert!(back_visible);
         let mut card_query = app
             .world_mut()
-            .query_filtered::<&Transform, With<CardPlaceholder>>();
+            .query_filtered::<&Transform, With<CardView>>();
         let card_transform = card_query.single(app.world()).unwrap();
         assert!(card_transform.rotation.angle_between(expected_rotation) < 0.000_1);
         assert!(
@@ -4265,29 +4266,29 @@ mod tests {
             .init_resource::<ButtonInput<MouseButton>>()
             .init_resource::<Touches>()
             .init_resource::<GameTicks>()
-            .init_resource::<ActiveScene>()
+            .init_resource::<ActiveView>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
             .init_resource::<CardUiState>()
-            .add_systems(Startup, setup_card_browser_scene)
-            .add_systems(Update, toggle_card_type);
+            .add_systems(Startup, setup_card_browser_view)
+            .add_systems(Update, card_model_input_system);
 
         app.update();
-        *app.world_mut().resource_mut::<ActiveScene>() = ActiveScene::CardBrowser;
+        *app.world_mut().resource_mut::<ActiveView>() = ActiveView::CardBrowserView;
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(KeyCode::KeyT);
         app.update();
 
-        assert_eq!(app.world().resource::<ActiveCardType>().index, 0);
+        assert_eq!(app.world().resource::<ActiveCardModel>().index, 0);
         assert_eq!(
             app.world().resource::<CardUiState>().depth_factor,
             CARD_DEPTH_FACTOR_MAX
@@ -4310,9 +4311,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4346,9 +4347,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4414,9 +4415,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .insert_resource(ActiveCardType { index: 1 })
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .insert_resource(ActiveCardModel { index: 1 })
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4457,9 +4458,9 @@ mod tests {
             .init_asset::<Image>()
             .init_resource::<PrimaryCameraDefaults>()
             .init_resource::<CardInspectionDefaults>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene);
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
 
         app.update();
 
@@ -4519,9 +4520,9 @@ mod tests {
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardUiState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .add_systems(Startup, setup_card_browser_scene)
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view)
             .add_systems(Update, update_card_parallax_layers);
 
         app.update();
@@ -4580,7 +4581,7 @@ mod tests {
     }
 
     #[test]
-    fn debug_hud_includes_card_type_toggle_key() {
+    fn debug_hud_includes_card_model_toggle_key() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .add_systems(Startup, setup_debug_hud);
@@ -4651,7 +4652,7 @@ mod tests {
     }
 
     #[test]
-    fn debug_hud_card_type_key_is_not_toggle() {
+    fn debug_hud_card_model_key_is_not_toggle() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .add_systems(Startup, setup_debug_hud);
@@ -4659,12 +4660,12 @@ mod tests {
         app.update();
 
         let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
-        let card_type_key = key_query
+        let card_model_key = key_query
             .iter(app.world())
             .find(|key_text| key_text.key_code == KeyCode::KeyT)
             .unwrap();
 
-        assert!(!card_type_key.is_toggle);
+        assert!(!card_model_key.is_toggle);
     }
 
     #[test]
@@ -4933,7 +4934,7 @@ mod tests {
     }
 
     #[test]
-    fn restart_key_reloads_card_browser_scene_and_keeps_app_scene() {
+    fn restart_key_reloads_card_browser_view_and_keeps_app_scene() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
             .init_resource::<Assets<Mesh>>()
@@ -4947,18 +4948,18 @@ mod tests {
             .init_resource::<CardInspectionDefaults>()
             .init_resource::<CardInspectionState>()
             .init_resource::<CardFlipState>()
-            .init_resource::<CardTypeRegistry>()
-            .init_resource::<ActiveCardType>()
-            .init_resource::<WorldThemeRegistry>()
-            .init_resource::<ActiveWorldTheme>()
-            .init_resource::<TacticalLocationRegistry>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .init_resource::<WorldModelRegistry>()
+            .init_resource::<ActiveWorldModel>()
+            .init_resource::<LocationModelRegistry>()
             .init_resource::<ActiveLocations>()
-            .init_resource::<ActiveScene>()
+            .init_resource::<ActiveView>()
             .add_systems(Startup, setup_app_scene)
-            .add_systems(Startup, setup_card_browser_scene)
+            .add_systems(Startup, setup_card_browser_view)
             .add_systems(Update, restart_app_scene);
 
-        *app.world_mut().resource_mut::<ActiveScene>() = ActiveScene::CardBrowser;
+        *app.world_mut().resource_mut::<ActiveView>() = ActiveView::CardBrowserView;
 
         app.update();
 
@@ -4973,7 +4974,7 @@ mod tests {
 
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<Entity, With<PrimarySceneCamera>>();
+            .query_filtered::<Entity, With<PrimaryViewCamera>>();
         assert_eq!(camera_query.iter(app.world()).count(), 1);
 
         let mut hud_query = app
@@ -4981,9 +4982,7 @@ mod tests {
             .query_filtered::<Entity, With<DebugHudText>>();
         assert_eq!(hud_query.iter(app.world()).count(), 1);
 
-        let mut card_query = app
-            .world_mut()
-            .query_filtered::<Entity, With<CardPlaceholder>>();
+        let mut card_query = app.world_mut().query_filtered::<Entity, With<CardView>>();
         assert_eq!(card_query.iter(app.world()).count(), 1);
         assert_eq!(app.world().resource::<GameTicks>().0, 0);
         assert_eq!(

@@ -18,7 +18,7 @@ Reorganize the current Japan proof-of-concept assets under a theme root so cards
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime in the existing Cargo workspace  
 **Performance Goals**: Asset path reorganization must not add runtime asset discovery scans or change the current bounded card, world, and location counts  
-**Constraints**: Keep all paths under `bevy/` lowercase `snake_case`; keep runtime assets under `bevy/crates/game/assets`; preserve ECS role boundaries; use `Scene` for the persistent app-level scene, `Model` for data concepts, and `View` for rendering/presentation concepts; do not change card, world, location, flip, or CardUI behavior; distinguish theme-owned assets from shared assets; update docs that still describe pre-009 asset locations  
+**Constraints**: Keep all paths under `bevy/` lowercase `snake_case`; keep runtime assets under `bevy/crates/game/assets`; preserve ECS role boundaries; use `Scene` for the persistent app-level scene, `Model` for data concepts, and `View` for rendering/presentation concepts; split changed runtime source by one primary concept per file; name changed system functions as `[domain]_[schedule]_system`; add `HUMAN:` / `AI:` purpose comments above changed primary runtime items; do not change card, world, location, flip, or CardUI behavior; distinguish theme-owned assets from shared assets; update docs that still describe pre-009 asset locations  
 **Scale/Scope**: One theme root, four card models with corresponding card view bundles, two worlds, six tactical locations, one shared shader directory, and no new gameplay content
 
 ## Constitution Check
@@ -30,6 +30,10 @@ Reorganize the current Japan proof-of-concept assets under a theme root so cards
 | Active spec, constitution, and repo-local guidance followed | PASS | Plan follows `specs/009-theme-reorganization/spec.md`, AGENTS guidance, and `.codex/rules/bevy-runtime-structure.md`; AGENTS path guidance now points at the 009 theme layout because 009 intentionally supersedes the old card/world/location layout. |
 | Source, assets, scripts, docs, and tests stay in defined locations | PASS | Runtime changes stay under `bevy/crates/game`; assets stay under `bevy/crates/game/assets`; docs stay in README/spec artifacts; verification uses `scripts/`. |
 | Rust workspace paths use lowercase conventions | PASS | New directories use lowercase names such as `themes/theme_japan/cards/card_kage_ren`. |
+| Runtime source organization uses one primary concept per changed file | PASS | 009 implementation must split changed runtime source around purposeful Plugin, Component, Scene, View, Model, and System names. |
+| Runtime systems and purpose comments follow project standards | PASS | Changed systems must use `[domain]_[schedule]_system`; changed primary items must include terse `HUMAN:` and `AI:` comments. |
+| Scene/Model/View naming is explicit | PASS | `AppScene`, `GameView`, `CardBrowserView`, `CardModel`, `CardView`, and `CardViewBundle` are the canonical target names. |
+| Theme asset layout follows project standard | PASS | Theme-owned cards, locations, and worlds move under `assets/themes/theme_japan/{cards,locations,worlds}` with category-prefixed folders. |
 | Visible feedback preserved | PASS | Feature does not alter asynchronous loading or settings workflows. |
 | Browser build constraints preserved | PASS | Feature changes static asset paths only and does not introduce browser storage, SQLite, or OPFS behavior. |
 | Native database setup preserved | PASS | Feature does not touch database setup or seed behavior. |
