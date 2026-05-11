@@ -124,8 +124,8 @@ A player clicks or taps one of the four permanent game-scene cards to enter a fo
 - **FR-026**: The visual direction MUST use Japan Realism: cinematic feudal Japanese realism, chiaroscuro lighting, grounded atmospheric environments, realistic armor, cloth, wood, metal, rain, mist, smoke, torch fire, lantern fire, and natural lighting.
 - **FR-027**: The visual direction MUST feel stylized, cinematic, atmospheric, grounded, mature, tactical, painterly, and realistic without becoming comic-book-like or arcade-fantasy-like.
 - **FR-028**: The proof-of-concept MUST avoid visible magic, glowing fantasy effects, exaggerated supernatural energy, and non-believable weapons or silhouettes; grounded real-world effects such as mist, smoke, rain, embers, torch fire, and lantern light are allowed.
-- **FR-029**: Cards MUST use a 7:12 tarot-style vertical composition with primarily full-body characters.
-- **FR-030**: Card front source and runtime textures MUST use one shared 7:12 layer canvas of `840 x 1440` pixels for each front layer in the current proof-of-concept.
+- **FR-029**: Cards MUST render with a 2:3 vertical card silhouette with primarily full-body characters.
+- **FR-030**: Card front source textures MUST use one shared `840 x 1440` layer canvas for each front layer in the current proof-of-concept, and runtime card geometry MUST present those layers in the approved 2:3 rendered silhouette.
 - **FR-031**: Card fronts MUST render, from furthest from camera to closest, as background layer, frame layer, safe-area reference layer, foreground character layer, and title layer.
 - **FR-032**: The safe-area reference layer MUST be a transparent card-structure overlay with a green guide rectangle inset 40 pixels from each canvas edge and MUST render immediately in front of the frame layer when visible.
 - **FR-033**: CardUI MUST expose a persisted `Show Safe Area` checkbox that toggles only the safe-area reference layer and does not change art assets, layer scale values, flip state, card identity, or world theme.
@@ -183,7 +183,7 @@ A player clicks or taps one of the four permanent game-scene cards to enter a fo
 
 ## Assumptions
 
-- The provided inspiration image informs mood, lighting, framing density, and premium card treatment, while the final POC should use the requested 7:12 tarot-style vertical card composition rather than the reference image's horizontal card layout.
+- The provided inspiration image informs mood, lighting, framing density, and premium card treatment, while the final POC should use the approved 2:3 vertical card silhouette rather than the reference image's horizontal card layout.
 - The prototype prioritizes static or lightly animated newly created art over finalized production art.
 - The Card Browser includes at least two CardUI setting states so that pressing `T` visibly changes card presentation.
 - The active world at first load may be either Bamboo Forest or Coastal Harbor.

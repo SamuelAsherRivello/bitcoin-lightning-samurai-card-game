@@ -35,11 +35,11 @@ use crate::runtime::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
     ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
-    CARD_LAYER_SCALE_MIN, CARD_SAFE_AREA_TEXTURE_PATH, CardFace, CardFlipState,
-    CardInspectionDefaults, CardInspectionState, CardSettingsStore, CardType, CardTypeRegistry,
-    CardUiState, DebugHudInputStore, DebugHudState, GameTicks, PrimaryCameraDefaults,
-    TacticalLocationRegistry, WindowPlacement, WindowPlacementState, WindowPlacementStore,
-    WorldThemeRegistry, load_window_placement, valid_window_placement,
+    CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
+    CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardSettingsStore,
+    CardType, CardTypeRegistry, CardUiState, DebugHudInputStore, DebugHudState, GameTicks,
+    PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacement, WindowPlacementState,
+    WindowPlacementStore, WorldThemeRegistry, load_window_placement, valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -80,8 +80,9 @@ const GAME_SCENE_HAND_LEFT_PERCENT: f32 = 24.0;
 const GAME_SCENE_HAND_BOTTOM_PERCENT: f32 = 2.5;
 const GAME_SCENE_HAND_WIDTH_PERCENT: f32 = 52.0;
 const GAME_SCENE_HAND_HEIGHT_PERCENT: f32 = 25.0;
-const GAME_SCENE_HAND_CARD_WIDTH: f32 = 108.0;
 const GAME_SCENE_HAND_CARD_HEIGHT: f32 = 192.0;
+const GAME_SCENE_HAND_CARD_WIDTH: f32 =
+    GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
 const GAME_SCENE_HAND_CARD_GAP: f32 = 16.0;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
@@ -3355,6 +3356,11 @@ mod tests {
     #[test]
     fn game_scene_card_hitbox_accepts_only_lower_center_card_area() {
         let window_size = Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32);
+        assert_close(
+            GAME_SCENE_HAND_CARD_WIDTH / GAME_SCENE_HAND_CARD_HEIGHT,
+            CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT,
+        );
+
         let hitboxes = game_scene_card_hitboxes();
         assert_eq!(hitboxes.len(), 4);
         let (card_min, card_max) = hitboxes[0];
@@ -3834,6 +3840,42 @@ mod tests {
                 .iter(app.world())
                 .any(|name| name.as_str().contains("KAGE REN"))
         );
+    }
+
+    #[test]
+    fn card_browser_card_layers_use_shared_render_aspect_ratio() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardTypeRegistry>()
+            .init_resource::<ActiveCardType>()
+            .add_systems(Startup, setup_card_browser_scene);
+
+        app.update();
+
+        let mut layer_query =
+            app.world_mut()
+                .query::<(&CardParallaxLayer, &Mesh3d, Option<&CardBackgroundLayer>)>();
+        for (layer, mesh_handle, background_layer) in layer_query.iter(app.world()) {
+            if layer.role == CardLayerRole::Background
+                && !background_layer.is_some_and(|layer| layer.uses_frame_mask)
+            {
+                continue;
+            }
+
+            let mesh = app
+                .world()
+                .resource::<Assets<Mesh>>()
+                .get(&mesh_handle.0)
+                .unwrap();
+            let (width, height) = mesh_bounds(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
+            assert_close(width / height, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT);
+        }
     }
 
     #[test]

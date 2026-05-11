@@ -26,7 +26,7 @@
 
 | Asset Type | Required Direction | Excluded Direction |
 | ---------- | ------------------ | ------------------ |
-| Cards | 7:12 tarot-style vertical Japan Realism character-poster composition, mostly full-body, 70-80% character height unless breakout layers intentionally exceed the frame. | Comic-book splash framing, arcade fantasy, magic glow. |
+| Cards | 2:3 vertical Japan Realism character-poster composition, mostly full-body, 70-80% character height unless breakout layers intentionally exceed the frame. | Comic-book splash framing, arcade fantasy, magic glow. |
 | Worlds | Grounded cinematic environments with mist, rain, smoke, torch or lantern fire where appropriate. | Supernatural energy effects or glowing fantasy lighting. |
 | Weapons/materials | Believable silhouettes, realistic armor, cloth, wood, metal, rope, smoke, and fire. | Non-believable weapons or exaggerated magical materials. |
 

@@ -13,8 +13,10 @@ pub const PRIMARY_CAMERA_FOV_RADIANS: f32 = std::f32::consts::FRAC_PI_4;
 pub const PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.5;
 pub const PRIMARY_CAMERA_NEAR: f32 = 0.1;
 pub const PRIMARY_CAMERA_FAR: f32 = 1000.0;
-pub const CARD_WIDTH_WORLD_UNITS: f32 = 7.0 / 12.0;
 pub const CARD_HEIGHT_WORLD_UNITS: f32 = 1.0;
+pub const CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT: f32 = 2.0 / 3.0;
+pub const CARD_WIDTH_WORLD_UNITS: f32 =
+    CARD_HEIGHT_WORLD_UNITS * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
@@ -884,10 +886,14 @@ mod tests {
     #[test]
     fn card_defaults_match_japan_realism_card_ratio() {
         let defaults = CardInspectionDefaults::default();
-        let expected_ratio = 12.0 / 7.0;
+        let expected_ratio = 1.0 / CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
         let tolerance = expected_ratio * 0.02;
 
         assert!((defaults.height_width_ratio() - expected_ratio).abs() <= tolerance);
+        assert_eq!(
+            defaults.width / defaults.height,
+            CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT
+        );
         assert_eq!(
             defaults.max_tilt_radians,
             CARD_MAX_TILT_DEGREES.to_radians()
