@@ -1,7 +1,7 @@
 use bevy::{
     app::AppExit,
     asset::RenderAssetUsages,
-    camera::ScalingMode,
+    camera::{ScalingMode, Viewport},
     ecs::system::SystemParam,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
@@ -84,6 +84,7 @@ const GAME_SCENE_HAND_CARD_WIDTH: f32 = 108.0;
 const GAME_SCENE_HAND_CARD_HEIGHT: f32 = 192.0;
 const GAME_SCENE_HAND_CARD_GAP: f32 = 16.0;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
+const CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const DEBUG_HUD_Z_INDEX: i32 = 100;
 const END_TURN_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_TURN_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
@@ -100,10 +101,58 @@ pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<Primary
     spawn_primary_camera(&mut commands, &camera_defaults);
 }
 
+pub fn constrain_card_browser_camera_to_safe_area(
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    mut camera_query: Query<
+        &mut Camera,
+        (
+            With<PrimarySceneCamera>,
+            With<CardBrowserSceneEntity>,
+            With<Camera3d>,
+        ),
+    >,
+) {
+    let Ok(window) = primary_window.single() else {
+        return;
+    };
+    let safe_area_viewport = card_browser_safe_area_viewport(window.resolution.physical_size());
+
+    for mut camera in &mut camera_query {
+        camera.viewport = safe_area_viewport.clone();
+    }
+}
+
+fn card_browser_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
+    if window_size.x == 0 || window_size.y == 0 {
+        return None;
+    }
+
+    let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
+    let window_size_f32 = window_size.as_vec2();
+    let scale = (window_size_f32.x / game_view_size.x).min(window_size_f32.y / game_view_size.y);
+    if scale <= 0.0 {
+        return None;
+    }
+
+    let viewport_size = (game_view_size * scale).round().as_uvec2();
+    let viewport_position = ((window_size - viewport_size).as_vec2() * 0.5)
+        .round()
+        .as_uvec2();
+
+    Some(Viewport {
+        physical_position: viewport_position,
+        physical_size: viewport_size,
+        depth: 0.0..1.0,
+    })
+}
+
 fn spawn_primary_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
+    let mut camera_transform = camera_defaults.clone();
+    camera_transform.position.z = CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN;
+
     commands
         .spawn((
             Name::new("Primary 3D Camera"),
@@ -118,7 +167,7 @@ fn spawn_primary_camera(
                 far: camera_defaults.far,
                 ..Default::default()
             }),
-            camera_defaults.transform(),
+            camera_transform.transform(),
         ))
         .id()
 }
@@ -2520,20 +2569,18 @@ pub fn card_ui(world: &mut World) {
                 if ui.button("Flip").clicked() {
                     flip_requested = true;
                 }
-                let safe_area_response = ui.checkbox(&mut card_ui_state.show_safe_area, "Show Safe Area");
+                let safe_area_response =
+                    ui.checkbox(&mut card_ui_state.show_safe_area, "Show Safe Area");
                 if safe_area_response.changed() {
                     card_settings_to_save = Some(CardSettingsStore::from_state(&card_ui_state));
                 }
                 ui.add_space(DEBUG_WINDOW_FONT_SIZE);
-                ui.label("DepthFactor");
-                let depth_response = ui.add_sized(
-                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
-                    egui::Slider::new(
-                        &mut card_ui_state.depth_factor,
-                        CARD_DEPTH_FACTOR_MIN..=CARD_DEPTH_FACTOR_MAX,
-                    ),
+                let depth_factor_changed = depth_factor_slider_with_reset(
+                    ui,
+                    "DepthFactor",
+                    &mut card_ui_state.depth_factor,
                 );
-                if depth_response.changed() {
+                if depth_factor_changed {
                     card_settings_to_save = Some(CardSettingsStore::from_state(&card_ui_state));
                 }
                 ui.add_space(DEBUG_WINDOW_FONT_SIZE);
@@ -2586,6 +2633,30 @@ pub fn card_ui(world: &mut World) {
 
 fn should_show_card_ui(active_scene: ActiveScene) -> bool {
     active_scene == ActiveScene::CardBrowser
+}
+
+fn depth_factor_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
+    let mut changed = false;
+    ui.label(label);
+    ui.horizontal(|ui| {
+        let slider_width = (ui.available_width() - CARD_UI_RESET_BUTTON_WIDTH).max(0.0);
+        let slider_response = ui.add_sized(
+            [slider_width, DEBUG_WINDOW_FONT_SIZE],
+            egui::Slider::new(value, CARD_DEPTH_FACTOR_MIN..=CARD_DEPTH_FACTOR_MAX),
+        );
+        changed |= slider_response.changed();
+        if ui
+            .add_sized(
+                [CARD_UI_RESET_BUTTON_WIDTH, DEBUG_WINDOW_FONT_SIZE],
+                egui::Button::new("x"),
+            )
+            .clicked()
+        {
+            *value = CARD_DEPTH_FACTOR_DEFAULT;
+            changed = true;
+        }
+    });
+    changed
 }
 
 fn layer_scale_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -3129,8 +3200,13 @@ mod tests {
 
         let mut camera_query = app
             .world_mut()
-            .query_filtered::<Entity, (With<PrimarySceneCamera>, With<CardBrowserSceneEntity>)>();
-        assert_eq!(camera_query.iter(app.world()).count(), 1);
+            .query_filtered::<&Transform, (With<PrimarySceneCamera>, With<CardBrowserSceneEntity>)>(
+            );
+        let camera_transform = camera_query.single(app.world()).unwrap();
+        assert_eq!(
+            camera_transform.translation.z,
+            CARD_BROWSER_CAMERA_DISTANCE_FROM_ORIGIN
+        );
 
         let mut light_query = app
             .world_mut()
@@ -3141,6 +3217,25 @@ mod tests {
             .world_mut()
             .query_filtered::<Entity, (With<CardPlaceholder>, With<CardBrowserSceneEntity>)>();
         assert_eq!(card_query.iter(app.world()).count(), 1);
+    }
+
+    #[test]
+    fn card_browser_camera_viewport_matches_centered_safe_area() {
+        let wide_viewport = card_browser_safe_area_viewport(UVec2::new(1600, 800)).unwrap();
+        assert_eq!(wide_viewport.physical_position, UVec2::new(160, 0));
+        assert_eq!(wide_viewport.physical_size, UVec2::new(1280, 800));
+
+        let tall_viewport = card_browser_safe_area_viewport(UVec2::new(1280, 1000)).unwrap();
+        assert_eq!(tall_viewport.physical_position, UVec2::new(0, 100));
+        assert_eq!(tall_viewport.physical_size, UVec2::new(1280, 800));
+
+        let default_viewport = card_browser_safe_area_viewport(UVec2::new(
+            DEFAULT_WINDOW_WIDTH,
+            DEFAULT_WINDOW_HEIGHT,
+        ))
+        .unwrap();
+        assert_eq!(default_viewport.physical_position, UVec2::new(0, 64));
+        assert_eq!(default_viewport.physical_size, UVec2::new(1024, 640));
     }
 
     #[test]

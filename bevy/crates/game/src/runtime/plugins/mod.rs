@@ -9,7 +9,8 @@ use crate::runtime::resources::{
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{create_card_settings_store, create_debug_hud_input_store};
 use crate::runtime::systems::{
-    advance_ticks, hot_reload_auto_restart_card_browser_scene, load_saved_card_settings,
+    advance_ticks, constrain_card_browser_camera_to_safe_area,
+    hot_reload_auto_restart_card_browser_scene, load_saved_card_settings,
     load_saved_debug_hud_input, load_saved_window_placement, quit_app_on_escape,
     restart_card_browser_scene, restore_window_placement_to_current_monitors,
     save_window_placement_on_close, scale_debug_hud, setup_app_scene, setup_game, setup_game_scene,
@@ -85,6 +86,7 @@ impl Plugin for CoreGamePlugin {
                     scale_debug_hud,
                 ),
             )
+            .add_systems(Update, constrain_card_browser_camera_to_safe_area)
             .add_systems(
                 Update,
                 quit_app_on_escape.before(save_window_placement_on_close),

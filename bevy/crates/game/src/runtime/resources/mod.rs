@@ -153,10 +153,10 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_lord_daichi/foreground_character.png",
             title_texture: "cards/card_types/card_type_lord_daichi/title.png",
             background_uses_frame_mask: false,
-            foreground_width_ratio: 0.72,
+            foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
-            foreground_y_ratio: -0.02,
-            foreground_height_ratio: 0.82,
+            foreground_y_ratio: 0.0,
+            foreground_height_ratio: 1.0,
             title_y_ratio: -0.32,
         }
     }
@@ -170,10 +170,10 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_sister_hotaru/foreground_character.png",
             title_texture: "cards/card_types/card_type_sister_hotaru/title.png",
             background_uses_frame_mask: false,
-            foreground_width_ratio: 0.72,
+            foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
-            foreground_y_ratio: -0.02,
-            foreground_height_ratio: 0.78,
+            foreground_y_ratio: 0.0,
+            foreground_height_ratio: 1.0,
             title_y_ratio: -0.32,
         }
     }
@@ -187,10 +187,10 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_yokai_placeholder/foreground_character.png",
             title_texture: "cards/card_types/card_type_yokai_placeholder/title.png",
             background_uses_frame_mask: false,
-            foreground_width_ratio: 0.72,
+            foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
-            foreground_y_ratio: -0.02,
-            foreground_height_ratio: 0.8,
+            foreground_y_ratio: 0.0,
+            foreground_height_ratio: 1.0,
             title_y_ratio: -0.32,
         }
     }
