@@ -13,7 +13,7 @@ pub const PRIMARY_CAMERA_FOV_RADIANS: f32 = std::f32::consts::FRAC_PI_4;
 pub const PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.5;
 pub const PRIMARY_CAMERA_NEAR: f32 = 0.1;
 pub const PRIMARY_CAMERA_FAR: f32 = 1000.0;
-pub const CARD_WIDTH_WORLD_UNITS: f32 = 9.0 / 16.0;
+pub const CARD_WIDTH_WORLD_UNITS: f32 = 7.0 / 12.0;
 pub const CARD_HEIGHT_WORLD_UNITS: f32 = 1.0;
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
@@ -30,6 +30,7 @@ pub const CARD_LAYER_SCALE_MIN: f32 = 0.0;
 pub const CARD_LAYER_SCALE_MAX: f32 = 2.0;
 pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
 pub const CARD_BACK_TEXTURE_PATH: &str = "cards/card_structure/card_back_japan_realism.png";
+pub const CARD_SAFE_AREA_TEXTURE_PATH: &str = "cards/card_structure/safe_area.png";
 pub const KAGE_REN_CARD_TYPE_ID: &str = "kage_ren";
 pub const KAGE_REN_CARD_TYPE_NAME: &str = "KAGE REN";
 pub const LORD_DAICHI_CARD_TYPE_ID: &str = "lord_daichi";
@@ -118,6 +119,7 @@ pub struct CardType {
     pub foreground_texture: &'static str,
     pub title_texture: &'static str,
     pub background_uses_frame_mask: bool,
+    pub foreground_width_ratio: f32,
     pub foreground_x_ratio: f32,
     pub foreground_y_ratio: f32,
     pub foreground_height_ratio: f32,
@@ -134,9 +136,10 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_kage_ren/foreground_character.png",
             title_texture: "cards/card_types/card_type_kage_ren/title.png",
             background_uses_frame_mask: true,
+            foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
-            foreground_y_ratio: -0.02,
-            foreground_height_ratio: 0.78,
+            foreground_y_ratio: 0.0,
+            foreground_height_ratio: 1.0,
             title_y_ratio: -0.32,
         }
     }
@@ -150,6 +153,7 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_lord_daichi/foreground_character.png",
             title_texture: "cards/card_types/card_type_lord_daichi/title.png",
             background_uses_frame_mask: false,
+            foreground_width_ratio: 0.72,
             foreground_x_ratio: 0.0,
             foreground_y_ratio: -0.02,
             foreground_height_ratio: 0.82,
@@ -166,6 +170,7 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_sister_hotaru/foreground_character.png",
             title_texture: "cards/card_types/card_type_sister_hotaru/title.png",
             background_uses_frame_mask: false,
+            foreground_width_ratio: 0.72,
             foreground_x_ratio: 0.0,
             foreground_y_ratio: -0.02,
             foreground_height_ratio: 0.78,
@@ -182,6 +187,7 @@ impl CardType {
             foreground_texture: "cards/card_types/card_type_yokai_placeholder/foreground_character.png",
             title_texture: "cards/card_types/card_type_yokai_placeholder/title.png",
             background_uses_frame_mask: false,
+            foreground_width_ratio: 0.72,
             foreground_x_ratio: 0.0,
             foreground_y_ratio: -0.02,
             foreground_height_ratio: 0.8,
@@ -539,6 +545,7 @@ impl Default for CardInspectionState {
 #[derive(Debug, Resource)]
 pub struct CardUiState {
     pub depth_factor: f32,
+    pub show_safe_area: bool,
     pub background_layer_scale: f32,
     pub frame_layer_scale: f32,
     pub foreground_layer_scale: f32,
@@ -549,6 +556,7 @@ impl Default for CardUiState {
     fn default() -> Self {
         Self {
             depth_factor: CARD_DEPTH_FACTOR_DEFAULT,
+            show_safe_area: true,
             background_layer_scale: CARD_LAYER_SCALE_DEFAULT,
             frame_layer_scale: CARD_LAYER_SCALE_DEFAULT,
             foreground_layer_scale: CARD_LAYER_SCALE_DEFAULT,
@@ -569,6 +577,8 @@ impl CardUiState {
 #[derive(Clone, Debug, Deserialize, PartialEq, Resource, Serialize)]
 pub struct CardSettingsStore {
     pub depth_factor: f32,
+    #[serde(default = "default_show_safe_area")]
+    pub show_safe_area: bool,
     #[serde(default = "default_card_layer_scale")]
     pub background_layer_scale: f32,
     #[serde(default = "default_card_layer_scale")]
@@ -583,6 +593,7 @@ impl Default for CardSettingsStore {
     fn default() -> Self {
         Self {
             depth_factor: CARD_DEPTH_FACTOR_DEFAULT,
+            show_safe_area: true,
             background_layer_scale: CARD_LAYER_SCALE_DEFAULT,
             frame_layer_scale: CARD_LAYER_SCALE_DEFAULT,
             foreground_layer_scale: CARD_LAYER_SCALE_DEFAULT,
@@ -595,10 +606,15 @@ const fn default_card_layer_scale() -> f32 {
     CARD_LAYER_SCALE_DEFAULT
 }
 
+const fn default_show_safe_area() -> bool {
+    true
+}
+
 impl CardSettingsStore {
     pub fn from_state(state: &CardUiState) -> Self {
         Self {
             depth_factor: state.depth_factor,
+            show_safe_area: state.show_safe_area,
             background_layer_scale: state.background_layer_scale,
             frame_layer_scale: state.frame_layer_scale,
             foreground_layer_scale: state.foreground_layer_scale,
@@ -610,6 +626,7 @@ impl CardSettingsStore {
         state.depth_factor = self
             .depth_factor
             .clamp(CARD_DEPTH_FACTOR_MIN, CARD_DEPTH_FACTOR_MAX);
+        state.show_safe_area = self.show_safe_area;
         state.background_layer_scale = self
             .background_layer_scale
             .clamp(CARD_LAYER_SCALE_MIN, CARD_LAYER_SCALE_MAX);
@@ -867,7 +884,7 @@ mod tests {
     #[test]
     fn card_defaults_match_japan_realism_card_ratio() {
         let defaults = CardInspectionDefaults::default();
-        let expected_ratio = 16.0 / 9.0;
+        let expected_ratio = 12.0 / 7.0;
         let tolerance = expected_ratio * 0.02;
 
         assert!((defaults.height_width_ratio() - expected_ratio).abs() <= tolerance);
@@ -1087,6 +1104,7 @@ mod tests {
 
         assert_eq!(state.depth_factor, CARD_DEPTH_FACTOR_DEFAULT);
         assert_eq!(state.depth_multiplier(), 1.0);
+        assert!(state.show_safe_area);
         assert_eq!(state.background_layer_scale, CARD_LAYER_SCALE_DEFAULT);
         assert_eq!(state.frame_layer_scale, CARD_LAYER_SCALE_DEFAULT);
         assert_eq!(state.foreground_layer_scale, CARD_LAYER_SCALE_DEFAULT);
@@ -1111,6 +1129,7 @@ mod tests {
     fn card_settings_applies_depth_factor_to_card_ui_state() {
         let settings = CardSettingsStore {
             depth_factor: 7.5,
+            show_safe_area: false,
             background_layer_scale: 0.5,
             frame_layer_scale: 0.75,
             foreground_layer_scale: 1.25,
@@ -1121,6 +1140,7 @@ mod tests {
         settings.apply_to_state(&mut state);
 
         assert_eq!(state.depth_factor, 7.5);
+        assert!(!state.show_safe_area);
         assert_eq!(state.background_layer_scale, 0.5);
         assert_eq!(state.frame_layer_scale, 0.75);
         assert_eq!(state.foreground_layer_scale, 1.25);
@@ -1131,6 +1151,7 @@ mod tests {
     fn card_settings_clamps_depth_factor_to_supported_range() {
         let settings = CardSettingsStore {
             depth_factor: CARD_DEPTH_FACTOR_MAX + 1.0,
+            show_safe_area: false,
             background_layer_scale: CARD_LAYER_SCALE_MIN - 1.0,
             frame_layer_scale: CARD_LAYER_SCALE_MAX + 1.0,
             foreground_layer_scale: CARD_LAYER_SCALE_MAX + 1.0,

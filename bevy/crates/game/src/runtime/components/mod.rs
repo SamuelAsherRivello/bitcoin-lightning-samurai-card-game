@@ -80,6 +80,7 @@ impl CardFaceLayer {
 pub enum CardLayerRole {
     Background,
     Frame,
+    SafeArea,
     Foreground,
     Title,
 }

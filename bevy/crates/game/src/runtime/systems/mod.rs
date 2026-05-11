@@ -35,11 +35,11 @@ use crate::runtime::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
     ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
-    CARD_LAYER_SCALE_MIN, CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState,
-    CardSettingsStore, CardType, CardTypeRegistry, CardUiState, DebugHudInputStore, DebugHudState,
-    GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacement,
-    WindowPlacementState, WindowPlacementStore, WorldThemeRegistry, load_window_placement,
-    valid_window_placement,
+    CARD_LAYER_SCALE_MIN, CARD_SAFE_AREA_TEXTURE_PATH, CardFace, CardFlipState,
+    CardInspectionDefaults, CardInspectionState, CardSettingsStore, CardType, CardTypeRegistry,
+    CardUiState, DebugHudInputStore, DebugHudState, GameTicks, PrimaryCameraDefaults,
+    TacticalLocationRegistry, WindowPlacement, WindowPlacementState, WindowPlacementStore,
+    WorldThemeRegistry, load_window_placement, valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -58,19 +58,21 @@ const GAME_VIEW_HEIGHT: f32 = 800.0;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
 const DEBUG_WINDOW_WIDTH: f32 = 338.0;
+const CARD_UI_RESET_BUTTON_WIDTH: f32 = 24.0;
 const BACKGROUND_APPARENT_DEPTH: f32 = -1.0;
 const FRAME_APPARENT_DEPTH: f32 = 0.0;
+const SAFE_AREA_APPARENT_DEPTH: f32 = 0.0;
 const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
 const TITLE_APPARENT_DEPTH: f32 = 2.0;
 const LAYER_RENDER_Z_STEP: f32 = 0.0001;
 const BACKGROUND_DEPTH_BIAS: f32 = 0.0;
 const FRAME_DEPTH_BIAS: f32 = 8.0;
+const SAFE_AREA_DEPTH_BIAS: f32 = 12.0;
 const FOREGROUND_DEPTH_BIAS: f32 = 16.0;
 const TITLE_DEPTH_BIAS: f32 = 24.0;
 const PARALLAX_OFFSET_RATIO: f32 = 0.065;
 const FRAME_THICKNESS_RATIO: f32 = 0.05;
 const BACKGROUND_APERTURE_SCALE: f32 = 1.0;
-const FOREGROUND_WIDTH_RATIO: f32 = 0.72;
 const FRAME_SHINE_STRENGTH: f32 = 0.22;
 const GAME_ROUND_CURRENT: u32 = 1;
 const GAME_ROUND_TOTAL: u32 = 6;
@@ -697,6 +699,13 @@ fn spawn_card_structure(
         AlphaMode::AlphaToCoverage,
         TITLE_DEPTH_BIAS,
     );
+    let safe_area_material = card_type_material(
+        asset_server,
+        materials,
+        CARD_SAFE_AREA_TEXTURE_PATH,
+        AlphaMode::Blend,
+        SAFE_AREA_DEPTH_BIAS,
+    );
     let card_back_material = card_type_material(
         asset_server,
         materials,
@@ -710,6 +719,7 @@ fn spawn_card_structure(
     let card_front_z = (card_defaults.thickness * 0.5) + LAYER_RENDER_Z_STEP;
     let background_z = card_front_z;
     let frame_z = card_front_z + (LAYER_RENDER_Z_STEP * 3.0);
+    let safe_area_z = card_front_z + (LAYER_RENDER_Z_STEP * 4.0);
     let foreground_z = card_front_z + (LAYER_RENDER_Z_STEP * 5.0);
     let title_z = card_front_z + (LAYER_RENDER_Z_STEP * 7.0);
 
@@ -719,9 +729,10 @@ fn spawn_card_structure(
         meshes.add(background_aperture_mesh(&frame_dimensions, Vec2::ZERO))
     };
     let frame_mesh = meshes.add(frame_cutout_mesh(card_defaults, &frame_dimensions));
-    let foreground_width = card_defaults.width * FOREGROUND_WIDTH_RATIO;
+    let foreground_width = card_defaults.width * card_type.foreground_width_ratio;
     let foreground_height = card_defaults.height * card_type.foreground_height_ratio;
     let foreground_mesh = meshes.add(Rectangle::new(foreground_width, foreground_height));
+    let safe_area_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let title_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let card_back_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
 
@@ -795,6 +806,19 @@ fn spawn_card_structure(
             Vec3::new(0.0, 0.0, frame_z),
             None,
             true,
+            visible_face == CardFace::Front,
+        );
+
+        spawn_parallax_plane(
+            parent,
+            Name::new("Card Safe Area Reference"),
+            safe_area_mesh,
+            safe_area_material,
+            CardLayerRole::SafeArea,
+            SAFE_AREA_APPARENT_DEPTH,
+            Vec3::new(0.0, 0.0, safe_area_z),
+            None,
+            false,
             visible_face == CardFace::Front,
         );
 
@@ -1240,14 +1264,18 @@ pub fn update_card_flip_animation(time: Res<Time>, mut flip_state: ResMut<CardFl
 
 pub fn update_card_face_visibility(
     flip_state: Res<CardFlipState>,
-    mut face_query: Query<(&CardFaceLayer, &mut Visibility)>,
+    card_ui_state: Res<CardUiState>,
+    mut face_query: Query<(&CardFaceLayer, Option<&CardParallaxLayer>, &mut Visibility)>,
 ) {
-    if !flip_state.is_changed() {
+    if !flip_state.is_changed() && !card_ui_state.is_changed() {
         return;
     }
 
-    for (face_layer, mut visibility) in &mut face_query {
-        *visibility = if face_layer.face == flip_state.visible_face {
+    for (face_layer, parallax_layer, mut visibility) in &mut face_query {
+        let is_hidden_safe_area = parallax_layer
+            .is_some_and(|layer| layer.role == CardLayerRole::SafeArea)
+            && !card_ui_state.show_safe_area;
+        *visibility = if face_layer.face == flip_state.visible_face && !is_hidden_safe_area {
             Visibility::Visible
         } else {
             Visibility::Hidden
@@ -1278,11 +1306,6 @@ pub fn update_card_parallax_layers(
     let depth_multiplier = card_ui_state.depth_multiplier();
 
     let frame_dimensions = frame_dimensions(&card_defaults);
-    let background_virtual_size = Vec2::new(
-        frame_dimensions.hole_width * BACKGROUND_APERTURE_SCALE,
-        frame_dimensions.hole_height * BACKGROUND_APERTURE_SCALE,
-    );
-
     for (layer, mut transform, mesh_handle, background_layer) in &mut layer_query {
         let offset = tilt * max_offset * layer.apparent_depth * depth_multiplier;
         let layer_scale = card_layer_scale(&card_ui_state, layer.role);
@@ -1312,6 +1335,10 @@ pub fn update_card_parallax_layers(
                             Mesh::ATTRIBUTE_POSITION,
                             background_aperture_positions(&frame_dimensions, layer_scale),
                         );
+                        let background_virtual_size = Vec2::new(
+                            frame_dimensions.hole_width * BACKGROUND_APERTURE_SCALE,
+                            frame_dimensions.hole_height * BACKGROUND_APERTURE_SCALE,
+                        );
                         let uv_offset = Vec2::new(
                             -offset.x / background_virtual_size.x,
                             offset.y / background_virtual_size.y,
@@ -1333,6 +1360,7 @@ fn card_layer_scale(card_ui_state: &CardUiState, role: CardLayerRole) -> f32 {
     match role {
         CardLayerRole::Background => card_ui_state.background_layer_scale,
         CardLayerRole::Frame => card_ui_state.frame_layer_scale,
+        CardLayerRole::SafeArea => 1.0,
         CardLayerRole::Foreground => card_ui_state.foreground_layer_scale,
         CardLayerRole::Title => card_ui_state.title_layer_scale,
     }
@@ -2492,6 +2520,10 @@ pub fn card_ui(world: &mut World) {
                 if ui.button("Flip").clicked() {
                     flip_requested = true;
                 }
+                let safe_area_response = ui.checkbox(&mut card_ui_state.show_safe_area, "Show Safe Area");
+                if safe_area_response.changed() {
+                    card_settings_to_save = Some(CardSettingsStore::from_state(&card_ui_state));
+                }
                 ui.add_space(DEBUG_WINDOW_FONT_SIZE);
                 ui.label("DepthFactor");
                 let depth_response = ui.add_sized(
@@ -2505,42 +2537,30 @@ pub fn card_ui(world: &mut World) {
                     card_settings_to_save = Some(CardSettingsStore::from_state(&card_ui_state));
                 }
                 ui.add_space(DEBUG_WINDOW_FONT_SIZE);
-                ui.label("LayerScale: Background");
-                let background_scale_response = ui.add_sized(
-                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
-                    egui::Slider::new(
-                        &mut card_ui_state.background_layer_scale,
-                        CARD_LAYER_SCALE_MIN..=CARD_LAYER_SCALE_MAX,
-                    ),
+                let background_scale_changed = layer_scale_slider_with_reset(
+                    ui,
+                    "LayerScale: Background",
+                    &mut card_ui_state.background_layer_scale,
                 );
-                ui.label("LayerScale: Frame");
-                let frame_scale_response = ui.add_sized(
-                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
-                    egui::Slider::new(
-                        &mut card_ui_state.frame_layer_scale,
-                        CARD_LAYER_SCALE_MIN..=CARD_LAYER_SCALE_MAX,
-                    ),
+                let frame_scale_changed = layer_scale_slider_with_reset(
+                    ui,
+                    "LayerScale: Frame",
+                    &mut card_ui_state.frame_layer_scale,
                 );
-                ui.label("LayerScale: Foreground");
-                let foreground_scale_response = ui.add_sized(
-                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
-                    egui::Slider::new(
-                        &mut card_ui_state.foreground_layer_scale,
-                        CARD_LAYER_SCALE_MIN..=CARD_LAYER_SCALE_MAX,
-                    ),
+                let foreground_scale_changed = layer_scale_slider_with_reset(
+                    ui,
+                    "LayerScale: Foreground",
+                    &mut card_ui_state.foreground_layer_scale,
                 );
-                ui.label("LayerScale: Title");
-                let title_scale_response = ui.add_sized(
-                    [ui.available_width(), DEBUG_WINDOW_FONT_SIZE],
-                    egui::Slider::new(
-                        &mut card_ui_state.title_layer_scale,
-                        CARD_LAYER_SCALE_MIN..=CARD_LAYER_SCALE_MAX,
-                    ),
+                let title_scale_changed = layer_scale_slider_with_reset(
+                    ui,
+                    "LayerScale: Title",
+                    &mut card_ui_state.title_layer_scale,
                 );
-                if background_scale_response.changed()
-                    || frame_scale_response.changed()
-                    || foreground_scale_response.changed()
-                    || title_scale_response.changed()
+                if background_scale_changed
+                    || frame_scale_changed
+                    || foreground_scale_changed
+                    || title_scale_changed
                 {
                     card_settings_to_save = Some(CardSettingsStore::from_state(&card_ui_state));
                 }
@@ -2566,6 +2586,30 @@ pub fn card_ui(world: &mut World) {
 
 fn should_show_card_ui(active_scene: ActiveScene) -> bool {
     active_scene == ActiveScene::CardBrowser
+}
+
+fn layer_scale_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
+    let mut changed = false;
+    ui.label(label);
+    ui.horizontal(|ui| {
+        let slider_width = (ui.available_width() - CARD_UI_RESET_BUTTON_WIDTH).max(0.0);
+        let slider_response = ui.add_sized(
+            [slider_width, DEBUG_WINDOW_FONT_SIZE],
+            egui::Slider::new(value, CARD_LAYER_SCALE_MIN..=CARD_LAYER_SCALE_MAX),
+        );
+        changed |= slider_response.changed();
+        if ui
+            .add_sized(
+                [CARD_UI_RESET_BUTTON_WIDTH, DEBUG_WINDOW_FONT_SIZE],
+                egui::Button::new("x"),
+            )
+            .clicked()
+        {
+            *value = crate::runtime::resources::CARD_LAYER_SCALE_DEFAULT;
+            changed = true;
+        }
+    });
+    changed
 }
 
 fn card_ui_safe_area_anchor_offset(window_size: Vec2) -> egui::Vec2 {
@@ -3388,12 +3432,13 @@ mod tests {
     }
 
     #[test]
-    fn polished_layers_use_flat_artwork_with_four_apparent_depth_offsets() {
+    fn polished_layers_use_flat_artwork_with_apparent_depth_offsets() {
         let card_defaults = CardInspectionDefaults::default();
         let frame_dimensions = frame_dimensions(&card_defaults);
 
         assert_eq!(BACKGROUND_APPARENT_DEPTH, -1.0);
         assert_eq!(FRAME_APPARENT_DEPTH, 0.0);
+        assert_eq!(SAFE_AREA_APPARENT_DEPTH, FRAME_APPARENT_DEPTH);
         assert_eq!(FOREGROUND_APPARENT_DEPTH, 1.0);
         assert_eq!(TITLE_APPARENT_DEPTH, 2.0);
         assert!(LAYER_RENDER_Z_STEP < card_defaults.thickness * 0.01);
@@ -3515,6 +3560,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .init_resource::<CardFlipState>()
+            .init_resource::<CardUiState>()
             .add_systems(Update, update_card_face_visibility);
 
         app.world_mut()
@@ -3849,6 +3895,11 @@ mod tests {
                 ),
                 (CardLayerRole::Frame, FRAME_DEPTH_BIAS, AlphaMode::Opaque),
                 (
+                    CardLayerRole::SafeArea,
+                    SAFE_AREA_DEPTH_BIAS,
+                    AlphaMode::Blend
+                ),
+                (
                     CardLayerRole::Foreground,
                     FOREGROUND_DEPTH_BIAS,
                     AlphaMode::AlphaToCoverage
@@ -3903,6 +3954,7 @@ mod tests {
                 }
                 CardLayerRole::Background => 0.5,
                 CardLayerRole::Frame => 0.75,
+                CardLayerRole::SafeArea => 1.0,
                 CardLayerRole::Foreground => 1.25,
                 CardLayerRole::Title => 1.5,
             };

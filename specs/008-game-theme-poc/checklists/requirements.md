@@ -31,4 +31,4 @@
 
 ## Notes
 
-- Validation passes after incorporating the Japan Realism art direction, 9:16 vertical card composition, grounded cinematic tone, and no-visible-magic constraint.
+- Validation passes after incorporating the Japan Realism art direction, 7:12 tarot-style vertical card composition, grounded cinematic tone, and no-visible-magic constraint.
