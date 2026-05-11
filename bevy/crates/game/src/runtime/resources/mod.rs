@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod debug_drawing_model;
+pub mod point_model;
 
 pub use debug_drawing_model::*;
+pub use point_model::*;
 
 const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
 #[cfg(feature = "desktop-hot-reload")]
@@ -126,6 +128,8 @@ impl CardInspectionDefaults {
 pub struct CardModel {
     pub id: &'static str,
     pub display_name: &'static str,
+    pub cost: CostPointModel,
+    pub base_power: PowerPointModel,
     pub background_texture: &'static str,
     pub frame_texture: &'static str,
     pub foreground_texture: &'static str,
@@ -139,10 +143,12 @@ pub struct CardModel {
 }
 
 impl CardModel {
-    pub const fn kage_ren() -> Self {
+    pub fn kage_ren() -> Self {
         Self {
             id: KAGE_REN_CARD_MODEL_ID,
             display_name: KAGE_REN_CARD_MODEL_NAME,
+            cost: CostPointModel::random(),
+            base_power: PowerPointModel::random(),
             background_texture: "themes/theme_japan/cards/card_kage_ren/background.png",
             frame_texture: "themes/theme_japan/cards/card_kage_ren/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_kage_ren/foreground_character.png",
@@ -156,10 +162,12 @@ impl CardModel {
         }
     }
 
-    pub const fn lord_daichi() -> Self {
+    pub fn lord_daichi() -> Self {
         Self {
             id: LORD_DAICHI_CARD_MODEL_ID,
             display_name: LORD_DAICHI_CARD_MODEL_NAME,
+            cost: CostPointModel::random(),
+            base_power: PowerPointModel::random(),
             background_texture: "themes/theme_japan/cards/card_lord_daichi/background.png",
             frame_texture: "themes/theme_japan/cards/card_lord_daichi/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_lord_daichi/foreground_character.png",
@@ -173,10 +181,12 @@ impl CardModel {
         }
     }
 
-    pub const fn sister_hotaru() -> Self {
+    pub fn sister_hotaru() -> Self {
         Self {
             id: SISTER_HOTARU_CARD_MODEL_ID,
             display_name: SISTER_HOTARU_CARD_MODEL_NAME,
+            cost: CostPointModel::random(),
+            base_power: PowerPointModel::random(),
             background_texture: "themes/theme_japan/cards/card_sister_hotaru/background.png",
             frame_texture: "themes/theme_japan/cards/card_sister_hotaru/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_sister_hotaru/foreground_character.png",
@@ -190,10 +200,12 @@ impl CardModel {
         }
     }
 
-    pub const fn yokai_placeholder() -> Self {
+    pub fn yokai_placeholder() -> Self {
         Self {
             id: YOKAI_PLACEHOLDER_CARD_MODEL_ID,
             display_name: YOKAI_PLACEHOLDER_CARD_MODEL_NAME,
+            cost: CostPointModel::random(),
+            base_power: PowerPointModel::random(),
             background_texture: "themes/theme_japan/cards/card_yokai_placeholder/background.png",
             frame_texture: "themes/theme_japan/cards/card_yokai_placeholder/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_yokai_placeholder/foreground_character.png",
@@ -972,6 +984,44 @@ mod tests {
                 .map(|card_model| card_model.id),
             Some(KAGE_REN_CARD_MODEL_ID)
         );
+    }
+
+    #[test]
+    fn card_model_registry_exposes_cost_and_base_power_for_every_card() {
+        let registry = CardModelRegistry::default();
+        let card_ids: Vec<&str> = registry
+            .card_models()
+            .map(|card_model| card_model.id)
+            .collect();
+
+        assert_eq!(
+            card_ids,
+            vec![
+                KAGE_REN_CARD_MODEL_ID,
+                LORD_DAICHI_CARD_MODEL_ID,
+                SISTER_HOTARU_CARD_MODEL_ID,
+                YOKAI_PLACEHOLDER_CARD_MODEL_ID,
+            ]
+        );
+        assert!(registry.card_models().all(|card_model| {
+            card_model.cost.is_in_display_contract()
+                && card_model.base_power.is_in_display_contract()
+        }));
+    }
+
+    #[test]
+    fn card_model_creation_assigns_in_range_cost_and_base_power() {
+        let generated_values: Vec<(i32, i32)> = (0..64)
+            .map(|_| {
+                let card_model = CardModel::kage_ren();
+                (card_model.cost.value, card_model.base_power.value)
+            })
+            .collect();
+
+        assert!(generated_values.iter().all(|(cost, base_power)| {
+            (POINT_VIEW_DISPLAY_MIN..=POINT_VIEW_DISPLAY_MAX).contains(cost)
+                && (POINT_VIEW_DISPLAY_MIN..=POINT_VIEW_DISPLAY_MAX).contains(base_power)
+        }));
     }
 
     #[test]

@@ -377,6 +377,7 @@ dependencies = [
  "bevy_aspect_ratio_mask",
  "bevy_card_game_shared",
  "bevy_hotpatching_experiments",
+ "fastrand",
  "serde",
  "serde_json",
  "web-sys",

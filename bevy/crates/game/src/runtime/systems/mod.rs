@@ -36,9 +36,9 @@ pub use debug_drawing_update_system::*;
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardBrowserViewEntity, CardBrowserViewRoot,
     CardFaceLayer, CardFrameLayer, CardLayerRole, CardParallaxLayer, CardView, CardViewBundle,
-    DebugHudFpsText, DebugHudKeyText, DebugHudText, EndTurnButton, GameLocation, GameViewEntity,
-    GameViewRoot, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState,
-    Player, PrimaryViewCamera, TurnUi, WorldBackground,
+    CostPointView, DebugHudFpsText, DebugHudKeyText, DebugHudText, EndTurnButton, GameLocation,
+    GameViewEntity, GameViewRoot, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview,
+    LocationRevealState, Player, PowerPointView, PrimaryViewCamera, TurnUi, WorldBackground,
 };
 use crate::runtime::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
@@ -46,10 +46,11 @@ use crate::runtime::resources::{
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
     CardFace, CardFlipState, CardInspectionDefaults, CardInspectionState, CardModel,
-    CardModelRegistry, CardSettingsStore, CardUiState, DebugHudInputStore, DebugHudState,
-    GameTicks, LocationModelRegistry, PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults,
-    WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
-    load_window_placement, valid_window_placement,
+    CardModelRegistry, CardSettingsStore, CardUiState, CostPointModel, DebugHudInputStore,
+    DebugHudState, GameTicks, LocationModelRegistry, LocationScoreModel,
+    PRIMARY_CAMERA_FOV_RADIANS, PowerPointModel, PrimaryCameraDefaults, WindowPlacement,
+    WindowPlacementState, WindowPlacementStore, WorldModelRegistry, load_window_placement,
+    valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -82,6 +83,7 @@ const FRAME_DEPTH_BIAS: f32 = 8.0;
 const SAFE_AREA_DEPTH_BIAS: f32 = 12.0;
 const FOREGROUND_DEPTH_BIAS: f32 = 16.0;
 const TITLE_DEPTH_BIAS: f32 = 24.0;
+const POINT_DEPTH_BIAS: f32 = 32.0;
 const PARALLAX_OFFSET_RATIO: f32 = 0.065;
 const FRAME_THICKNESS_RATIO: f32 = 0.05;
 const BACKGROUND_APERTURE_SCALE: f32 = 1.0;
@@ -112,6 +114,14 @@ const END_TURN_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95
 const END_TURN_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
 const END_TURN_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
 const END_TURN_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
+const POINT_VIEW_WIDTH: f32 = 46.0;
+const POINT_VIEW_HEIGHT: f32 = 36.0;
+const CARD_POINT_BADGE_SIZE: f32 = 0.17;
+const CARD_POINT_BADGE_INSET_RATIO: f32 = 0.16;
+const CARD_POINT_DIGIT_WIDTH: f32 = 0.04;
+const CARD_POINT_DIGIT_HEIGHT: f32 = 0.076;
+const CARD_POINT_DIGIT_STROKE: f32 = 0.01;
+const CARD_POINT_DIGIT_GAP: f32 = 0.004;
 
 /// HUMAN: Spawns the local player entity for the app.
 /// AI: Startup system; keep player setup separate from AppScene and view setup.
@@ -608,7 +618,10 @@ fn spawn_location_ui(
     ));
     location.insert(BorderColor::all(Color::srgb(0.58, 0.47, 0.31)));
     location.with_children(|parent| {
+        let location_score = LocationScoreModel::empty(index);
+        spawn_power_point_view(parent, location_score.opponent_total);
         spawn_location_text(parent, display_name, 18.0);
+        spawn_power_point_view(parent, location_score.local_total);
     });
 }
 
@@ -657,6 +670,332 @@ fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, fo
         },
         TextColor(Color::WHITE),
     ));
+}
+
+fn spawn_power_point_view(parent: &mut ChildSpawnerCommands, model: PowerPointModel) {
+    parent
+        .spawn((
+            Name::new("PowerPointView"),
+            PowerPointView::new(model),
+            Node {
+                width: Val::Px(POINT_VIEW_WIDTH),
+                height: Val::Px(POINT_VIEW_HEIGHT),
+                border: UiRect::all(Val::Px(2.0)),
+                display: Display::Flex,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(18.0)),
+                ..Default::default()
+            },
+            BorderColor::all(Color::srgb(0.82, 0.62, 0.2)),
+            BackgroundColor(Color::srgba(0.08, 0.02, 0.02, 0.82)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(model.display_text()),
+                TextFont {
+                    font_size: 22.0,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
+
+fn spawn_card_cost_point_view(
+    parent: &mut ChildSpawnerCommands,
+    model: CostPointModel,
+    background_mesh: Handle<Mesh>,
+    background_material: Handle<StandardMaterial>,
+    horizontal_digit_mesh: Handle<Mesh>,
+    vertical_digit_mesh: Handle<Mesh>,
+    digit_material: Handle<StandardMaterial>,
+    background_translation: Vec3,
+    text_translation: Vec3,
+    is_visible: bool,
+) {
+    spawn_card_point_background(
+        parent,
+        Name::new("Card CostPointView Background"),
+        CostPointView::new(model),
+        background_mesh,
+        background_material,
+        background_translation,
+        is_visible,
+    );
+    spawn_card_point_text(
+        parent,
+        Name::new("Card CostPointView Text"),
+        model.display_text(),
+        horizontal_digit_mesh,
+        vertical_digit_mesh,
+        digit_material,
+        text_translation,
+        is_visible,
+    );
+}
+
+fn spawn_card_power_point_view(
+    parent: &mut ChildSpawnerCommands,
+    model: PowerPointModel,
+    background_mesh: Handle<Mesh>,
+    background_material: Handle<StandardMaterial>,
+    horizontal_digit_mesh: Handle<Mesh>,
+    vertical_digit_mesh: Handle<Mesh>,
+    digit_material: Handle<StandardMaterial>,
+    background_translation: Vec3,
+    text_translation: Vec3,
+    is_visible: bool,
+) {
+    spawn_card_point_background(
+        parent,
+        Name::new("Card PowerPointView Background"),
+        PowerPointView::new(model),
+        background_mesh,
+        background_material,
+        background_translation,
+        is_visible,
+    );
+    spawn_card_point_text(
+        parent,
+        Name::new("Card PowerPointView Text"),
+        model.display_text(),
+        horizontal_digit_mesh,
+        vertical_digit_mesh,
+        digit_material,
+        text_translation,
+        is_visible,
+    );
+}
+
+fn spawn_card_point_background<M: Component>(
+    parent: &mut ChildSpawnerCommands,
+    name: Name,
+    marker: M,
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    translation: Vec3,
+    is_visible: bool,
+) {
+    parent
+        .spawn((
+            name,
+            marker,
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform::from_translation(translation),
+            RenderLayers::layer(CARD_RENDER_LAYER),
+            NoCpuCulling,
+            CardFaceLayer::new(CardFace::Front),
+            if is_visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+        ))
+        .observe(card_click_navigation);
+}
+
+fn spawn_card_point_text(
+    parent: &mut ChildSpawnerCommands,
+    name: Name,
+    text: String,
+    horizontal_digit_mesh: Handle<Mesh>,
+    vertical_digit_mesh: Handle<Mesh>,
+    digit_material: Handle<StandardMaterial>,
+    translation: Vec3,
+    is_visible: bool,
+) {
+    let characters: Vec<char> = text.chars().collect();
+    let total_width = (characters.len() as f32 * CARD_POINT_DIGIT_WIDTH)
+        + (characters.len().saturating_sub(1) as f32 * CARD_POINT_DIGIT_GAP);
+    let start_x = -total_width * 0.5 + (CARD_POINT_DIGIT_WIDTH * 0.5);
+
+    for (index, character) in characters.into_iter().enumerate() {
+        let character_translation = translation
+            + Vec3::new(
+                start_x + (index as f32 * (CARD_POINT_DIGIT_WIDTH + CARD_POINT_DIGIT_GAP)),
+                0.0,
+                0.0,
+            );
+        spawn_card_point_glyph(
+            parent,
+            name.clone(),
+            character,
+            horizontal_digit_mesh.clone(),
+            vertical_digit_mesh.clone(),
+            digit_material.clone(),
+            character_translation,
+            is_visible,
+        );
+    }
+}
+
+fn spawn_card_point_glyph(
+    parent: &mut ChildSpawnerCommands,
+    name: Name,
+    character: char,
+    horizontal_digit_mesh: Handle<Mesh>,
+    vertical_digit_mesh: Handle<Mesh>,
+    digit_material: Handle<StandardMaterial>,
+    translation: Vec3,
+    is_visible: bool,
+) {
+    for segment in point_glyph_segments(character) {
+        let (mesh, offset) = match segment {
+            PointGlyphSegment::Top => (
+                horizontal_digit_mesh.clone(),
+                Vec2::new(
+                    0.0,
+                    (CARD_POINT_DIGIT_HEIGHT - CARD_POINT_DIGIT_STROKE) * 0.5,
+                ),
+            ),
+            PointGlyphSegment::Middle => (horizontal_digit_mesh.clone(), Vec2::ZERO),
+            PointGlyphSegment::Bottom => (
+                horizontal_digit_mesh.clone(),
+                Vec2::new(
+                    0.0,
+                    -(CARD_POINT_DIGIT_HEIGHT - CARD_POINT_DIGIT_STROKE) * 0.5,
+                ),
+            ),
+            PointGlyphSegment::UpperLeft => (
+                vertical_digit_mesh.clone(),
+                Vec2::new(
+                    -(CARD_POINT_DIGIT_WIDTH - CARD_POINT_DIGIT_STROKE) * 0.5,
+                    CARD_POINT_DIGIT_HEIGHT * 0.25,
+                ),
+            ),
+            PointGlyphSegment::UpperRight => (
+                vertical_digit_mesh.clone(),
+                Vec2::new(
+                    (CARD_POINT_DIGIT_WIDTH - CARD_POINT_DIGIT_STROKE) * 0.5,
+                    CARD_POINT_DIGIT_HEIGHT * 0.25,
+                ),
+            ),
+            PointGlyphSegment::LowerLeft => (
+                vertical_digit_mesh.clone(),
+                Vec2::new(
+                    -(CARD_POINT_DIGIT_WIDTH - CARD_POINT_DIGIT_STROKE) * 0.5,
+                    -CARD_POINT_DIGIT_HEIGHT * 0.25,
+                ),
+            ),
+            PointGlyphSegment::LowerRight => (
+                vertical_digit_mesh.clone(),
+                Vec2::new(
+                    (CARD_POINT_DIGIT_WIDTH - CARD_POINT_DIGIT_STROKE) * 0.5,
+                    -CARD_POINT_DIGIT_HEIGHT * 0.25,
+                ),
+            ),
+        };
+
+        parent
+            .spawn((
+                Name::new(format!("{name} Glyph")),
+                Mesh3d(mesh),
+                MeshMaterial3d(digit_material.clone()),
+                Transform::from_translation(translation + offset.extend(0.0)),
+                RenderLayers::layer(CARD_RENDER_LAYER),
+                NoCpuCulling,
+                CardFaceLayer::new(CardFace::Front),
+                if is_visible {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                },
+            ))
+            .observe(card_click_navigation);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PointGlyphSegment {
+    Top,
+    UpperLeft,
+    UpperRight,
+    Middle,
+    LowerLeft,
+    LowerRight,
+    Bottom,
+}
+
+fn point_glyph_segments(character: char) -> &'static [PointGlyphSegment] {
+    match character {
+        '0' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::LowerLeft,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '1' => &[PointGlyphSegment::UpperRight, PointGlyphSegment::LowerRight],
+        '2' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerLeft,
+            PointGlyphSegment::Bottom,
+        ],
+        '3' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '4' => &[
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerRight,
+        ],
+        '5' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '6' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerLeft,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '7' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::LowerRight,
+        ],
+        '8' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerLeft,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '9' => &[
+            PointGlyphSegment::Top,
+            PointGlyphSegment::UpperLeft,
+            PointGlyphSegment::UpperRight,
+            PointGlyphSegment::Middle,
+            PointGlyphSegment::LowerRight,
+            PointGlyphSegment::Bottom,
+        ],
+        '-' => &[PointGlyphSegment::Middle],
+        _ => &[],
+    }
+}
+
+#[cfg(test)]
+fn point_glyph_segment_count(text: &str) -> usize {
+    text.chars()
+        .map(|character| point_glyph_segments(character).len())
+        .sum()
 }
 
 fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
@@ -979,6 +1318,8 @@ fn spawn_card_structure_for_type(
     let safe_area_z = card_front_z + (LAYER_RENDER_Z_STEP * 4.0);
     let foreground_z = card_front_z + (LAYER_RENDER_Z_STEP * 5.0);
     let title_z = card_front_z + (LAYER_RENDER_Z_STEP * 7.0);
+    let point_background_z = card_front_z + (LAYER_RENDER_Z_STEP * 8.0);
+    let point_text_z = card_front_z + (LAYER_RENDER_Z_STEP * 9.0);
 
     let background_mesh = if card_model.background_uses_frame_mask {
         meshes.add(background_frame_mask_mesh(card_defaults, Vec2::ZERO))
@@ -992,6 +1333,43 @@ fn spawn_card_structure_for_type(
     let safe_area_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let title_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let card_back_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
+    let cost_point_background_mesh = meshes.add(Circle::new(CARD_POINT_BADGE_SIZE * 0.5));
+    let power_point_background_mesh = meshes.add(Circle::new(CARD_POINT_BADGE_SIZE * 0.5));
+    let horizontal_digit_mesh = meshes.add(Rectangle::new(
+        CARD_POINT_DIGIT_WIDTH,
+        CARD_POINT_DIGIT_STROKE,
+    ));
+    let vertical_digit_mesh = meshes.add(Rectangle::new(
+        CARD_POINT_DIGIT_STROKE,
+        (CARD_POINT_DIGIT_HEIGHT - CARD_POINT_DIGIT_STROKE) * 0.5,
+    ));
+    let cost_point_background_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.06, 0.22, 0.78),
+        alpha_mode: AlphaMode::Opaque,
+        depth_bias: POINT_DEPTH_BIAS,
+        unlit: true,
+        ..Default::default()
+    });
+    let power_point_background_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.62, 0.05, 0.08),
+        alpha_mode: AlphaMode::Opaque,
+        depth_bias: POINT_DEPTH_BIAS,
+        unlit: true,
+        ..Default::default()
+    });
+    let point_digit_material = materials.add(StandardMaterial {
+        base_color: Color::WHITE,
+        alpha_mode: AlphaMode::Opaque,
+        depth_bias: POINT_DEPTH_BIAS + 8.0,
+        unlit: true,
+        ..Default::default()
+    });
+    let point_x =
+        (card_defaults.width * 0.5) - (card_defaults.width * CARD_POINT_BADGE_INSET_RATIO);
+    let cost_point_x = point_x + (CARD_POINT_BADGE_SIZE * 0.5);
+    let power_point_x = point_x + (CARD_POINT_BADGE_SIZE * 0.5);
+    let point_y =
+        (card_defaults.height * 0.5) - (card_defaults.height * CARD_POINT_BADGE_INSET_RATIO);
 
     let mut scene_root = commands.spawn(CardViewBundle::new(&card_model, transform));
     scene_root.with_children(|parent| {
@@ -1103,6 +1481,30 @@ fn spawn_card_structure_for_type(
             Vec3::new(0.0, 0.0, title_z),
             None,
             false,
+            visible_face == CardFace::Front,
+        );
+        spawn_card_cost_point_view(
+            parent,
+            card_model.cost,
+            cost_point_background_mesh,
+            cost_point_background_material,
+            horizontal_digit_mesh.clone(),
+            vertical_digit_mesh.clone(),
+            point_digit_material.clone(),
+            Vec3::new(-cost_point_x, point_y, point_background_z),
+            Vec3::new(-cost_point_x, point_y, point_text_z),
+            visible_face == CardFace::Front,
+        );
+        spawn_card_power_point_view(
+            parent,
+            card_model.base_power,
+            power_point_background_mesh,
+            power_point_background_material,
+            horizontal_digit_mesh,
+            vertical_digit_mesh,
+            point_digit_material,
+            Vec3::new(power_point_x, -point_y, point_background_z),
+            Vec3::new(power_point_x, -point_y, point_text_z),
             visible_face == CardFace::Front,
         );
     });
@@ -3643,6 +4045,88 @@ mod tests {
     }
 
     #[test]
+    fn card_structure_spawns_visible_cost_and_power_point_views() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_asset::<Image>()
+            .init_resource::<PrimaryCameraDefaults>()
+            .init_resource::<CardInspectionDefaults>()
+            .init_resource::<CardModelRegistry>()
+            .init_resource::<ActiveCardModel>()
+            .add_systems(Startup, setup_card_browser_view);
+
+        app.update();
+
+        let active_card = {
+            let registry = app.world().resource::<CardModelRegistry>();
+            let active_card_model = app.world().resource::<ActiveCardModel>();
+            registry
+                .active_card_model(active_card_model)
+                .expect("active card model should exist")
+                .clone()
+        };
+
+        let mut cost_query = app
+            .world_mut()
+            .query::<(&Name, &CostPointView, &Visibility)>();
+        let cost_views: Vec<(String, CostPointModel, Visibility)> = cost_query
+            .iter(app.world())
+            .map(|(name, view, visibility)| (name.to_string(), view.model, *visibility))
+            .collect();
+        assert_eq!(
+            cost_views,
+            vec![(
+                "Card CostPointView Background".to_string(),
+                active_card.cost,
+                Visibility::Visible,
+            )]
+        );
+
+        let mut power_query = app
+            .world_mut()
+            .query_filtered::<(&Name, &PowerPointView, &Visibility), Without<GameLocation>>();
+        let power_views: Vec<(String, PowerPointModel, Visibility)> = power_query
+            .iter(app.world())
+            .map(|(name, view, visibility)| (name.to_string(), view.model, *visibility))
+            .collect();
+        assert_eq!(
+            power_views,
+            vec![(
+                "Card PowerPointView Background".to_string(),
+                active_card.base_power,
+                Visibility::Visible,
+            )]
+        );
+
+        let mut glyph_query = app.world_mut().query::<(&Name, &Visibility)>();
+        let cost_glyph_count = glyph_query
+            .iter(app.world())
+            .filter(|(name, visibility)| {
+                name.as_str() == "Card CostPointView Text Glyph"
+                    && **visibility == Visibility::Visible
+            })
+            .count();
+        let power_glyph_count = glyph_query
+            .iter(app.world())
+            .filter(|(name, visibility)| {
+                name.as_str() == "Card PowerPointView Text Glyph"
+                    && **visibility == Visibility::Visible
+            })
+            .count();
+
+        assert_eq!(
+            cost_glyph_count,
+            point_glyph_segment_count(&active_card.cost.display_text())
+        );
+        assert_eq!(
+            power_glyph_count,
+            point_glyph_segment_count(&active_card.base_power.display_text())
+        );
+    }
+
+    #[test]
     fn card_browser_view_root_does_not_inherit_ui_layout_transform() {
         let mut app = App::new();
         app.add_plugins((MinimalPlugins, AssetPlugin::default()))
@@ -3836,6 +4320,13 @@ mod tests {
                 (2, LocationRevealState::Revealed)
             ]
         );
+        let mut point_view_query = app.world_mut().query::<(&Name, &PowerPointView)>();
+        let point_view_values: Vec<i32> = point_view_query
+            .iter(app.world())
+            .filter(|(name, _)| name.as_str() == "PowerPointView")
+            .map(|(_, point_view)| point_view.model.value)
+            .collect();
+        assert_eq!(point_view_values, vec![0, 0, 0, 0, 0, 0]);
 
         let mut hand_query = app
             .world_mut()
