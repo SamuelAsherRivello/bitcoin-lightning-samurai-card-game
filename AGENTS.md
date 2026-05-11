@@ -9,7 +9,8 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Do not delete repositories, branches, tags, commits, or history.
 - Do not rewrite history, squash commits, amend commits, rebase, or force-push.
 - Do not run commands that discard local file changes.
-- Allowed Git operations are `git status`, `git diff`, `git log`, `git show`, `git fetch`, `git add`, `git commit`, and normal non-force `git push`.
+- Allowed Git operations are `git status`, `git diff`, `git log`, `git show`, `git fetch`, `git branch`, `git switch`, `git checkout -b`, `git add`, `git commit`, and normal non-force `git push`.
+- Branch creation and branch switching are allowed when they do not discard local file changes.
 - If a task appears to require destructive Git, stop and explain that the operation is not permitted.
 
 ## Secret And Credential Safety
@@ -50,7 +51,7 @@ This repository is a Bevy ECS card game built from the Codex Project Template. K
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/010-point-system/plan.md`
+Active implementation plan: `specs/011-ai-integration/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules
