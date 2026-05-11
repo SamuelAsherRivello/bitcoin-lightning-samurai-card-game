@@ -125,13 +125,20 @@ A player clicks or taps one of the four permanent game-scene cards to enter a fo
 - **FR-027**: The visual direction MUST feel stylized, cinematic, atmospheric, grounded, mature, tactical, painterly, and realistic without becoming comic-book-like or arcade-fantasy-like.
 - **FR-028**: The proof-of-concept MUST avoid visible magic, glowing fantasy effects, exaggerated supernatural energy, and non-believable weapons or silhouettes; grounded real-world effects such as mist, smoke, rain, embers, torch fire, and lantern light are allowed.
 - **FR-029**: Cards MUST use a 9:16 vertical composition with primarily full-body characters.
-- **FR-030**: Card character silhouettes and stances MUST be readable at game-scene card size and enlarged Card Browser size.
-- **FR-031**: The character on each card SHOULD occupy roughly 70-80% of the card height, with the environment supporting atmosphere while remaining secondary to the character.
-- **FR-032**: Cards MUST feel like cinematic character posters rather than comic-book splash art.
-- **FR-033**: The visual direction MAY draw tonal inspiration from grounded cinematic Japanese warrior media such as Ghost of Tsushima, Shogun, 13 Assassins, and Seven Samurai without directly copying protected characters, shots, marks, or compositions.
-- **FR-034**: Completing this proof-of-concept MUST permanently change the game scene to use the four-card bottom lineup and selected-card Card Browser flow.
-- **FR-035**: Completing this proof-of-concept MUST permanently replace the existing game cards and world background with newly created Japan Realism theme art.
-- **FR-036**: The proof-of-concept MUST stay scoped to theme presentation and interaction validation; it MUST NOT require combat resolution, deckbuilding, economy, AI turns, scoring, or full match rules.
+- **FR-030**: Card fronts MUST render, from furthest from camera to closest, as background layer, frame layer, foreground character layer, and title layer.
+- **FR-031**: Card front background layers MUST contain environment art only and MUST NOT contain the character silhouette, character body, title text, or frame.
+- **FR-032**: Card front foreground layers MUST contain only the character art with alpha around the character silhouette; the character MAY selectively break out over or beyond the frame with one or two pose elements such as a weapon, foot, arm, or head.
+- **FR-033**: Card front title layers MUST contain only the character name as unique stylized raster art with alpha around the title shape; they MUST NOT use dynamic Bevy UI text, subtitles, plaques, or invented extra copy.
+- **FR-034**: AI-generated source images for card foreground and title alpha extraction MUST use `#ff00ff` as the chroma-key color and MUST NOT use that color inside the subject or title artwork.
+- **FR-035**: CardUI MUST expose four layer scale sliders named `LayerScale: Background`, `LayerScale: Frame`, `LayerScale: Foreground`, and `LayerScale: Title`.
+- **FR-036**: Each layer scale MUST default to `1.0`, allow values from `0.0` through `2.0`, apply uniformly to x and y scale, and preserve the layer image center point while scaling.
+- **FR-037**: Card character silhouettes and stances MUST be readable at game-scene card size and enlarged Card Browser size.
+- **FR-038**: The character on each card SHOULD occupy roughly 70-80% of the card height, with the environment supporting atmosphere while remaining secondary to the character.
+- **FR-039**: Cards MUST feel like cinematic character posters rather than comic-book splash art.
+- **FR-040**: The visual direction MAY draw tonal inspiration from grounded cinematic Japanese warrior media such as Ghost of Tsushima, Shogun, 13 Assassins, and Seven Samurai without directly copying protected characters, shots, marks, or compositions.
+- **FR-041**: Completing this proof-of-concept MUST permanently change the game scene to use the four-card bottom lineup and selected-card Card Browser flow.
+- **FR-042**: Completing this proof-of-concept MUST permanently replace the existing game cards and world background with newly created Japan Realism theme art.
+- **FR-043**: The proof-of-concept MUST stay scoped to theme presentation and interaction validation; it MUST NOT require combat resolution, deckbuilding, economy, AI turns, scoring, or full match rules.
 
 ### Key Entities
 

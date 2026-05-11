@@ -7,6 +7,7 @@ use bevy_inspector_egui::{
 
 pub mod runtime;
 
+use runtime::materials::CardBackgroundMaskMaterial;
 use runtime::plugins::CoreGamePlugin;
 use runtime::systems::{card_ui, inspector_ui};
 
@@ -25,6 +26,7 @@ impl Plugin for GamePlugin {
             ..Default::default()
         })
         .add_plugins(MeshPickingPlugin)
+        .add_plugins(MaterialPlugin::<CardBackgroundMaskMaterial>::default())
         .insert_resource(EguiGlobalSettings {
             auto_create_primary_context: false,
             ..Default::default()

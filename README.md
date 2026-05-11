@@ -37,6 +37,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `F` | Toggles the FPS readout. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
+| `Escape` | Invisible key: requests the same app close flow as the desktop title-bar close button. |
 
 ## Requirements
 

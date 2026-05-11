@@ -2,15 +2,17 @@
 
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
-use bevy::window::WindowResolution;
+use bevy::window::{WindowMode, WindowResolution};
 use bevy_card_game::{
     GamePlugin,
-    runtime::resources::{WindowPlacementStore, valid_window_placement},
+    runtime::resources::{DebugHudInputStore, WindowPlacementStore, valid_window_placement},
 };
 use bevy_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_card_game::runtime::resources::create_window_placement_store;
+use bevy_card_game::runtime::resources::{
+    create_debug_hud_input_store, create_window_placement_store,
+};
 #[cfg(feature = "desktop-hot-reload")]
 use dioxus_devtools::{connect_subsecond, subsecond};
 #[cfg(feature = "desktop-hot-reload")]
@@ -30,6 +32,12 @@ fn main() {
     let window_position = saved_window_placement
         .map(|placement| WindowPosition::At(placement.window_position))
         .unwrap_or(WindowPosition::Centered(MonitorSelection::Primary));
+    let debug_hud_input_store = create_startup_debug_hud_input_store();
+    let window_mode = debug_hud_input_store
+        .as_ref()
+        .filter(|store| store.is_fullscreen)
+        .map(|_| WindowMode::BorderlessFullscreen(MonitorSelection::Current))
+        .unwrap_or(WindowMode::Windowed);
 
     let mut app = App::new();
 
@@ -44,6 +52,7 @@ fn main() {
                     title: "Bevy Card Game".to_string(),
                     resolution: window_resolution,
                     position: window_position,
+                    mode: window_mode,
                     ..default()
                 }),
                 ..default()
@@ -55,6 +64,11 @@ fn main() {
     } else {
         app.insert_resource(WindowPlacementStore::default());
     }
+    if let Some(store) = debug_hud_input_store {
+        app.insert_resource(store);
+    } else {
+        app.insert_resource(DebugHudInputStore::default());
+    }
 
     app.add_plugins(GamePlugin).run();
 }
@@ -65,9 +79,21 @@ fn create_startup_window_placement_store()
     create_window_placement_store().ok()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn create_startup_debug_hud_input_store()
+-> Option<bevy_persistent::prelude::Persistent<DebugHudInputStore>> {
+    create_debug_hud_input_store().ok()
+}
+
 #[cfg(target_arch = "wasm32")]
 fn create_startup_window_placement_store()
 -> Option<bevy_persistent::prelude::Persistent<WindowPlacementStore>> {
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+fn create_startup_debug_hud_input_store()
+-> Option<bevy_persistent::prelude::Persistent<DebugHudInputStore>> {
     None
 }
 

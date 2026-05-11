@@ -2,21 +2,21 @@ use bevy::prelude::*;
 
 use crate::runtime::resources::{
     ActiveCardType, ActiveLocations, ActiveScene, ActiveWorldTheme, CardFlipState,
-    CardInspectionDefaults, CardInspectionState, CardTypeRegistry, CardUiState, DebugHudState,
-    GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry, WindowPlacementState,
-    WorldThemeRegistry,
+    CardInspectionDefaults, CardInspectionState, CardTypeRegistry, CardUiState, DebugHudInputStore,
+    DebugHudState, GameTicks, PrimaryCameraDefaults, TacticalLocationRegistry,
+    WindowPlacementState, WorldThemeRegistry,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{create_card_settings_store, create_debug_hud_input_store};
 use crate::runtime::systems::{
     advance_ticks, hot_reload_auto_restart_card_browser_scene, load_saved_card_settings,
-    load_saved_debug_hud_input, load_saved_window_placement, restart_card_browser_scene,
-    restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
-    setup_app_scene, setup_game, setup_game_scene, setup_inspector, smooth_card_rotation,
-    toggle_active_scene, toggle_card_type, toggle_debug_hud_inputs, toggle_inspector,
-    track_card_pointer_target, track_window_placement, track_window_size,
-    update_card_face_visibility, update_card_flip_animation, update_card_frame_shine,
-    update_card_parallax_layers, update_debug_hud, update_end_turn_button,
+    load_saved_debug_hud_input, load_saved_window_placement, quit_app_on_escape,
+    restart_card_browser_scene, restore_window_placement_to_current_monitors,
+    save_window_placement_on_close, scale_debug_hud, setup_app_scene, setup_game, setup_game_scene,
+    setup_inspector, smooth_card_rotation, toggle_active_scene, toggle_card_type,
+    toggle_debug_hud_inputs, toggle_inspector, track_card_pointer_target, track_window_placement,
+    track_window_size, update_card_face_visibility, update_card_flip_animation,
+    update_card_frame_shine, update_card_parallax_layers, update_debug_hud, update_end_turn_button,
 };
 
 pub struct CoreGamePlugin;
@@ -84,10 +84,18 @@ impl Plugin for CoreGamePlugin {
                         .after(toggle_card_type),
                     scale_debug_hud,
                 ),
+            )
+            .add_systems(
+                Update,
+                quit_app_on_escape.before(save_window_placement_on_close),
             );
 
         #[cfg(not(target_arch = "wasm32"))]
-        if let Ok(store) = create_debug_hud_input_store() {
+        if !app
+            .world()
+            .contains_resource::<bevy_persistent::prelude::Persistent<DebugHudInputStore>>()
+            && let Ok(store) = create_debug_hud_input_store()
+        {
             app.insert_resource(store);
         }
         #[cfg(not(target_arch = "wasm32"))]

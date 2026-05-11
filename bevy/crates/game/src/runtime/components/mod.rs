@@ -102,6 +102,17 @@ impl CardParallaxLayer {
 }
 
 #[derive(Component, Debug)]
+pub struct CardBackgroundLayer {
+    pub uses_frame_mask: bool,
+}
+
+impl CardBackgroundLayer {
+    pub const fn new(uses_frame_mask: bool) -> Self {
+        Self { uses_frame_mask }
+    }
+}
+
+#[derive(Component, Debug)]
 pub struct CardFrameLayer;
 
 #[derive(Component, Debug)]

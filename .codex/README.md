@@ -25,6 +25,7 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 | Topic | Update Path |
 | ----- | ----------- |
 | Desktop window default size | Edit `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` in `bevy/crates/shared/src/window.rs`, then update `specs/001-project-setup/spec.md` if the approved launch/fallback size changes. |
+| Generated card alpha chroma key | Use `#ff00ff` as the single approved chroma-key color for AI-generated foreground and title source images that will be converted to transparent PNG layers. Do not use this color inside the subject or title artwork. |
 
 ## Repo Rules
 
