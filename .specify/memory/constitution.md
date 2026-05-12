@@ -7,6 +7,7 @@ Added sections:
 None
 Removed sections: None
 Templates requiring updates:
+- ✅ .specify/templates/spec-template.md
 - ✅ .specify/templates/plan-template.md
 - ✅ .specify/templates/tasks-template.md
 Follow-up TODOs: None

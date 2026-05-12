@@ -53,6 +53,7 @@
 | ----- | -------- |
 | First tasks | Add model tests for gesture and slot rules before visible animation work where practical |
 | Dependency task | Add `bevy_tweening = "0.15"` to `bevy/crates/game/Cargo.toml` and wire the plugin once |
+| Template reference | Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards |
 | File scope | Prefer focused gesture model/component/system files over expanding the aggregate runtime system module |
 | Naming | Use `Model` for gesture/slot state and `View` for visual card presentation states |
 | Purpose comments | Add required `HUMAN:` and `AI:` lines above new or changed primary runtime items |

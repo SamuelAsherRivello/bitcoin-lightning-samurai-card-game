@@ -67,7 +67,7 @@ scripts/
     └── StopApp.ps1
 ```
 
-**Structure Decision**: Extend the game crate only for card-specific runtime ECS behavior. Reuse shared window, camera, DebugHUD, inspector, and diagnostic input systems from `bevy/crates/shared`. Do not add a separate card plugin, rendering asset pipeline, shader file, gameplay module, or UI framework for V0.1.
+**Structure Decision**: Extend the game crate only for card-specific runtime ECS behavior. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Reuse shared window, camera, DebugHUD, inspector, and diagnostic input systems from `bevy/crates/shared`. Do not add a separate card plugin, rendering asset pipeline, shader file, gameplay module, or UI framework for V0.1.
 
 ## Complexity Tracking
 

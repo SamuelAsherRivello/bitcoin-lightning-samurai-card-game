@@ -105,7 +105,7 @@
 
 - [X] T016 Update point-system contract notes if implementation names diverge in `specs/010-point-system/contracts/point-system-contract.md`
 - [X] T017 Run `scripts/other/RunTests.ps1`
-- [X] T018 Verify changed Bevy runtime files follow one-primary-concept, Scene/Model/View naming, system naming, and HUMAN/AI comment standards
+- [X] T018 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, system naming, and HUMAN/AI comment standards
 - [X] T019 Verify `speckit-implement 010` completion by checking all tasks in `specs/010-point-system/tasks.md`
 
 ---

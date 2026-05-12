@@ -10,7 +10,7 @@
 ### Session 2026-05-11
 
 - Q: Should Scene/Model/View naming be documentation-only, targeted implementation rename, or full implementation rename? -> A: Full implementation rename: rename all matching structs, resources, systems, tests, labels, and docs to the approved Scene/Model/View vocabulary in 009.
-- Q: What coding standards should 009 apply while renaming and reorganizing runtime concepts? -> A: Split files by one primary concept, name files and primary items purposefully such as `FooPlugin`, `FooComponent`, `BarScene`, or `TempSystem`, name system functions as `[domain]_[schedule]_system`, and add a terse two-line `HUMAN:` / `AI:` purpose comment above each primary item.
+- Q: What coding standards should 009 apply while renaming and reorganizing runtime concepts? -> A: Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards; split files by one primary concept, name files and primary items purposefully such as `FooPlugin`, `FooComponent`, `BarScene`, or `TempSystem`, name system functions as `[domain]_[schedule]_system`, and add a terse two-line `HUMAN:` / `AI:` purpose comment above each primary item.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -97,6 +97,7 @@ A developer can distinguish app structure, data, and rendering by using `Scene` 
 - **FR-017**: All matching runtime structs, resources, systems, tests, labels, and documentation MUST be renamed to the approved Scene/Model/View vocabulary in 009.
 - **FR-018**: Legacy names such as `ActiveScene`, `GameSceneRoot`, `GameSceneEntity`, `DeckBuilderSceneRoot`, `DeckBuilderSceneEntity`, `CardType`, `CardTypeRegistry`, and `ActiveCardType` MUST NOT remain after implementation except in migration notes or historical references.
 - **FR-019**: Runtime source files changed by 009 MUST be split by one primary concept per file, with purposeful filenames and primary item names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
+- **FR-019A**: Bevy crate folders, representative files, asset folders, and Rust coding standards MUST use `bevy/crates/template-crate` as the proper local reference.
 - **FR-020**: Each primary plugin, component, scene, view, model, and system item changed or created by 009 MUST have a terse purpose comment immediately above it containing exactly one `HUMAN:` line for high-level human intent and one `AI:` line for implementation context or future AI guidance.
 - **FR-021**: Runtime system function names changed or created by 009 MUST follow `[domain]_[schedule]_system`, such as `player_update_system`, where the domain describes the feature area and the schedule describes when the system runs.
 - **FR-022**: Existing card-facing user behavior from the current proof-of-concept MUST remain unchanged after reorganization, including bottom-row card display, card selection, Deck Builder viewing, and card flipping.

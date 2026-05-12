@@ -189,7 +189,7 @@
 - [ ] T056 Run `scripts/other/RunTests.ps1` and record result in `specs/003-debugging/quickstart.md`
 - [ ] T057 Run `scripts/main/RunAppDesktop.ps1 -CheckOnly` and record result in `specs/003-debugging/quickstart.md`
 - [ ] T058 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` and record result or exact blocker in `specs/003-debugging/quickstart.md`
-- [ ] T059 Verify changed Bevy runtime files follow one-primary-concept layout, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` comment rules in `bevy/crates/shared/src/runtime/` and `bevy/crates/game/src/runtime/`
+- [ ] T059 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept layout, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` comment rules in `bevy/crates/shared/src/runtime/` and `bevy/crates/game/src/runtime/`
 - [ ] T060 Run a final requirements trace from FR-001 through FR-022 and SC-001 through SC-013 in `specs/003-debugging/tasks.md`
 
 ---

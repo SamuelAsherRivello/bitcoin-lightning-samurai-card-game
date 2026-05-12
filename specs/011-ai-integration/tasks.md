@@ -106,7 +106,7 @@
 
 - [ ] T023 Run `scripts/other/RunTests.ps1` for repository test coverage
 - [ ] T024 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` to confirm browser WebGPU remains unaffected
-- [ ] T025 Review changed Bevy runtime files for one-primary-concept, plugin naming, system naming, and HUMAN/AI comments
+- [ ] T025 Review changed Bevy runtime files against `bevy/crates/template-crate` as the proper reference for folder, file, asset, and Rust coding standards, including one-primary-concept, plugin naming, system naming, and HUMAN/AI comments
 - [ ] T026 Review `git diff` for unrelated changes before handoff
 
 ---

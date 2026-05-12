@@ -68,7 +68,7 @@ scripts/
     └── RunTests.ps1
 ```
 
-**Structure Decision**: Keep point-system implementation in the game crate because card cost, card power, location totals, control, and match outcome are gameplay concepts rather than reusable shared tooling. Prefer focused `point_model` and `point_view_component` modules if the change is broad enough to avoid growing the existing aggregate `mod.rs` files further. Keep scoring calculations deterministic and testable as model/resource functions before using systems to synchronize visible views.
+**Structure Decision**: Keep point-system implementation in the game crate because card cost, card power, location totals, control, and match outcome are gameplay concepts rather than reusable shared tooling. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Prefer focused `point_model` and `point_view_component` modules if the change is broad enough to avoid growing the existing aggregate `mod.rs` files further. Keep scoring calculations deterministic and testable as model/resource functions before using systems to synchronize visible views.
 
 ## Complexity Tracking
 

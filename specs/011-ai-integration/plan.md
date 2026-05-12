@@ -80,7 +80,7 @@ specs/011-ai-integration/
 └── contracts/
 ```
 
-**Structure Decision**: Keep AI integration as a development tooling layer over the existing Bevy runtime rather than a new app or service inside the repository. Future implementation should add dev-only Bevy Remote Protocol and screenshot wiring through feature plugins under `bevy/crates/game/src/runtime/plugins/`, keep reusable diagnostics in `bevy/crates/shared` only when they are project-agnostic, and keep repeatable MCP smoke scripts under `scripts/` if automation is added.
+**Structure Decision**: Keep AI integration as a development tooling layer over the existing Bevy runtime rather than a new app or service inside the repository. Future implementation should use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards, add dev-only Bevy Remote Protocol and screenshot wiring through feature plugins under `bevy/crates/game/src/runtime/plugins/`, keep reusable diagnostics in `bevy/crates/shared` only when they are project-agnostic, and keep repeatable MCP smoke scripts under `scripts/` if automation is added.
 
 ## Complexity Tracking
 

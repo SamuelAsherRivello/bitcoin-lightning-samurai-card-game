@@ -96,7 +96,7 @@ scripts/
     └── StopApp.ps1
 ```
 
-**Structure Decision**: Use the existing Bevy ECS runtime in `bevy/crates/game`. Card and world definitions belong in `resources`; marker/data components remain in `components`; behavior and scene setup remain in `systems`; plugin wiring remains in `plugins`. New bitmap assets replace the current superhero/minotaur/desert visuals under the existing runtime asset root.
+**Structure Decision**: Use the existing Bevy ECS runtime in `bevy/crates/game`. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Card and world definitions belong in `resources`; marker/data components remain in `components`; behavior and scene setup remain in `systems`; plugin wiring remains in `plugins`. New bitmap assets replace the current superhero/minotaur/desert visuals under the existing runtime asset root.
 
 ## Complexity Tracking
 

@@ -163,7 +163,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
-- [ ] TXXX Verify changed Bevy runtime files follow one-primary-concept, Scene/Model/View naming, system naming, and HUMAN/AI comment standards
+- [ ] TXXX Verify changed Bevy runtime files and asset folders use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, system naming, and HUMAN/AI comment standards
 
 ---
 

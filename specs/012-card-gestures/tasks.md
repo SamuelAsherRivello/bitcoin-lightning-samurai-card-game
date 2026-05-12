@@ -18,6 +18,8 @@
 **Purpose**: Add the tweening dependency and expose focused runtime modules for gesture work.
 
 - [X] T001 Add `bevy_tweening = "0.15"` to `bevy/crates/game/Cargo.toml`
+**Reference check**: Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards before adding gesture runtime files.
+
 - [X] T002 Register Bevy Tweening plugin setup in `bevy/crates/game/src/lib.rs`
 - [X] T003 [P] Add gesture component module exports in `bevy/crates/game/src/runtime/components/mod.rs`
 - [X] T004 [P] Add gesture resource module exports in `bevy/crates/game/src/runtime/resources/mod.rs`
@@ -144,7 +146,7 @@
 - [X] T043 Run workspace tests with `scripts/other/RunTests.ps1`
 - [X] T044 Run desktop gesture verification from `specs/012-card-gestures/quickstart.md`
 - [X] T045 Run browser WebGPU gesture verification from `specs/012-card-gestures/quickstart.md` or document the exact blocker in `specs/012-card-gestures/quickstart.md`
-- [X] T046 Verify changed Bevy runtime files follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` purpose comment standards in `bevy/crates/game/src/runtime/`
+- [X] T046 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` purpose comment standards in `bevy/crates/game/src/runtime/`
 - [X] T047 Update `specs/012-card-gestures/quickstart.md` with final verification notes, blocked target details, and confirmation that DeckBuilderScene remains unchanged
 
 ---

@@ -133,7 +133,7 @@
 - [X] T036 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` and record any blockers in `specs/009-theme-reorganization/quickstart.md`
 - [X] T037 Perform the quickstart behavior smoke in `specs/009-theme-reorganization/quickstart.md` for `GameView` display, world toggle, card click, card flip, and CardUI toggle
 - [X] T038 Search for stale pre-009 asset, scene, and view references in `README.md`, `AGENTS.md`, `bevy/crates/game/src`, `scripts`, and `specs/009-theme-reorganization`
-- [X] T039 Verify changed Bevy runtime files follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system`, and `HUMAN:` / `AI:` purpose comment standards
+- [X] T039 Verify changed Bevy runtime files and asset folders use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system`, and `HUMAN:` / `AI:` purpose comment standards
 
 ---
 

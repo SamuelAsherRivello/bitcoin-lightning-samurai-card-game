@@ -63,7 +63,7 @@ bevy/crates/game/
     └── systems/mod.rs
 ```
 
-**Structure Decision**: Use the existing Bevy runtime ECS layout and add no new crates. Keep tests as module unit tests beside the runtime systems/resources they validate.
+**Structure Decision**: Use the existing Bevy runtime ECS layout and add no new crates. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Keep tests as module unit tests beside the runtime systems/resources they validate.
 
 ## Complexity Tracking
 

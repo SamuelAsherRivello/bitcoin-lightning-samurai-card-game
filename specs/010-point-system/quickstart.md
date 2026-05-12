@@ -44,4 +44,5 @@
 | File scope | Prefer focused point model/view files over expanding already-large aggregate modules |
 | Naming | Use `Model` for data and `View` for rendering/presentation |
 | Purpose comments | Add required `HUMAN:` and `AI:` lines above new or changed primary runtime items |
+| Template reference | Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards |
 | Exclusions | Do not add deckbuilding, drawing, CPU strategy, full turn rules, card abilities, or production UI |

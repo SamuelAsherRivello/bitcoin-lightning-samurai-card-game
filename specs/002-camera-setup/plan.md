@@ -98,7 +98,7 @@ client/
 └── [client-specific structure: feature modules, user flows, client tests]
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
+**Structure Decision**: Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. [Document the selected structure and reference the real
 directories captured above]
 
 ## Complexity Tracking

@@ -81,7 +81,7 @@ scripts/
     └── StopApp.ps1
 ```
 
-**Structure Decision**: Keep flip behavior inside the existing Bevy game runtime ECS structure and current DeckBuilder scene. Add the Flip control to the temporary Card UI rather than DebugHUD. Add state to runtime resources, marker/role data to runtime components only if needed for face visibility, behavior to runtime systems, scheduling to runtime plugins, and the shared superhero-pattern backface under the existing project-approved `card_structure` asset directory.
+**Structure Decision**: Keep flip behavior inside the existing Bevy game runtime ECS structure and current DeckBuilder scene. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Add the Flip control to the temporary Card UI rather than DebugHUD. Add state to runtime resources, marker/role data to runtime components only if needed for face visibility, behavior to runtime systems, scheduling to runtime plugins, and the shared superhero-pattern backface under the existing project-approved `card_structure` asset directory.
 
 ## Phase 0: Research
 
