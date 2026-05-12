@@ -38,7 +38,8 @@ pub use card_gesture_update_system::*;
 pub use debug_drawing_update_system::*;
 
 use crate::runtime::bundles::{
-    CardViewBundle, LocationViewBundle, PointLocationView, PointModel, PointType, PointView, PointViewBundle,
+    CardViewBundle, LocationViewBundle, PointLocationView, PointModel, PointType, PointView,
+    PointViewBundle,
 };
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
@@ -49,25 +50,23 @@ use crate::runtime::components::{
     InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState, Player,
     PrimaryViewCamera, TurnUi, WorldBackground,
 };
-use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 #[cfg(test)]
 use crate::runtime::resources::CardState;
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
-    CARD_SLOT_LOCATION_COUNT,
-    CardFace, CardFlipState, CardGestureModel, CardInspectionDefaults, CardInspectionState,
-    CardModel, CardModelRegistry, CardSettingsStore, CardSlotBoardModel, CardSlotSide,
-    CardSlotState, CardStateModel, CardUiState, CostPointModel, DebugHudInputStore, DebugHudState,
-    GameDeckModel, GameHandModel, GameTicks, LocationModelRegistry, LocationScoreModel,
-    DeckModel, DEFAULT_DECK_NAME, PlayerDeckCollectionModel, PowerPointModel,
-    PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
-    WindowPlacement, WindowPlacementState,
-    WindowPlacementStore, WorldModelRegistry, ensure_player_deck_collection_model,
-    random_shuffled_default_deck_cards,
-    load_window_placement, valid_window_placement,
+    CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardInspectionDefaults,
+    CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore, CardSlotBoardModel,
+    CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel, DEFAULT_DECK_NAME,
+    DebugHudInputStore, DebugHudState, DeckModel, GameDeckModel, GameHandModel, GameTicks,
+    LocationModelRegistry, LocationScoreModel, PRIMARY_CAMERA_FOV_RADIANS,
+    PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
+    WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
+    ensure_player_deck_collection_model, load_window_placement, random_shuffled_default_deck_cards,
+    valid_window_placement,
 };
+use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
 #[cfg(feature = "desktop-hot-reload")]
 use crate::runtime::resources::{
@@ -112,8 +111,10 @@ const GAME_SCENE_HAND_TOP: f32 = 612.0;
 const GAME_SCENE_HAND_WIDTH: f32 = 552.0;
 const GAME_SCENE_HAND_HEIGHT: f32 = GAME_VIEW_HEIGHT - GAME_SCENE_HAND_TOP;
 const GAME_SCENE_HAND_CARD_HEIGHT_FRACTION: f32 = 0.9;
-const GAME_SCENE_HAND_CARD_HEIGHT: f32 = GAME_SCENE_HAND_HEIGHT * GAME_SCENE_HAND_CARD_HEIGHT_FRACTION;
-const GAME_SCENE_HAND_CARD_WIDTH: f32 = GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
+const GAME_SCENE_HAND_CARD_HEIGHT: f32 =
+    GAME_SCENE_HAND_HEIGHT * GAME_SCENE_HAND_CARD_HEIGHT_FRACTION;
+const GAME_SCENE_HAND_CARD_WIDTH: f32 =
+    GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
 const GAME_SCENE_HAND_CARD_GAP: f32 = 8.0;
 const GAME_SCENE_HAND_CARD_WORLD_Z: f32 = 0.32;
 const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
@@ -555,16 +556,12 @@ pub fn setup_game_view(mut params: SetupGameViewParams) {
             fallback_game_hand_model.cards.clone()
         }
     };
-    let app_scene_parent = params
-        .app_scene_query
-        .iter()
-        .next()
-        .or_else(|| {
-            Some(spawn_app_scene_contents(
-                &mut params.commands,
-                params.hud.as_ref().map(|hud| hud.0),
-            ))
-        });
+    let app_scene_parent = params.app_scene_query.iter().next().or_else(|| {
+        Some(spawn_app_scene_contents(
+            &mut params.commands,
+            params.hud.as_ref().map(|hud| hud.0),
+        ))
+    });
     spawn_game_view_contents(
         &mut params.commands,
         app_scene_parent,
@@ -683,7 +680,6 @@ fn initialize_game_models_for_player(
     game_deck_model.draw_to_hand(STARTING_HAND_CARD_COUNT, game_hand_model);
     card_states.reset_to_size(game_hand_model.len());
 }
-
 
 fn spawn_card_slot_gesture_targets(
     commands: &mut Commands,
@@ -924,7 +920,8 @@ fn spawn_location_ui(
     let mut location = parent.spawn((
         Name::new(format!("Game Location {}", index + 1)),
         GameLocation::new(index, LocationRevealState::Revealed),
-        ImageNode::new(asset_server.load(texture)).with_mode(bevy::ui::widget::NodeImageMode::Stretch),
+        ImageNode::new(asset_server.load(texture))
+            .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
         Node {
             width: Val::Px(LOCATION_VIEW_WIDTH),
             height: Val::Px(LOCATION_VIEW_HEIGHT),
@@ -1179,13 +1176,13 @@ fn location_side_power_total(
         .filter(|slot| slot.location_index == location_index && slot.side == side)
         .filter_map(|slot| match slot.state {
             CardSlotState::Empty => None,
-            CardSlotState::Populated { hand_index } => game_hand_cards
-                .get(hand_index)
-                .and_then(|card_id| {
+            CardSlotState::Populated { hand_index } => {
+                game_hand_cards.get(hand_index).and_then(|card_id| {
                     card_model_registry
                         .card_model_for_id(card_id)
                         .map(|card_model| card_model.base_power.value)
-                }),
+                })
+            }
         })
         .sum();
 
@@ -1475,10 +1472,9 @@ fn spawn_game_view_hand_cards(
         .collect();
     let hitboxes = game_view_card_hitboxes_for_count(card_models.len());
     let card_size = game_view_hand_card_size();
-    let card_world_scale = game_view_world_height_for_game_view_height(
-        card_size.y,
-        GAME_SCENE_HAND_CARD_WORLD_Z,
-    ) / card_defaults.height;
+    let card_world_scale =
+        game_view_world_height_for_game_view_height(card_size.y, GAME_SCENE_HAND_CARD_WORLD_Z)
+            / card_defaults.height;
 
     for (index, card_model) in card_models.into_iter().enumerate() {
         let (card_min, card_max) = hitboxes[index];
@@ -1645,7 +1641,7 @@ fn spawn_deck_builder_scene_contents(
         .primary_deck()
         .filter(|deck| !deck.cards.is_empty())
         .map(|deck| deck.cards.clone())
-                .unwrap_or_else(random_shuffled_default_deck_cards);
+        .unwrap_or_else(random_shuffled_default_deck_cards);
     let deck_panel = commands
         .spawn((
             Name::new("DeckBuilder Content"),
@@ -1697,83 +1693,86 @@ fn spawn_deck_builder_scene_contents(
         .id();
 
     commands.entity(deck_list_panel).with_children(|parent| {
-        parent.spawn((
-            Name::new("Deck Name Button"),
-            Button,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(36.0),
-                padding: UiRect::all(Val::Px(8.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BackgroundColor(Color::srgb(0.14, 0.14, 0.14)),
-            BorderColor::all(Color::srgba(0.34, 0.34, 0.34, 0.95)),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(DEFAULT_DECK_NAME),
-                TextFont {
-                    font_size: 16.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-    });
-    commands.entity(card_list_panel).with_children(|parent| {
-        let card_count = deck_cards.len();
-        parent.spawn((
-            Name::new("Deck Cards Header"),
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(28.0),
-                padding: UiRect::all(Val::Px(8.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::FlexStart,
-                ..Default::default()
-            },
-            TextColor(Color::WHITE),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(format!("Deck Cards ({card_count})")),
-                TextFont {
-                    font_size: 14.0,
-                    ..Default::default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ));
-        });
-
-        for card_id in &deck_cards {
-            let card_model = card_model_registry.card_model_for_id(card_id);
-            let card_label = card_model.map_or(card_id.as_str(), |card| card.display_name);
-            parent.spawn((
-                Name::new(format!("Deck Card Preview {card_label}")),
+        parent
+            .spawn((
+                Name::new("Deck Name Button"),
+                Button,
                 Node {
                     width: Val::Percent(100.0),
-                    height: Val::Px(34.0),
+                    height: Val::Px(36.0),
                     padding: UiRect::all(Val::Px(8.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    border: UiRect::all(Val::Px(1.0)),
                     ..Default::default()
                 },
-                BackgroundColor(Color::srgba(0.09, 0.09, 0.09, 0.85)),
-            BorderColor::all(Color::srgb(0.34, 0.34, 0.34)),
+                BackgroundColor(Color::srgb(0.14, 0.14, 0.14)),
+                BorderColor::all(Color::srgba(0.34, 0.34, 0.34, 0.95)),
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(card_label),
+                    Text::new(DEFAULT_DECK_NAME),
                     TextFont {
-                        font_size: 12.0,
+                        font_size: 16.0,
                         ..Default::default()
                     },
                     TextColor(Color::WHITE),
                 ));
             });
+    });
+    commands.entity(card_list_panel).with_children(|parent| {
+        let card_count = deck_cards.len();
+        parent
+            .spawn((
+                Name::new("Deck Cards Header"),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(28.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexStart,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(format!("Deck Cards ({card_count})")),
+                    TextFont {
+                        font_size: 14.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            });
+
+        for card_id in &deck_cards {
+            let card_model = card_model_registry.card_model_for_id(card_id);
+            let card_label = card_model.map_or(card_id.as_str(), |card| card.display_name);
+            parent
+                .spawn((
+                    Name::new(format!("Deck Card Preview {card_label}")),
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(34.0),
+                        padding: UiRect::all(Val::Px(8.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..Default::default()
+                    },
+                    BackgroundColor(Color::srgba(0.09, 0.09, 0.09, 0.85)),
+                    BorderColor::all(Color::srgb(0.34, 0.34, 0.34)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(card_label),
+                        TextFont {
+                            font_size: 12.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         }
     });
     // Keep 3D content out of the UI node hierarchy so resize-driven UI layout
@@ -2918,20 +2917,18 @@ pub struct RestartAppSceneParams<'w, 's> {
 }
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
-pub fn restart_app_scene(
-    params: RestartAppSceneParams,
-) {
+pub fn restart_app_scene(params: RestartAppSceneParams) {
     let RestartAppSceneParams {
         keys,
         active_card_model,
         player_deck_collection,
-    mut flip_state,
-    mut ticks,
-    mut gesture_model,
-    mut game_deck_model,
-    mut card_states,
-    mut scene,
-} = params;
+        mut flip_state,
+        mut ticks,
+        mut gesture_model,
+        mut game_deck_model,
+        mut card_states,
+        mut scene,
+    } = params;
 
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
@@ -3172,10 +3169,10 @@ impl ViewChangeParams<'_, '_> {
     ) {
         let _ = (active_card_model, visible_face, initial_rotation);
         let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
-        let player_deck_collection =
-            self.player_deck_collection
-                .as_deref()
-                .unwrap_or(&fallback_player_deck_collection);
+        let player_deck_collection = self
+            .player_deck_collection
+            .as_deref()
+            .unwrap_or(&fallback_player_deck_collection);
         spawn_deck_builder_scene_contents(
             &mut self.commands,
             &self.asset_server,
@@ -3250,10 +3247,10 @@ impl ViewChangeParams<'_, '_> {
             ActiveView::DeckBuilderScene => {
                 self.despawn_deck_builder_scene();
                 let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
-                let player_deck_collection =
-                    self.player_deck_collection
-                        .as_deref()
-                        .unwrap_or(&fallback_player_deck_collection);
+                let player_deck_collection = self
+                    .player_deck_collection
+                    .as_deref()
+                    .unwrap_or(&fallback_player_deck_collection);
                 spawn_deck_builder_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
@@ -3335,10 +3332,10 @@ impl ViewChangeParams<'_, '_> {
             }
             ActiveView::DeckBuilderScene => {
                 let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
-                let player_deck_collection =
-                    self.player_deck_collection
-                        .as_deref()
-                        .unwrap_or(&fallback_player_deck_collection);
+                let player_deck_collection = self
+                    .player_deck_collection
+                    .as_deref()
+                    .unwrap_or(&fallback_player_deck_collection);
                 spawn_deck_builder_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
@@ -3618,11 +3615,8 @@ fn game_view_card_hitboxes_for_count(card_count: usize) -> Vec<(Vec2, Vec2)> {
 
     (0..card_count)
         .map(|index| {
-            let card_min = row_min
-                + Vec2::new(
-                    index as f32 * (card_size.x + GAME_SCENE_HAND_CARD_GAP),
-                    0.0,
-                );
+            let card_min =
+                row_min + Vec2::new(index as f32 * (card_size.x + GAME_SCENE_HAND_CARD_GAP), 0.0);
             (card_min, card_min + card_size.min(hand_size))
         })
         .collect()
@@ -4067,9 +4061,18 @@ pub fn quit_app_on_escape(
     mut close_requested_events: MessageWriter<WindowCloseRequested>,
     primary_window_query: Query<Entity, With<PrimaryWindow>>,
     mut app_exit_events: MessageWriter<AppExit>,
+    hud_state: Option<Res<DebugHudState>>,
+    mut persistent_input: Option<ResMut<Persistent<DebugHudInputStore>>>,
 ) {
     if !keys.just_pressed(KeyCode::Escape) {
         return;
+    }
+
+    if let Some(hud_state) = hud_state
+        && let Some(ref mut persistent_input) = persistent_input
+        && let Err(error) = persistent_input.set(DebugHudInputStore::from_state(&hud_state))
+    {
+        warn!("Failed to save DebugHUD input state: {error}");
     }
 
     if let Ok(primary_window) = primary_window_query.single() {
@@ -4107,15 +4110,36 @@ pub fn scale_debug_hud(
     let _height_scale = primary_window.resolution.height() / TARGET_HEIGHT;
 }
 
+/// HUMAN: Restores saved windowed placement after monitor data becomes available.
+/// AI: Do not apply windowed geometry while the saved launch state is fullscreen.
 pub fn restore_window_placement_to_current_monitors(
     mut placement_state: ResMut<WindowPlacementState>,
     mut primary_window_query: Query<&mut Window, With<PrimaryWindow>>,
     monitor_query: Query<&Monitor>,
+    monitor_entity_query: Query<(Entity, &Monitor)>,
+    hud_state: Option<Res<DebugHudState>>,
 ) {
     if placement_state.restored {
         return;
     }
     if monitor_query.iter().next().is_none() {
+        return;
+    }
+    if hud_state
+        .as_deref()
+        .is_some_and(|hud_state| hud_state.is_fullscreen)
+    {
+        if let Ok(mut window) = primary_window_query.single_mut() {
+            let monitor_selection = placement_state
+                .current
+                .as_ref()
+                .map(|placement| {
+                    saved_monitor_selection(placement, &monitor_entity_query)
+                })
+                .unwrap_or(MonitorSelection::Current);
+            apply_fullscreen_mode_on_monitor(&mut window, monitor_selection);
+        }
+        placement_state.restored = true;
         return;
     }
 
@@ -4144,6 +4168,7 @@ pub fn track_window_placement(
     primary_window_query: Query<(Entity, &Window), With<PrimaryWindow>>,
     monitor_query: Query<&Monitor>,
     mut placement_state: ResMut<WindowPlacementState>,
+    hud_state: Option<Res<DebugHudState>>,
 ) {
     let Some(ref mut window_moved_events) = window_moved_events else {
         return;
@@ -4151,6 +4176,12 @@ pub fn track_window_placement(
     let Ok((primary_window_entity, primary_window)) = primary_window_query.single() else {
         return;
     };
+    if hud_state
+        .as_deref()
+        .is_some_and(|hud_state| hud_state.is_fullscreen)
+    {
+        return;
+    }
     if !is_windowed(primary_window) {
         return;
     }
@@ -4174,6 +4205,7 @@ pub fn track_window_size(
     primary_window_query: Query<(Entity, &Window), With<PrimaryWindow>>,
     monitor_query: Query<&Monitor>,
     mut placement_state: ResMut<WindowPlacementState>,
+    hud_state: Option<Res<DebugHudState>>,
 ) {
     let Some(ref mut window_resized_events) = window_resized_events else {
         return;
@@ -4181,6 +4213,12 @@ pub fn track_window_size(
     let Ok((primary_window_entity, primary_window)) = primary_window_query.single() else {
         return;
     };
+    if hud_state
+        .as_deref()
+        .is_some_and(|hud_state| hud_state.is_fullscreen)
+    {
+        return;
+    }
     if !is_windowed(primary_window) {
         return;
     }
@@ -4218,6 +4256,8 @@ pub fn save_window_placement_on_close(
     monitor_query: Query<&Monitor>,
     placement_state: Res<WindowPlacementState>,
     mut persistent_placement: Option<ResMut<Persistent<WindowPlacementStore>>>,
+    hud_state: Option<Res<DebugHudState>>,
+    mut persistent_input: Option<ResMut<Persistent<DebugHudInputStore>>>,
 ) {
     let Some(ref mut close_requested_events) = close_requested_events else {
         return;
@@ -4234,20 +4274,36 @@ pub fn save_window_placement_on_close(
         return;
     }
 
-    let current_window_placement = if is_windowed(window) {
-        current_windowed_placement(window, placement_state.current.as_ref(), &monitor_query)
-    } else {
+    let is_fullscreen = hud_state
+        .as_deref()
+        .is_some_and(|hud_state| hud_state.is_fullscreen)
+        || !is_windowed(window);
+
+    if let Some(hud_state) = hud_state
+        && let Some(ref mut persistent_input) = persistent_input
+        && let Err(error) = persistent_input.set(DebugHudInputStore::from_state(&hud_state))
+    {
+        warn!("Failed to save DebugHUD input state: {error}");
+    }
+
+    let current_window_placement = if is_fullscreen {
         placement_state.current.clone()
+    } else {
+        current_windowed_placement(window, placement_state.current.as_ref(), &monitor_query)
     };
 
-    let placement_with_current_size = placement_state.current.as_ref().map(|placement| {
-        placement_with_current_window_size(
-            placement,
-            logical_window_size(window),
-            window.resolution.physical_size(),
-            &monitor_query,
-        )
-    });
+    let placement_with_current_size = if is_fullscreen {
+        None
+    } else {
+        placement_state.current.as_ref().map(|placement| {
+            placement_with_current_window_size(
+                placement,
+                logical_window_size(window),
+                window.resolution.physical_size(),
+                &monitor_query,
+            )
+        })
+    };
     let placement = current_window_placement
         .or(placement_with_current_size)
         .or_else(|| placement_state.current.clone());
@@ -4609,6 +4665,35 @@ fn current_monitor_selection(
         .unwrap_or(MonitorSelection::Current)
 }
 
+fn saved_monitor_selection(
+    saved_placement: &WindowPlacement,
+    monitor_query: &Query<(Entity, &Monitor)>,
+) -> MonitorSelection {
+    monitor_query
+        .iter()
+        .find(|(_, monitor)| {
+            monitor.name == saved_placement.monitor_name
+                && monitor.physical_size() == saved_placement.monitor_size
+        })
+        .or_else(|| {
+            monitor_query
+                .iter()
+                .find(|(_, monitor)| monitor.name == saved_placement.monitor_name)
+        })
+        .or_else(|| {
+            monitor_query
+                .iter()
+                .find(|(_, monitor)| monitor.physical_position == saved_placement.monitor_position)
+        })
+        .or_else(|| {
+            monitor_query
+                .iter()
+                .find(|(_, monitor)| monitor.physical_size() == saved_placement.monitor_size)
+        })
+        .map(|(entity, _)| MonitorSelection::Entity(entity))
+        .unwrap_or(MonitorSelection::Current)
+}
+
 fn restore_windowed_placement(
     window: &mut Window,
     placement_state: &WindowPlacementState,
@@ -4770,6 +4855,9 @@ fn find_matching_monitor<'a>(
 mod tests {
     use super::*;
     use crate::runtime::resources::{CardGestureModel, CardGestureState, CardSlotBoardModel};
+    use bevy_persistent::prelude::StorageFormat;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn mesh_bounds(attribute: &VertexAttributeValues) -> (f32, f32) {
         let VertexAttributeValues::Float32x3(positions) = attribute else {
@@ -4851,6 +4939,39 @@ mod tests {
             scale_factor: 1.0,
             video_modes: Vec::new(),
         }
+    }
+
+    fn test_persistent_path(name: &str) -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("test-local-storage")
+            .join(format!("{name}-{timestamp}"));
+        std::fs::create_dir_all(&directory).expect("test persistent directory should be created");
+        directory.join(format!("{name}.json"))
+    }
+
+    fn test_debug_hud_input_store(name: &str) -> Persistent<DebugHudInputStore> {
+        Persistent::<DebugHudInputStore>::builder()
+            .name(name)
+            .format(StorageFormat::JsonPretty)
+            .path(test_persistent_path(name))
+            .default(DebugHudInputStore::default())
+            .build()
+            .expect("test debug hud input store should be created")
+    }
+
+    fn test_window_placement_store(name: &str) -> Persistent<WindowPlacementStore> {
+        Persistent::<WindowPlacementStore>::builder()
+            .name(name)
+            .format(StorageFormat::JsonPretty)
+            .path(test_persistent_path(name))
+            .default(WindowPlacementStore::default())
+            .build()
+            .expect("test window placement store should be created")
     }
 
     #[test]
@@ -5059,9 +5180,18 @@ mod tests {
             app.world().resource::<CardInspectionDefaults>(),
             Quat::IDENTITY,
         );
-        assert_close(card_transform.translation.x, expected_transform.translation.x);
-        assert_close(card_transform.translation.y, expected_transform.translation.y);
-        assert_close(card_transform.translation.z, expected_transform.translation.z);
+        assert_close(
+            card_transform.translation.x,
+            expected_transform.translation.x,
+        );
+        assert_close(
+            card_transform.translation.y,
+            expected_transform.translation.y,
+        );
+        assert_close(
+            card_transform.translation.z,
+            expected_transform.translation.z,
+        );
         assert_close(card_transform.scale.x, expected_transform.scale.x);
         assert_close(card_transform.scale.y, expected_transform.scale.y);
         assert_close(card_transform.scale.z, expected_transform.scale.z);
@@ -5091,9 +5221,7 @@ mod tests {
                 .clone()
         };
 
-        let mut energy_query = app
-            .world_mut()
-            .query::<(&Name, &PointView, &Visibility)>();
+        let mut energy_query = app.world_mut().query::<(&Name, &PointView, &Visibility)>();
         let energy_views: Vec<(String, i32, Visibility)> = energy_query
             .iter(app.world())
             .filter_map(|(name, view, visibility)| {
@@ -5386,9 +5514,7 @@ mod tests {
             .map(|(_, point_view)| point_view.model.value)
             .collect();
         assert_eq!(point_view_values, vec![0, 0, 0, 0, 0, 0]);
-        let mut location_power_query = app
-            .world_mut()
-            .query::<(&PointLocationView, &PointView)>();
+        let mut location_power_query = app.world_mut().query::<(&PointLocationView, &PointView)>();
         let location_power_views: Vec<(usize, CardSlotSide, i32)> = location_power_query
             .iter(app.world())
             .map(|(location_power_view, point_view)| {
@@ -5428,7 +5554,7 @@ mod tests {
                 .partial_cmp(&right.translation.x)
                 .unwrap()
         });
-            assert_eq!(preview_transforms.len(), STARTING_HAND_CARD_COUNT);
+        assert_eq!(preview_transforms.len(), STARTING_HAND_CARD_COUNT);
 
         let expected_scale = game_view_world_height_for_game_view_height(
             GAME_SCENE_HAND_CARD_HEIGHT,
@@ -5571,7 +5697,11 @@ mod tests {
 
         app.update();
 
-        let non_location_view = app.world().entity(non_location_point).get::<PointView>().unwrap();
+        let non_location_view = app
+            .world()
+            .entity(non_location_point)
+            .get::<PointView>()
+            .unwrap();
         assert_eq!(non_location_view.model, PointModel::card_power(11));
         let non_location_text = app
             .world()
@@ -5582,7 +5712,11 @@ mod tests {
             .copied()
             .unwrap();
         assert_eq!(
-            app.world().entity(non_location_text).get::<Text>().unwrap().0,
+            app.world()
+                .entity(non_location_text)
+                .get::<Text>()
+                .unwrap()
+                .0,
             "11".to_string()
         );
 
@@ -5591,7 +5725,10 @@ mod tests {
             .entity(location_power_point)
             .get::<PointView>()
             .unwrap();
-        assert_eq!(location_power_view.model, PointModel::location_power(expected_total));
+        assert_eq!(
+            location_power_view.model,
+            PointModel::location_power(expected_total)
+        );
     }
 
     #[test]
@@ -5641,7 +5778,10 @@ mod tests {
             (&Name, &Transform, &GlobalTransform),
             With<LocalPlayerHandCardPreview>,
         >();
-        assert_eq!(preview_query.iter(app.world()).count(), STARTING_HAND_CARD_COUNT);
+        assert_eq!(
+            preview_query.iter(app.world()).count(),
+            STARTING_HAND_CARD_COUNT
+        );
     }
 
     #[test]
@@ -6775,6 +6915,33 @@ mod tests {
     }
 
     #[test]
+    fn escape_key_saves_fullscreen_preference_before_close() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .insert_resource(DebugHudState {
+                is_fullscreen: true,
+                ..Default::default()
+            })
+            .insert_resource(test_debug_hud_input_store("escape-debug-hud-input"))
+            .add_message::<WindowCloseRequested>()
+            .add_message::<AppExit>()
+            .add_systems(Update, quit_app_on_escape);
+        app.world_mut().spawn((Window::default(), PrimaryWindow));
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<Persistent<DebugHudInputStore>>()
+                .is_fullscreen
+        );
+    }
+
+    #[test]
     fn f_key_toggles_fullscreen_window_mode() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -6818,6 +6985,296 @@ mod tests {
             .mode
             .clone();
         assert_eq!(window_mode, WindowMode::Windowed);
+    }
+
+    #[test]
+    fn f_key_on_saves_fullscreen_and_windowed_placement() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<DebugHudState>()
+            .init_resource::<WindowPlacementState>()
+            .insert_resource(test_debug_hud_input_store("f-on-debug-hud-input"))
+            .insert_resource(test_window_placement_store("f-on-window-placement"))
+            .add_systems(Update, toggle_debug_hud_inputs);
+        app.world_mut()
+            .spawn(test_monitor("Primary", IVec2::ZERO, UVec2::new(1920, 1080)));
+        app.world_mut().spawn((
+            Window {
+                position: WindowPosition::At(IVec2::new(240, 120)),
+                resolution: WindowResolution::new(1024, 768),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyF);
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<Persistent<DebugHudInputStore>>()
+                .is_fullscreen
+        );
+        let saved_placement = app
+            .world()
+            .resource::<Persistent<WindowPlacementStore>>()
+            .current
+            .as_ref()
+            .expect("window placement should be saved");
+        assert_eq!(saved_placement.window_position, IVec2::new(240, 120));
+        assert_eq!(saved_placement.window_size, UVec2::new(1024, 768));
+    }
+
+    #[test]
+    fn f_key_off_saves_windowed_state_and_restored_placement() {
+        let saved_windowed_placement = WindowPlacement {
+            window_position: IVec2::new(320, 180),
+            window_size: UVec2::new(900, 700),
+            monitor_name: Some("Primary".to_string()),
+            monitor_position: IVec2::ZERO,
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(320, 180),
+        };
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .insert_resource(DebugHudState {
+                is_fullscreen: true,
+                ..Default::default()
+            })
+            .insert_resource(WindowPlacementState {
+                current: Some(saved_windowed_placement),
+                restored: true,
+            })
+            .insert_resource(test_debug_hud_input_store("f-off-debug-hud-input"))
+            .insert_resource(test_window_placement_store("f-off-window-placement"))
+            .add_systems(Update, toggle_debug_hud_inputs);
+        app.world_mut()
+            .spawn(test_monitor("Primary", IVec2::ZERO, UVec2::new(1920, 1080)));
+        app.world_mut().spawn((
+            Window {
+                position: WindowPosition::At(IVec2::ZERO),
+                resolution: WindowResolution::new(1920, 1080),
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyF);
+        app.update();
+
+        assert!(
+            !app.world()
+                .resource::<Persistent<DebugHudInputStore>>()
+                .is_fullscreen
+        );
+        let window = app
+            .world_mut()
+            .query_filtered::<&Window, With<PrimaryWindow>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(window.mode, WindowMode::Windowed);
+        assert_eq!(window.position, WindowPosition::At(IVec2::new(320, 180)));
+        assert_eq!(logical_window_size(window), UVec2::new(900, 700));
+
+        let saved_placement = app
+            .world()
+            .resource::<Persistent<WindowPlacementStore>>()
+            .current
+            .as_ref()
+            .expect("window placement should be saved");
+        assert_eq!(saved_placement.window_position, IVec2::new(320, 180));
+        assert_eq!(saved_placement.window_size, UVec2::new(900, 700));
+    }
+
+    #[test]
+    fn fullscreen_window_resize_does_not_replace_saved_windowed_placement() {
+        let saved_windowed_placement = WindowPlacement {
+            window_position: IVec2::new(400, 200),
+            window_size: UVec2::new(960, 540),
+            monitor_name: Some("Primary".to_string()),
+            monitor_position: IVec2::ZERO,
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(400, 200),
+        };
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<WindowResized>()
+            .insert_resource(DebugHudState {
+                is_fullscreen: true,
+                ..Default::default()
+            })
+            .insert_resource(WindowPlacementState {
+                current: Some(saved_windowed_placement),
+                restored: true,
+            })
+            .add_systems(Update, track_window_size);
+        app.world_mut()
+            .spawn(test_monitor("Primary", IVec2::ZERO, UVec2::new(1920, 1080)));
+        let primary_window = app
+            .world_mut()
+            .spawn((
+                Window {
+                    position: WindowPosition::At(IVec2::new(0, 0)),
+                    resolution: WindowResolution::new(1280, 800),
+                    mode: WindowMode::Windowed,
+                    ..Default::default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<Messages<WindowResized>>()
+            .write(WindowResized {
+                window: primary_window,
+                width: 1280.0,
+                height: 800.0,
+            });
+        app.update();
+
+        let placement = app
+            .world()
+            .resource::<WindowPlacementState>()
+            .current
+            .as_ref()
+            .expect("saved windowed placement should remain available");
+        assert_eq!(placement.window_position, IVec2::new(400, 200));
+        assert_eq!(placement.window_size, UVec2::new(960, 540));
+    }
+
+    #[test]
+    fn fullscreen_startup_does_not_restore_windowed_placement() {
+        let saved_windowed_placement = WindowPlacement {
+            window_position: IVec2::new(2120, 160),
+            window_size: UVec2::new(320, 180),
+            monitor_name: Some("Secondary".to_string()),
+            monitor_position: IVec2::new(1920, 0),
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(200, 160),
+        };
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(DebugHudState {
+                is_fullscreen: true,
+                ..Default::default()
+            })
+            .insert_resource(WindowPlacementState {
+                current: Some(saved_windowed_placement),
+                restored: false,
+            })
+            .add_systems(Update, restore_window_placement_to_current_monitors);
+        app.world_mut()
+            .spawn(test_monitor("Primary", IVec2::ZERO, UVec2::new(1920, 1080)));
+        let secondary_monitor = app
+            .world_mut()
+            .spawn(test_monitor(
+                "Secondary",
+                IVec2::new(1920, 0),
+                UVec2::new(1920, 1080),
+            ))
+            .id();
+        app.world_mut().spawn((
+            Window {
+                position: WindowPosition::Centered(MonitorSelection::Primary),
+                resolution: WindowResolution::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT),
+                mode: WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        app.update();
+
+        let window = app
+            .world_mut()
+            .query_filtered::<&Window, With<PrimaryWindow>>()
+            .single(app.world())
+            .unwrap();
+        assert_eq!(
+            window.position,
+            WindowPosition::Centered(MonitorSelection::Primary)
+        );
+        assert_eq!(
+            logical_window_size(window),
+            UVec2::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        );
+        assert_eq!(
+            window.mode,
+            WindowMode::BorderlessFullscreen(MonitorSelection::Entity(secondary_monitor))
+        );
+        assert!(app.world().resource::<WindowPlacementState>().restored);
+    }
+
+    #[test]
+    fn fullscreen_window_close_saves_f_on_and_preserves_windowed_placement() {
+        let saved_windowed_placement = WindowPlacement {
+            window_position: IVec2::new(440, 220),
+            window_size: UVec2::new(1000, 700),
+            monitor_name: Some("Primary".to_string()),
+            monitor_position: IVec2::ZERO,
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(440, 220),
+        };
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<WindowCloseRequested>()
+            .insert_resource(DebugHudState {
+                is_fullscreen: true,
+                ..Default::default()
+            })
+            .insert_resource(WindowPlacementState {
+                current: Some(saved_windowed_placement),
+                restored: true,
+            })
+            .insert_resource(test_debug_hud_input_store(
+                "fullscreen-close-debug-hud-input",
+            ))
+            .insert_resource(test_window_placement_store(
+                "fullscreen-close-window-placement",
+            ))
+            .add_systems(Update, save_window_placement_on_close);
+        app.world_mut()
+            .spawn(test_monitor("Primary", IVec2::ZERO, UVec2::new(1920, 1080)));
+        let primary_window = app
+            .world_mut()
+            .spawn((
+                Window {
+                    position: WindowPosition::At(IVec2::ZERO),
+                    resolution: WindowResolution::new(1280, 800),
+                    mode: WindowMode::Windowed,
+                    ..Default::default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<Messages<WindowCloseRequested>>()
+            .write(WindowCloseRequested {
+                window: primary_window,
+            });
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<Persistent<DebugHudInputStore>>()
+                .is_fullscreen
+        );
+        let saved_placement = app
+            .world()
+            .resource::<Persistent<WindowPlacementStore>>()
+            .current
+            .as_ref()
+            .expect("window placement should be saved");
+        assert_eq!(saved_placement.window_position, IVec2::new(440, 220));
+        assert_eq!(saved_placement.window_size, UVec2::new(1000, 700));
     }
 
     #[test]
@@ -7086,7 +7543,10 @@ mod tests {
         let mut card_query = app
             .world_mut()
             .query_filtered::<Entity, (With<CardView>, With<LocalPlayerHandCardPreview>)>();
-        assert_eq!(card_query.iter(app.world()).count(), STARTING_HAND_CARD_COUNT);
+        assert_eq!(
+            card_query.iter(app.world()).count(),
+            STARTING_HAND_CARD_COUNT
+        );
         assert_eq!(app.world().resource::<GameTicks>().0, 0);
         assert_eq!(
             app.world()

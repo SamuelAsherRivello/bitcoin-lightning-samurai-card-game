@@ -22,9 +22,16 @@ use bevy_card_game::runtime::resources::{
 
 fn main() {
     let window_placement_store = create_startup_window_placement_store();
-    let saved_window_placement = window_placement_store
+    let debug_hud_input_store = create_startup_debug_hud_input_store();
+    let should_start_fullscreen = debug_hud_input_store
         .as_ref()
-        .and_then(|store| valid_window_placement(store.current.clone()));
+        .is_some_and(|store| store.is_fullscreen);
+    let saved_window_placement = startup_window_placement(
+        window_placement_store
+            .as_ref()
+            .and_then(|store| valid_window_placement(store.current.clone())),
+        should_start_fullscreen,
+    );
     let window_resolution = saved_window_placement
         .as_ref()
         .map(|placement| WindowResolution::new(placement.window_size.x, placement.window_size.y))
@@ -32,11 +39,8 @@ fn main() {
     let window_position = saved_window_placement
         .map(|placement| WindowPosition::At(placement.window_position))
         .unwrap_or(WindowPosition::Centered(MonitorSelection::Primary));
-    let debug_hud_input_store = create_startup_debug_hud_input_store();
-    let window_mode = debug_hud_input_store
-        .as_ref()
-        .filter(|store| store.is_fullscreen)
-        .map(|_| WindowMode::BorderlessFullscreen(MonitorSelection::Current))
+    let window_mode = should_start_fullscreen
+        .then_some(WindowMode::BorderlessFullscreen(MonitorSelection::Current))
         .unwrap_or(WindowMode::Windowed);
 
     let mut app = App::new();
@@ -82,6 +86,17 @@ fn main() {
     }
 
     app.add_plugins(GamePlugin).run();
+}
+
+fn startup_window_placement(
+    saved_window_placement: Option<bevy_card_game::runtime::resources::WindowPlacement>,
+    should_start_fullscreen: bool,
+) -> Option<bevy_card_game::runtime::resources::WindowPlacement> {
+    if should_start_fullscreen {
+        None
+    } else {
+        saved_window_placement
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -131,6 +146,7 @@ fn asset_watch_for_changes_override() -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_card_game::runtime::resources::WindowPlacement;
     use std::path::Path;
 
     #[test]
@@ -144,6 +160,37 @@ mod tests {
             asset_root
                 .join("themes/theme_japan/cards/card_kage_ren/background.png")
                 .is_file()
+        );
+    }
+
+    #[test]
+    fn startup_ignores_windowed_placement_when_fullscreen_is_saved() {
+        let placement = WindowPlacement {
+            window_position: IVec2::new(1600, 900),
+            window_size: UVec2::new(320, 180),
+            monitor_name: Some("Primary".to_string()),
+            monitor_position: IVec2::ZERO,
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(1600, 900),
+        };
+
+        assert_eq!(startup_window_placement(Some(placement), true), None);
+    }
+
+    #[test]
+    fn startup_uses_windowed_placement_when_fullscreen_is_not_saved() {
+        let placement = WindowPlacement {
+            window_position: IVec2::new(200, 100),
+            window_size: UVec2::new(1280, 800),
+            monitor_name: Some("Primary".to_string()),
+            monitor_position: IVec2::ZERO,
+            monitor_size: UVec2::new(1920, 1080),
+            relative_position: IVec2::new(200, 100),
+        };
+
+        assert_eq!(
+            startup_window_placement(Some(placement.clone()), false),
+            Some(placement)
         );
     }
 }
