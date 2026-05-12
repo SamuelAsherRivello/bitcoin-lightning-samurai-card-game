@@ -7,11 +7,14 @@ pub const CARD_SLOT_LOCAL_DIRECT_PLACEMENT_COUNT: usize =
     CARD_SLOT_LOCATION_COUNT * CARD_SLOT_ROW_COUNT;
 pub const CARD_SLOT_GAME_VIEW_WIDTH: f32 = 92.0;
 pub const CARD_SLOT_GAME_VIEW_HEIGHT: f32 = 90.0;
+pub const CARD_SLOT_LOCATION_AREA_WIDTH: f32 = 184.0;
+pub const CARD_SLOT_LOCATION_AREA_HEIGHT: f32 = 208.0;
 const CARD_SLOT_LOCATION_LEFTS: [f32; CARD_SLOT_LOCATION_COUNT] = [364.0, 548.0, 732.0];
 const CARD_SLOT_COLUMN_OFFSET: f32 = 92.0;
 const CARD_SLOT_OPPONENT_TOP_Y: f32 = 44.0;
 const CARD_SLOT_LOCAL_TOP_Y: f32 = 432.0;
 const CARD_SLOT_ROW_OFFSET: f32 = 90.0;
+const CARD_SLOT_LOCATION_AREA_TOP_Y: f32 = 224.0;
 
 /// HUMAN: Player side for a board slot around a shared location.
 /// AI: LocalPlayer slots accept direct human drag placement; Opponent slots do not.
@@ -176,6 +179,18 @@ impl CardSlotBoardModel {
         Some(rects.fold(first, |area, rect| area.union(rect)))
     }
 
+    /// HUMAN: Runtime rectangle for the shared location area for drag/drop and overlays.
+    /// AI: Keep this as a single source for area-dependent systems and debug drawing.
+    pub fn location_area_rect(&self, location_index: usize) -> Option<CardSlotRect> {
+        let left = card_slot_location_left(location_index)?;
+        Some(CardSlotRect::new(
+            left,
+            CARD_SLOT_LOCATION_AREA_TOP_Y,
+            CARD_SLOT_LOCATION_AREA_WIDTH,
+            CARD_SLOT_LOCATION_AREA_HEIGHT,
+        ))
+    }
+
     pub fn local_slots_area_hit_target(&self, game_view_position: Vec2) -> Option<usize> {
         (0..CARD_SLOT_LOCATION_COUNT).find(|location_index| {
             self.local_slots_area_rect(*location_index)
@@ -275,12 +290,26 @@ pub struct CardStateModel {
 impl Default for CardStateModel {
     fn default() -> Self {
         Self {
-            states: vec![CardState::Hand; 4],
+            states: vec![CardState::Hand; super::STARTING_HAND_CARD_COUNT],
         }
     }
 }
 
 impl CardStateModel {
+    pub fn with_size(card_count: usize) -> Self {
+        Self {
+            states: vec![CardState::Hand; card_count],
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.states.len()
+    }
+
+    pub fn reset_to_size(&mut self, card_count: usize) {
+        *self = Self::with_size(card_count);
+    }
+
     pub fn state(&self, hand_index: usize) -> Option<CardState> {
         self.states.get(hand_index).copied()
     }
@@ -319,10 +348,7 @@ pub fn card_slot_rect(
     side: CardSlotSide,
     slot_index: usize,
 ) -> CardSlotRect {
-    let location_left = CARD_SLOT_LOCATION_LEFTS
-        .get(location_index)
-        .copied()
-        .unwrap_or(CARD_SLOT_LOCATION_LEFTS[0]);
+    let location_left = card_slot_location_left(location_index).unwrap_or(CARD_SLOT_LOCATION_LEFTS[0]);
     let column = slot_index % 2;
     let row = slot_index / 2;
     let top = match side {
@@ -336,6 +362,10 @@ pub fn card_slot_rect(
         CARD_SLOT_GAME_VIEW_WIDTH,
         CARD_SLOT_GAME_VIEW_HEIGHT,
     )
+}
+
+fn card_slot_location_left(location_index: usize) -> Option<f32> {
+    CARD_SLOT_LOCATION_LEFTS.get(location_index).copied()
 }
 
 #[cfg(test)]
@@ -380,6 +410,19 @@ mod tests {
             board.local_slots_area_rect(0),
             Some(CardSlotRect::new(364.0, 432.0, 184.0, 180.0))
         );
+        assert_eq!(
+            board.location_area_rect(0),
+            Some(CardSlotRect::new(364.0, 224.0, 184.0, 208.0))
+        );
+        assert_eq!(
+            board.location_area_rect(1),
+            Some(CardSlotRect::new(548.0, 224.0, 184.0, 208.0))
+        );
+        assert_eq!(
+            board.location_area_rect(2),
+            Some(CardSlotRect::new(732.0, 224.0, 184.0, 208.0))
+        );
+        assert_eq!(board.location_area_rect(99), None);
     }
 
     #[test]

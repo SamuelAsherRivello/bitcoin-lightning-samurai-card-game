@@ -2,6 +2,8 @@
 
 This repository is a Bevy ECS card game built from the Codex Project Template. Keep Codex and Specify infrastructure at the root, and keep game implementation under the Bevy workspace.
 
+Default assistant model for this project: `gpt-5.5`.
+
 ## Git Safety
 
 - Never run destructive Git operations.

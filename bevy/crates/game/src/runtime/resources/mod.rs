@@ -31,6 +31,11 @@ pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
 pub const CARD_MODEL_SLOT_COUNT: usize = 4;
+pub const STARTING_DECK_CARD_COUNT: usize = 12;
+pub const STARTING_HAND_CARD_COUNT: usize = 5;
+pub const STARTING_HAND_REPEATS_PER_CARD: usize = 3;
+pub const DEFAULT_PLAYER_NAME: &str = "Player 01";
+pub const DEFAULT_DECK_NAME: &str = "Deck01";
 pub const WORLD_MODEL_COUNT: usize = 2;
 pub const LOCATION_MODEL_COUNT: usize = 6;
 pub const ACTIVE_LOCATION_COUNT: usize = 3;
@@ -283,6 +288,162 @@ impl CardModelRegistry {
             .map(|position| available_indices[(position + 1) % available_indices.len()])
             .unwrap_or(available_indices[0])
     }
+
+    pub fn card_model_for_id(&self, card_id: &str) -> Option<&CardModel> {
+        self.slots.iter().flatten().find(|card_model| card_model.id == card_id)
+    }
+}
+
+/// HUMAN: Runtime deck list definition for a single player.
+/// AI: Deck data is serializable and decoupled from board/hand/runtime state.
+#[derive(Clone, Debug, Deserialize, PartialEq, Resource, Serialize)]
+pub struct DeckModel {
+    pub name: String,
+    pub cards: Vec<String>,
+}
+
+impl Default for DeckModel {
+    fn default() -> Self {
+        Self::with_name_and_cards(DEFAULT_DECK_NAME, random_shuffled_default_deck_cards())
+    }
+}
+
+impl DeckModel {
+    pub fn with_name_and_cards(name: &str, cards: Vec<String>) -> Self {
+        Self {
+            name: name.to_string(),
+            cards,
+        }
+    }
+
+    pub fn has_cards(&self) -> bool {
+        !self.cards.is_empty()
+    }
+}
+
+/// HUMAN: Player deck bucket for persisted deck collections.
+/// AI: Keep one model per player, each with an ordered list of deck IDs.
+#[derive(Clone, Debug, Deserialize, PartialEq, Resource, Serialize)]
+pub struct PlayerModel {
+    pub name: String,
+    pub decks: Vec<DeckModel>,
+}
+
+impl Default for PlayerModel {
+    fn default() -> Self {
+        Self {
+            name: DEFAULT_PLAYER_NAME.to_string(),
+            decks: vec![DeckModel::default()],
+        }
+    }
+}
+
+impl PlayerModel {
+    pub fn primary_deck(&self) -> Option<&DeckModel> {
+        self.decks.first()
+    }
+}
+
+/// HUMAN: Persisted deck collection owning all user-defined players.
+/// AI: This is the long-lived source of deck data loaded once during startup.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
+pub struct PlayerDeckCollectionModel {
+    pub players: Vec<PlayerModel>,
+}
+
+impl PlayerDeckCollectionModel {
+    pub fn primary_player(&self) -> Option<&PlayerModel> {
+        self.players.first()
+    }
+
+    pub fn primary_deck(&self) -> Option<&DeckModel> {
+        self.primary_player().and_then(PlayerModel::primary_deck)
+    }
+}
+
+/// HUMAN: Runtime deck state for the active game instance.
+/// AI: Cards in this model are removed when drawn into the active hand.
+#[derive(Clone, Debug, Default, PartialEq, Resource)]
+pub struct GameDeckModel {
+    pub cards: Vec<String>,
+}
+
+impl GameDeckModel {
+    pub fn draw_to_hand(
+        &mut self,
+        hand_size: usize,
+        hand_model: &mut GameHandModel,
+    ) -> Vec<String> {
+        let draw_count = hand_size.min(self.cards.len());
+        if draw_count == 0 {
+            return Vec::new();
+        }
+
+        let drawn: Vec<String> = self.cards.drain(0..draw_count).collect();
+        hand_model.cards.extend(drawn.iter().cloned());
+        drawn
+    }
+}
+
+/// HUMAN: Runtime active hand state for gameplay rendering and gesture targeting.
+/// AI: This mirrors cards drawn from GameDeckModel and is the source of hand entities.
+#[derive(Clone, Debug, Default, PartialEq, Resource)]
+pub struct GameHandModel {
+    pub cards: Vec<String>,
+}
+
+impl GameHandModel {
+    pub fn new(cards: Vec<String>) -> Self {
+        Self { cards }
+    }
+
+    pub fn reset_from_deck(&mut self, deck: &DeckModel) {
+        self.cards = deck.cards.clone();
+    }
+
+    pub fn len(&self) -> usize {
+        self.cards.len()
+    }
+}
+
+pub fn random_shuffled_default_deck_cards() -> Vec<String> {
+    let mut cards: Vec<String> = vec![
+        KAGE_REN_CARD_MODEL_ID.to_string(),
+        LORD_DAICHI_CARD_MODEL_ID.to_string(),
+        SISTER_HOTARU_CARD_MODEL_ID.to_string(),
+        YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
+    ]
+        .into_iter()
+        .cycle()
+        .take(STARTING_DECK_CARD_COUNT)
+        .collect();
+
+    fastrand::shuffle(&mut cards);
+    cards
+}
+
+pub fn ensure_player_deck_collection_model(
+    mut model: PlayerDeckCollectionModel,
+) -> PlayerDeckCollectionModel {
+    if model.players.is_empty() {
+        model.players.push(PlayerModel::default());
+    } else {
+        for player in &mut model.players {
+            if player.name.is_empty() {
+                player.name = DEFAULT_PLAYER_NAME.to_string();
+            }
+            if player.decks.is_empty() {
+                player.decks.push(DeckModel::default());
+            }
+            if let Some(first_deck) = player.decks.first_mut() {
+                if first_deck.cards.is_empty() {
+                    *first_deck = DeckModel::default();
+                }
+            }
+        }
+    }
+
+    model
 }
 
 /// HUMAN: World data model used by GameView background rendering.
@@ -773,6 +934,13 @@ pub fn card_settings_path() -> PathBuf {
         .join("card-settings.json")
 }
 
+pub fn player_deck_collection_path() -> PathBuf {
+    workspace_root_path()
+        .join("data")
+        .join("local_storage")
+        .join("player-deck-collection.json")
+}
+
 pub fn create_window_placement_store() -> Result<Persistent<WindowPlacementStore>, PersistenceError>
 {
     Persistent::<WindowPlacementStore>::builder()
@@ -802,6 +970,20 @@ pub fn create_card_settings_store() -> Result<Persistent<CardSettingsStore>, Per
         .format(StorageFormat::JsonPretty)
         .path(card_settings_path())
         .default(CardSettingsStore::default())
+        .revertible(true)
+        .revert_to_default_on_deserialization_errors(true)
+        .build()
+}
+
+pub fn create_player_deck_collection_store()
+-> Result<Persistent<PlayerDeckCollectionModel>, PersistenceError> {
+    Persistent::<PlayerDeckCollectionModel>::builder()
+        .name("player deck collection")
+        .format(StorageFormat::JsonPretty)
+        .path(player_deck_collection_path())
+        .default(PlayerDeckCollectionModel {
+            players: vec![PlayerModel::default()],
+        })
         .revertible(true)
         .revert_to_default_on_deserialization_errors(true)
         .build()

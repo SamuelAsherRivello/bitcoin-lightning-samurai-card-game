@@ -2,6 +2,7 @@
 .git/
 
 # Local scratch and temporary files
+.temp/
 tmp/
 temp/
 *.tmp

@@ -79,8 +79,8 @@ pub fn debug_drawing_update_system(
                         TextColor(request.color.border_color()),
                         Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(-10.0),
-                            top: Val::Px(-18.0),
+                            left: Val::Px(4.0),
+                            top: Val::Px(4.0),
                             ..Default::default()
                         },
                     ));

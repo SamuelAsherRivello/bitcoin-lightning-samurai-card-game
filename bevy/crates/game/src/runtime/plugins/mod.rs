@@ -11,8 +11,9 @@ pub use ai_runtime_plugin::{
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardFlipState,
     CardGestureModel, CardInspectionDefaults, CardInspectionState, CardModelRegistry,
-    CardSlotBoardModel, CardStateModel, CardUiState, DebugDrawingModel, DebugHudState, GameTicks,
-    LocationModelRegistry, PrimaryCameraDefaults, WindowPlacementState, WorldModelRegistry,
+    CardSlotBoardModel, CardStateModel, CardUiState, DebugDrawingModel, DebugHudState,
+    GameDeckModel, GameHandModel, GameTicks, LocationModelRegistry, PlayerDeckCollectionModel,
+    PrimaryCameraDefaults, WindowPlacementState, WorldModelRegistry, create_player_deck_collection_store,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{
@@ -23,11 +24,13 @@ use crate::runtime::systems::{
     card_model_input_system, constrain_debug_settings_camera_to_safe_area,
     constrain_deck_builder_camera_to_safe_area, constrain_game_view_3d_cameras_to_safe_area,
     debug_drawing_update_system, drop_target_hint_update_system, hot_reload_auto_restart_app_scene,
-    load_saved_card_settings, load_saved_debug_hud_input, load_saved_window_placement,
+    initialize_game_models, load_saved_card_settings, load_saved_debug_hud_input,
+    load_saved_player_deck_collection, load_saved_window_placement,
     log_game_view_card_render_diagnostics, quit_app_on_escape,
     record_desktop_hot_reload_patch_message, restart_app_scene,
     restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
-    scene_input_system, setup_app_scene, setup_game, setup_game_view, setup_inspector,
+    scene_input_system, setup_app_scene, setup_game, setup_game_view_with_params,
+    setup_inspector,
     smooth_card_rotation, sync_browser_fullscreen_state_system, toggle_debug_hud_inputs,
     toggle_inspector, track_card_pointer_target, track_window_placement, track_window_size,
     update_card_face_visibility, update_card_flip_animation, update_card_frame_shine,
@@ -39,9 +42,31 @@ use crate::runtime::systems::{
 /// AI: Keep this focused on plugin composition; move behavior into resources, components, or systems.
 pub struct CoreGamePlugin;
 
+#[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
+enum StartupBootstrapSet {
+    LoadWindowPlacement,
+    LoadDebugHudInput,
+    LoadCardSettings,
+    LoadPlayerDeckCollection,
+    InitializeGameModels,
+    SetupGame,
+    SetupAppScene,
+}
+
 impl Plugin for CoreGamePlugin {
     fn build(&self, app: &mut App) {
         let camera_defaults = PrimaryCameraDefaults::default();
+
+        app.configure_sets(
+            Startup,
+            StartupBootstrapSet::LoadWindowPlacement
+                .before(StartupBootstrapSet::LoadDebugHudInput)
+                .before(StartupBootstrapSet::LoadCardSettings)
+                .before(StartupBootstrapSet::LoadPlayerDeckCollection)
+                .before(StartupBootstrapSet::InitializeGameModels)
+                .before(StartupBootstrapSet::SetupGame)
+                .before(StartupBootstrapSet::SetupAppScene),
+        );
 
         app.insert_resource(ClearColor(camera_defaults.clear_color))
             .insert_resource(camera_defaults)
@@ -55,6 +80,9 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<CardGestureModel>()
             .init_resource::<CardSlotBoardModel>()
             .init_resource::<CardStateModel>()
+            .init_resource::<GameDeckModel>()
+            .init_resource::<GameHandModel>()
+            .init_resource::<PlayerDeckCollectionModel>()
             .init_resource::<ActiveCardModel>()
             .init_resource::<WorldModelRegistry>()
             .init_resource::<ActiveWorldModel>()
@@ -69,16 +97,18 @@ impl Plugin for CoreGamePlugin {
             .add_systems(
                 Startup,
                 (
-                    load_saved_window_placement,
-                    load_saved_debug_hud_input,
-                    load_saved_card_settings,
-                    setup_game,
-                    setup_app_scene,
-                    setup_game_view,
-                    setup_inspector,
-                )
-                    .chain(),
+                    load_saved_window_placement.in_set(StartupBootstrapSet::LoadWindowPlacement),
+                    load_saved_debug_hud_input.in_set(StartupBootstrapSet::LoadDebugHudInput),
+                    load_saved_card_settings.in_set(StartupBootstrapSet::LoadCardSettings),
+                    load_saved_player_deck_collection
+                        .in_set(StartupBootstrapSet::LoadPlayerDeckCollection),
+                    initialize_game_models.in_set(StartupBootstrapSet::InitializeGameModels),
+                    setup_game.in_set(StartupBootstrapSet::SetupGame),
+                    setup_app_scene.in_set(StartupBootstrapSet::SetupAppScene),
+                ),
             )
+            .add_systems(Startup, setup_inspector)
+            .add_systems(Startup, setup_game_view_with_params)
             .add_systems(
                 Update,
                 (
@@ -147,6 +177,14 @@ impl Plugin for CoreGamePlugin {
             .world()
             .contains_resource::<bevy_persistent::prelude::Persistent<DebugHudInputStore>>()
             && let Ok(store) = create_debug_hud_input_store()
+        {
+            app.insert_resource(store);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if !app
+            .world()
+            .contains_resource::<bevy_persistent::prelude::Persistent<PlayerDeckCollectionModel>>()
+            && let Ok(store) = create_player_deck_collection_store()
         {
             app.insert_resource(store);
         }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Commit Message"
+  short_description: "Draft staged Git commit messages."
+  default_prompt: "Create a commit message from the staged Git diff."

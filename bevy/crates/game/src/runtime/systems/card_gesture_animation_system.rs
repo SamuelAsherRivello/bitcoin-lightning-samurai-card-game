@@ -130,9 +130,13 @@ pub(super) fn slot_transform(
 
 pub(super) fn hand_source_transform(
     hand_index: usize,
+    hand_card_count: usize,
     card_defaults: &CardInspectionDefaults,
 ) -> Transform {
-    let Some((min, max)) = super::game_view_card_hitboxes().get(hand_index).copied() else {
+    let Some((min, max)) = super::game_view_card_hitboxes_for_count(hand_card_count)
+        .get(hand_index)
+        .copied()
+    else {
         return Transform::default();
     };
     let scale = game_view_world_height_for_game_view_height(

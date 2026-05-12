@@ -9,7 +9,7 @@ use bevy_tweening::TweeningPlugin;
 
 pub mod runtime;
 
-use runtime::materials::CardBackgroundMaskMaterial;
+use runtime::shaders::materials::CardBackgroundMaskMaterial;
 use runtime::plugins::CoreGamePlugin;
 use runtime::systems::{card_ui, inspector_ui};
 

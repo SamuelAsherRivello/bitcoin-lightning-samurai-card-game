@@ -127,8 +127,14 @@ fn handle_press(
     if !card_states.is_draggable(hand_index) {
         return;
     }
-    let source_transform = hand_source_transform(hand_index, card_defaults);
-    let Some((card_min, card_max)) = super::game_view_card_hitboxes().get(hand_index).copied()
+    let source_transform = hand_source_transform(
+        hand_index,
+        card_states.len(),
+        card_defaults,
+    );
+    let Some((card_min, card_max)) = super::game_view_card_hitboxes_for_count(card_states.len())
+        .get(hand_index)
+        .copied()
     else {
         return;
     };

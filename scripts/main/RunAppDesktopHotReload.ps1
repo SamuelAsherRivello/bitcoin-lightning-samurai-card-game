@@ -96,7 +96,7 @@ if ($UseAiRuntime) {
     Write-Host "AI runtime bridge: Bevy Remote Protocol at http://localhost:15702"
     Write-Host "AI runtime screenshot method: bevy_debugger/screenshot"
 } else {
-    Write-Host "AI runtime bridge disabled. Use -AiRuntime or scripts/other/RunAppDesktopHotReloadMPC.ps1 to enable it."
+    Write-Host "AI runtime bridge disabled. Use -AiRuntime or scripts/other/RunAppDesktopHotReloadMCP.ps1 to enable it."
 }
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""
@@ -122,3 +122,4 @@ if ($DxExitCode -eq 0 -or $InterruptedExitCodes -contains $DxExitCode) {
 }
 
 throw "Desktop hot reload failed with exit code $DxExitCode."
+

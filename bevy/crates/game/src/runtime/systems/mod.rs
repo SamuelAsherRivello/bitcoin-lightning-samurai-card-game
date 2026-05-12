@@ -37,29 +37,36 @@ pub use card_gesture_animation_system::*;
 pub use card_gesture_update_system::*;
 pub use debug_drawing_update_system::*;
 
-use crate::runtime::bundles::CardViewBundle;
+use crate::runtime::bundles::{
+    CardViewBundle, LocationViewBundle, PointLocationView, PointModel, PointType, PointView, PointViewBundle,
+};
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardLayerRole, CardParallaxLayer, CardSlotGestureTarget, CardView,
-    CostPointView, DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity,
+    DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity,
     DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot, DropTargetHint,
     EndTurnButton, GameLocation, GameViewEntity, GameViewRoot, HandCardGestureTarget,
-    InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationPowerPointView,
-    LocationRevealState, Player, PowerPointView, PrimaryViewCamera, TurnUi, WorldBackground,
+    InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState, Player,
+    PrimaryViewCamera, TurnUi, WorldBackground,
 };
-use crate::runtime::materials::CardBackgroundMaskMaterial;
+use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 #[cfg(test)]
 use crate::runtime::resources::CardState;
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
+    CARD_SLOT_LOCATION_COUNT,
     CardFace, CardFlipState, CardGestureModel, CardInspectionDefaults, CardInspectionState,
     CardModel, CardModelRegistry, CardSettingsStore, CardSlotBoardModel, CardSlotSide,
     CardSlotState, CardStateModel, CardUiState, CostPointModel, DebugHudInputStore, DebugHudState,
-    GameTicks, LocationModelRegistry, LocationScoreModel, PRIMARY_CAMERA_FOV_RADIANS,
-    PowerPointModel, PrimaryCameraDefaults, WindowPlacement, WindowPlacementState,
-    WindowPlacementStore, WorldModelRegistry, load_window_placement, valid_window_placement,
+    GameDeckModel, GameHandModel, GameTicks, LocationModelRegistry, LocationScoreModel,
+    DeckModel, DEFAULT_DECK_NAME, PlayerDeckCollectionModel, PowerPointModel,
+    PRIMARY_CAMERA_FOV_RADIANS, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
+    WindowPlacement, WindowPlacementState,
+    WindowPlacementStore, WorldModelRegistry, ensure_player_deck_collection_model,
+    random_shuffled_default_deck_cards,
+    load_window_placement, valid_window_placement,
 };
 
 #[cfg(feature = "desktop-hot-reload")]
@@ -104,9 +111,9 @@ const GAME_SCENE_HAND_LEFT: f32 = 364.0;
 const GAME_SCENE_HAND_TOP: f32 = 612.0;
 const GAME_SCENE_HAND_WIDTH: f32 = 552.0;
 const GAME_SCENE_HAND_HEIGHT: f32 = GAME_VIEW_HEIGHT - GAME_SCENE_HAND_TOP;
-const GAME_SCENE_HAND_CARD_HEIGHT: f32 = GAME_SCENE_HAND_HEIGHT;
-const GAME_SCENE_HAND_CARD_WIDTH: f32 =
-    GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
+const GAME_SCENE_HAND_CARD_HEIGHT_FRACTION: f32 = 0.9;
+const GAME_SCENE_HAND_CARD_HEIGHT: f32 = GAME_SCENE_HAND_HEIGHT * GAME_SCENE_HAND_CARD_HEIGHT_FRACTION;
+const GAME_SCENE_HAND_CARD_WIDTH: f32 = GAME_SCENE_HAND_CARD_HEIGHT * CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT;
 const GAME_SCENE_HAND_CARD_GAP: f32 = 8.0;
 const GAME_SCENE_HAND_CARD_WORLD_Z: f32 = 0.32;
 const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
@@ -123,8 +130,15 @@ const END_TURN_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95
 const END_TURN_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
 const END_TURN_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
 const END_TURN_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
+const DEBUG_SETTINGS_CARD_GAP_TO_CARD_UI: f32 = 20.0;
 const POINT_VIEW_WIDTH: f32 = 46.0;
 const POINT_VIEW_HEIGHT: f32 = 36.0;
+const LOCATION_VIEW_WIDTH: f32 = 168.0;
+const LOCATION_VIEW_HEIGHT: f32 = 216.0;
+const LOCATION_POINT_VIEW_WIDTH: f32 = POINT_VIEW_WIDTH.min(POINT_VIEW_HEIGHT);
+const LOCATION_POINT_VIEW_HEIGHT: f32 = LOCATION_POINT_VIEW_WIDTH * 0.8;
+const LOCATION_POINT_VIEW_HALF_HEIGHT: f32 = LOCATION_POINT_VIEW_HEIGHT / 2.0;
+const LOCATION_POINT_VIEW_BOTTOM_OFFSET: f32 = LOCATION_POINT_VIEW_HALF_HEIGHT * 0.6;
 const CARD_POINT_BADGE_SIZE: f32 = 0.17;
 const CARD_POINT_BADGE_INSET_RATIO: f32 = 0.16;
 const CARD_POINT_DIGIT_WIDTH: f32 = 0.04;
@@ -428,7 +442,15 @@ fn spawn_game_view_card_overlay_camera(
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
 /// HUMAN: Spawns the persistent AppScene and debug HUD.
 /// AI: AppScene remains present while GameView, DeckBuilderScene, and DebugSettingsScene swap on top.
-pub fn setup_app_scene(mut commands: Commands, hud: Option<Res<Hud>>) {
+pub fn setup_app_scene(
+    mut commands: Commands,
+    app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    hud: Option<Res<Hud>>,
+) {
+    if !app_scene_query.is_empty() {
+        return;
+    }
+
     spawn_app_scene_contents(&mut commands, hud.as_ref().map(|hud| hud.0));
 }
 
@@ -460,48 +482,114 @@ fn spawn_app_scene_contents(commands: &mut Commands, hud_parent: Option<Entity>)
 
 /// HUMAN: Spawns the gameplay sub-screen view.
 /// AI: GameView is a view, not the persistent scene; keep AppScene parenting intact.
-pub fn setup_game_view(
-    mut commands: Commands,
-    app_scene_query: Query<Entity, With<AppSceneRoot>>,
-    hud: Option<Res<Hud>>,
-    asset_server: Res<AssetServer>,
-    camera_defaults: Option<Res<PrimaryCameraDefaults>>,
-    card_defaults: Res<CardInspectionDefaults>,
-    card_model_registry: Res<CardModelRegistry>,
-    slot_board: Option<Res<CardSlotBoardModel>>,
-    active_card_model: Res<ActiveCardModel>,
-    world_model_registry: Res<WorldModelRegistry>,
-    active_world_model: Res<ActiveWorldModel>,
-    location_model_registry: Res<LocationModelRegistry>,
-    active_locations: Res<ActiveLocations>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
-) {
+#[derive(SystemParam)]
+pub struct SetupGameViewParams<'w, 's> {
+    pub commands: Commands<'w, 's>,
+    pub app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
+    pub hud: Option<Res<'w, Hud>>,
+    pub asset_server: Res<'w, AssetServer>,
+    pub camera_defaults: Option<Res<'w, PrimaryCameraDefaults>>,
+    pub card_defaults: Res<'w, CardInspectionDefaults>,
+    pub card_model_registry: Res<'w, CardModelRegistry>,
+    pub slot_board: Option<Res<'w, CardSlotBoardModel>>,
+    pub active_card_model: Res<'w, ActiveCardModel>,
+    pub world_model_registry: Res<'w, WorldModelRegistry>,
+    pub active_world_model: Res<'w, ActiveWorldModel>,
+    pub location_model_registry: Res<'w, LocationModelRegistry>,
+    pub active_locations: Res<'w, ActiveLocations>,
+    pub player_deck_collection: Option<Res<'w, PlayerDeckCollectionModel>>,
+    pub game_deck_model: Option<ResMut<'w, GameDeckModel>>,
+    pub game_hand_model: Option<ResMut<'w, GameHandModel>>,
+    pub card_states: Option<ResMut<'w, CardStateModel>>,
+    pub meshes: ResMut<'w, Assets<Mesh>>,
+    pub materials: ResMut<'w, Assets<StandardMaterial>>,
+    pub masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
+}
+
+pub fn setup_game_view(mut params: SetupGameViewParams) {
     let fallback_camera_defaults = PrimaryCameraDefaults::default();
-    let camera_defaults = camera_defaults
+    let camera_defaults = params
+        .camera_defaults
         .as_deref()
         .unwrap_or(&fallback_camera_defaults);
     let fallback_slot_board = CardSlotBoardModel::default();
-    let slot_board = slot_board.as_deref().unwrap_or(&fallback_slot_board);
+    let slot_board = params.slot_board.as_deref().unwrap_or(&fallback_slot_board);
+    let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
+    let player_deck_collection = params
+        .player_deck_collection
+        .as_deref()
+        .unwrap_or(&fallback_player_deck_collection);
+    let mut fallback_game_deck_model = GameDeckModel::default();
+    let mut fallback_game_hand_model = GameHandModel::default();
+    let mut fallback_card_states = CardStateModel::default();
+    let game_hand_cards = match (
+        params.game_deck_model.as_mut(),
+        params.game_hand_model.as_mut(),
+        params.card_states.as_deref_mut(),
+    ) {
+        (Some(game_deck_model), Some(game_hand_model), Some(card_states)) => {
+            initialize_game_models_for_player(
+                player_deck_collection,
+                &mut *game_deck_model,
+                &mut *game_hand_model,
+                card_states,
+            );
+            game_hand_model.cards.clone()
+        }
+        (Some(game_deck_model), Some(game_hand_model), None) => {
+            initialize_game_models_for_player(
+                player_deck_collection,
+                &mut *game_deck_model,
+                &mut *game_hand_model,
+                &mut fallback_card_states,
+            );
+            game_hand_model.cards.clone()
+        }
+        _ => {
+            initialize_game_models_for_player(
+                player_deck_collection,
+                &mut fallback_game_deck_model,
+                &mut fallback_game_hand_model,
+                &mut fallback_card_states,
+            );
+            fallback_game_hand_model.cards.clone()
+        }
+    };
+    let app_scene_parent = params
+        .app_scene_query
+        .iter()
+        .next()
+        .or_else(|| {
+            Some(spawn_app_scene_contents(
+                &mut params.commands,
+                params.hud.as_ref().map(|hud| hud.0),
+            ))
+        });
     spawn_game_view_contents(
-        &mut commands,
-        app_scene_query.single().ok(),
-        hud.as_ref().map(|hud| hud.0),
-        &asset_server,
+        &mut params.commands,
+        app_scene_parent,
+        params.hud.as_ref().map(|hud| hud.0),
+        &params.asset_server,
         camera_defaults,
-        &card_defaults,
-        &card_model_registry,
+        &params.card_defaults,
+        &params.card_model_registry,
+        game_hand_cards.as_slice(),
         slot_board,
-        &active_card_model,
-        &world_model_registry,
-        &active_world_model,
-        &location_model_registry,
-        &active_locations,
-        &mut meshes,
-        &mut materials,
-        masked_background_materials.map(|materials| materials.into_inner()),
+        &params.active_card_model,
+        &params.world_model_registry,
+        &params.active_world_model,
+        &params.location_model_registry,
+        &params.active_locations,
+        &mut params.meshes,
+        &mut params.materials,
+        params
+            .masked_background_materials
+            .map(|materials| materials.into_inner()),
     );
+}
+
+pub fn setup_game_view_with_params(params: SetupGameViewParams) {
+    setup_game_view(params);
 }
 
 fn spawn_game_view_contents(
@@ -512,6 +600,7 @@ fn spawn_game_view_contents(
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
     card_model_registry: &CardModelRegistry,
+    game_hand_cards: &[String],
     slot_board: &CardSlotBoardModel,
     active_card_model: &ActiveCardModel,
     world_model_registry: &WorldModelRegistry,
@@ -562,6 +651,7 @@ fn spawn_game_view_contents(
         asset_server,
         card_defaults,
         card_model_registry,
+        game_hand_cards,
         meshes,
         materials,
         masked_background_materials.as_deref_mut(),
@@ -573,6 +663,27 @@ fn spawn_game_view_contents(
     }
     let _ = active_card_model;
 }
+
+fn initialize_game_models_for_player(
+    player_deck_collection: &PlayerDeckCollectionModel,
+    game_deck_model: &mut GameDeckModel,
+    game_hand_model: &mut GameHandModel,
+    card_states: &mut CardStateModel,
+) {
+    let mut source_deck = player_deck_collection
+        .primary_deck()
+        .cloned()
+        .unwrap_or_else(DeckModel::default);
+    if source_deck.cards.is_empty() {
+        source_deck.cards = random_shuffled_default_deck_cards();
+    }
+
+    game_deck_model.cards = source_deck.cards;
+    game_hand_model.cards.clear();
+    game_deck_model.draw_to_hand(STARTING_HAND_CARD_COUNT, game_hand_model);
+    card_states.reset_to_size(game_hand_model.len());
+}
+
 
 fn spawn_card_slot_gesture_targets(
     commands: &mut Commands,
@@ -661,6 +772,13 @@ fn spawn_game_view_ui(
                 location_model_registry,
                 active_locations,
             );
+            spawn_location_area_bundles(
+                parent,
+                asset_server,
+                slot_board,
+                location_model_registry,
+                active_locations,
+            );
             spawn_drop_target_hints(parent, slot_board);
             spawn_local_player_hand(parent);
             spawn_turn_ui(parent);
@@ -739,6 +857,63 @@ fn spawn_location_row(
         });
 }
 
+/// HUMAN: Spawns one visual overlay in each runtime location area.
+/// AI: Draws the bundle background first and overlays the yellow border on top.
+fn spawn_location_area_bundles(
+    parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
+    slot_board: &CardSlotBoardModel,
+    location_model_registry: &LocationModelRegistry,
+    active_locations: &ActiveLocations,
+) {
+    let selected_locations = location_model_registry.selected_locations(active_locations);
+
+    for location_index in 0..CARD_SLOT_LOCATION_COUNT {
+        let Some(area_rect) = slot_board.location_area_rect(location_index) else {
+            continue;
+        };
+        let bundle_size = LocationViewBundle::scaled_size(area_rect);
+
+        let mut bundle_entity = parent.spawn(LocationViewBundle::new(area_rect));
+
+        if let Some(location) = selected_locations.get(location_index) {
+            bundle_entity.with_children(|parent| {
+                parent.spawn((
+                    Name::new(format!("Game Location Background {location_index}")),
+                    ImageNode::new(asset_server.load(location.texture))
+                        .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        width: Val::Px(bundle_size.x),
+                        height: Val::Px(bundle_size.y),
+                        ..Default::default()
+                    },
+                ));
+
+                parent.spawn((
+                    Name::new(format!("Game Location Border {location_index}")),
+                    BackgroundColor(Color::NONE),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        width: Val::Px(bundle_size.x),
+                        height: Val::Px(bundle_size.y),
+                        border: UiRect::all(Val::Px(LocationViewBundle::BORDER_THICKNESS)),
+                        ..Default::default()
+                    },
+                    BorderColor::all(Color::srgba(1.0, 0.82, 0.1, 1.0)),
+                    GlobalZIndex(2),
+                ));
+            });
+        }
+    }
+}
+
+/// HUMAN: Spawns the location card UI container and scales its texture to the card bounds.
+/// AI: Keeps card content (power points and label) anchored inside a stretched background image.
 fn spawn_location_ui(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
@@ -749,14 +924,14 @@ fn spawn_location_ui(
     let mut location = parent.spawn((
         Name::new(format!("Game Location {}", index + 1)),
         GameLocation::new(index, LocationRevealState::Revealed),
-        ImageNode::new(asset_server.load(texture)),
+        ImageNode::new(asset_server.load(texture)).with_mode(bevy::ui::widget::NodeImageMode::Stretch),
         Node {
-            width: Val::Px(168.0),
-            height: Val::Px(216.0),
+            width: Val::Px(LOCATION_VIEW_WIDTH),
+            height: Val::Px(LOCATION_VIEW_HEIGHT),
             border: UiRect::all(Val::Px(4.0)),
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::SpaceBetween,
+            justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::all(Val::Px(10.0)),
             border_radius: BorderRadius::all(Val::Px(6.0)),
@@ -772,6 +947,7 @@ fn spawn_location_ui(
             location_score.opponent_total,
             index,
             CardSlotSide::Opponent,
+            true,
         );
         spawn_location_text(parent, display_name, 18.0);
         spawn_location_power_point_view(
@@ -779,6 +955,7 @@ fn spawn_location_ui(
             location_score.local_total,
             index,
             CardSlotSide::LocalPlayer,
+            false,
         );
     });
 }
@@ -788,6 +965,22 @@ fn game_view_perspective_view_size_at_z(z: f32) -> Vec2 {
     let height = 2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance;
 
     Vec2::new(height * GAME_VIEW_ASPECT_RATIO, height)
+}
+
+/// HUMAN: Sizes the GameView world backdrop to cover the safe gameplay viewport.
+/// AI: Keep this tied to the GameView camera projection so background tests match runtime framing.
+fn game_view_world_background_size() -> Vec2 {
+    game_view_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
+        * GAME_SCENE_WORLD_BACKGROUND_BLEED
+}
+
+/// HUMAN: Scales the deck builder card to fill most of the centered presentation view.
+/// AI: The centered card uses world units so it remains independent of Bevy UI layout.
+fn deck_builder_centered_card_scale(card_defaults: &CardInspectionDefaults) -> f32 {
+    game_view_world_height_for_game_view_height(
+        GAME_VIEW_HEIGHT * DECK_BUILDER_CARD_HEIGHT_FRACTION,
+        0.0,
+    ) / card_defaults.height
 }
 
 fn game_view_world_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
@@ -804,19 +997,8 @@ fn game_view_world_height_for_game_view_height(game_view_height: f32, z: f32) ->
     game_view_perspective_view_size_at_z(z).y * (game_view_height / GAME_VIEW_HEIGHT)
 }
 
-fn game_view_world_background_size() -> Vec2 {
-    game_view_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
-        * GAME_SCENE_WORLD_BACKGROUND_BLEED
-}
-
-fn deck_builder_perspective_view_height_at_z(z: f32) -> f32 {
-    let distance = (DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
-    2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance
-}
-
-fn deck_builder_centered_card_scale(card_defaults: &CardInspectionDefaults) -> f32 {
-    (deck_builder_perspective_view_height_at_z(0.0) * DECK_BUILDER_CARD_HEIGHT_FRACTION)
-        / card_defaults.height
+fn game_view_world_width_for_game_view_width(game_view_width: f32, z: f32) -> f32 {
+    game_view_perspective_view_size_at_z(z).x * (game_view_width / GAME_VIEW_WIDTH)
 }
 
 fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, font_size: f32) {
@@ -830,33 +1012,49 @@ fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, fo
     ));
 }
 
+/// HUMAN: Spawns top and bottom location power badges with deterministic offsets.
+/// AI: Uses a reduced bottom offset so the local power badge sits higher.
 fn spawn_location_power_point_view(
     parent: &mut ChildSpawnerCommands,
     model: PowerPointModel,
     location_index: usize,
     side: CardSlotSide,
+    is_top: bool,
 ) {
+    let point_model = PointModel::from_power_point(PointType::LocationPower, model);
+    let point_offset = LOCATION_POINT_VIEW_HALF_HEIGHT;
+    let x_offset = (LOCATION_VIEW_WIDTH - LOCATION_POINT_VIEW_WIDTH) / 2.0;
+    let point_width = LOCATION_POINT_VIEW_WIDTH;
+    let point_height = LOCATION_POINT_VIEW_HEIGHT;
+    let mut node = Node {
+        width: Val::Px(point_width),
+        height: Val::Px(point_height),
+        border: UiRect::all(Val::Px(2.0)),
+        display: Display::Flex,
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border_radius: BorderRadius::all(Val::Px(point_height * 0.5)),
+        position_type: PositionType::Absolute,
+        left: Val::Px(x_offset),
+        ..Default::default()
+    };
+
+    if is_top {
+        node.top = Val::Px(-point_offset);
+    } else {
+        node.bottom = Val::Px(-LOCATION_POINT_VIEW_BOTTOM_OFFSET);
+    }
+
     parent
         .spawn((
-            Name::new("PowerPointView"),
-            PowerPointView::new(model),
-            LocationPowerPointView::new(location_index, side),
-            Node {
-                width: Val::Px(POINT_VIEW_WIDTH),
-                height: Val::Px(POINT_VIEW_HEIGHT),
-                border: UiRect::all(Val::Px(2.0)),
-                display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::all(Val::Px(18.0)),
-                ..Default::default()
-            },
-            BorderColor::all(Color::srgb(0.82, 0.62, 0.2)),
-            BackgroundColor(Color::srgba(0.08, 0.02, 0.02, 0.82)),
+            PointViewBundle::new("PowerPointView", point_model),
+            PointLocationView::new(location_index, side),
+            node,
+            BackgroundColor(Color::srgba(0.18, 0.02, 0.02, 0.9)),
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(model.display_text()),
+                Text::new(point_model.display_text()),
                 TextFont {
                     font_size: 22.0,
                     ..Default::default()
@@ -878,10 +1076,11 @@ fn spawn_card_cost_point_view(
     text_translation: Vec3,
     is_visible: bool,
 ) {
+    let point_model = PointModel::from_cost_point(model);
     spawn_card_point_background(
         parent,
-        Name::new("Card CostPointView Background"),
-        CostPointView::new(model),
+        "Card EnergyPointView Background",
+        point_model,
         background_mesh,
         background_material,
         background_translation,
@@ -889,8 +1088,8 @@ fn spawn_card_cost_point_view(
     );
     spawn_card_point_text(
         parent,
-        Name::new("Card CostPointView Text"),
-        model.display_text(),
+        Name::new("Card EnergyPointView Text"),
+        point_model.display_text(),
         horizontal_digit_mesh,
         vertical_digit_mesh,
         digit_material,
@@ -911,10 +1110,11 @@ fn spawn_card_power_point_view(
     text_translation: Vec3,
     is_visible: bool,
 ) {
+    let point_model = PointModel::from_power_point(PointType::CardPower, model);
     spawn_card_point_background(
         parent,
-        Name::new("Card PowerPointView Background"),
-        PowerPointView::new(model),
+        "Card PowerPointView Background",
+        point_model,
         background_mesh,
         background_material,
         background_translation,
@@ -923,7 +1123,7 @@ fn spawn_card_power_point_view(
     spawn_card_point_text(
         parent,
         Name::new("Card PowerPointView Text"),
-        model.display_text(),
+        point_model.display_text(),
         horizontal_digit_mesh,
         vertical_digit_mesh,
         digit_material,
@@ -937,16 +1137,22 @@ fn spawn_card_power_point_view(
 pub fn update_location_power_points(
     slot_board: Res<CardSlotBoardModel>,
     card_model_registry: Res<CardModelRegistry>,
-    mut power_query: Query<(&LocationPowerPointView, &mut PowerPointView, &Children)>,
+    game_hand_model: Res<GameHandModel>,
+    mut power_query: Query<(&PointLocationView, &mut PointView, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
     for (location_power_view, mut power_view, children) in &mut power_query {
+        if power_view.model.point_type != PointType::LocationPower {
+            continue;
+        }
         let next_model = location_side_power_total(
             &slot_board,
             &card_model_registry,
+            game_hand_model.cards.as_slice(),
             location_power_view.location_index,
             location_power_view.side,
         );
+        let next_model = PointModel::from_power_point(PointType::LocationPower, next_model);
         if power_view.model == next_model {
             continue;
         }
@@ -964,28 +1170,32 @@ pub fn update_location_power_points(
 fn location_side_power_total(
     slot_board: &CardSlotBoardModel,
     card_model_registry: &CardModelRegistry,
+    game_hand_cards: &[String],
     location_index: usize,
     side: CardSlotSide,
 ) -> PowerPointModel {
-    let card_models: Vec<_> = card_model_registry.card_models().collect();
     let total = slot_board
         .slots()
         .filter(|slot| slot.location_index == location_index && slot.side == side)
         .filter_map(|slot| match slot.state {
             CardSlotState::Empty => None,
-            CardSlotState::Populated { hand_index } => card_models
+            CardSlotState::Populated { hand_index } => game_hand_cards
                 .get(hand_index)
-                .map(|card_model| card_model.base_power.value),
+                .and_then(|card_id| {
+                    card_model_registry
+                        .card_model_for_id(card_id)
+                        .map(|card_model| card_model.base_power.value)
+                }),
         })
         .sum();
 
     PowerPointModel::new(total)
 }
 
-fn spawn_card_point_background<M: Component>(
+fn spawn_card_point_background(
     parent: &mut ChildSpawnerCommands,
-    name: Name,
-    marker: M,
+    name: &str,
+    point_model: PointModel,
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
     translation: Vec3,
@@ -993,8 +1203,7 @@ fn spawn_card_point_background<M: Component>(
 ) {
     parent
         .spawn((
-            name,
-            marker,
+            PointViewBundle::new(name, point_model),
             Mesh3d(mesh),
             MeshMaterial3d(material),
             Transform::from_translation(translation),
@@ -1235,23 +1444,43 @@ fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     ));
 }
 
+fn game_view_hand_area_min() -> Vec2 {
+    Vec2::new(GAME_SCENE_HAND_LEFT, GAME_SCENE_HAND_TOP)
+}
+
+fn game_view_hand_area_size() -> Vec2 {
+    Vec2::new(GAME_SCENE_HAND_WIDTH, GAME_SCENE_HAND_HEIGHT)
+}
+
+fn game_view_hand_card_size() -> Vec2 {
+    Vec2::new(GAME_SCENE_HAND_CARD_WIDTH, GAME_SCENE_HAND_CARD_HEIGHT)
+}
+
+// HUMAN: Size and position hand cards using shared hand-area geometry.
+// AI: Use a single source of truth for card height and group centering calculations.
 fn spawn_game_view_hand_cards(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
     card_model_registry: &CardModelRegistry,
+    game_hand_cards: &[String],
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
-    let cards: Vec<CardModel> = card_model_registry.card_models().cloned().collect();
-    let hitboxes = game_view_card_hitboxes_for_count(cards.len());
+    let card_models: Vec<CardModel> = game_hand_cards
+        .iter()
+        .filter_map(|card_id| card_model_registry.card_model_for_id(card_id))
+        .cloned()
+        .collect();
+    let hitboxes = game_view_card_hitboxes_for_count(card_models.len());
+    let card_size = game_view_hand_card_size();
     let card_world_scale = game_view_world_height_for_game_view_height(
-        GAME_SCENE_HAND_CARD_HEIGHT,
+        card_size.y,
         GAME_SCENE_HAND_CARD_WORLD_Z,
     ) / card_defaults.height;
 
-    for (index, card_model) in cards.into_iter().enumerate() {
+    for (index, card_model) in card_models.into_iter().enumerate() {
         let (card_min, card_max) = hitboxes[index];
         let card_position = game_view_world_position_from_game_view(
             (card_min + card_max) * 0.5,
@@ -1352,26 +1581,30 @@ fn spawn_debug_settings_light(commands: &mut Commands) -> Entity {
 }
 
 /// HUMAN: Spawns the deck builder sub-screen view.
-/// AI: DeckBuilderScene presents a CardView built from the active CardModel.
+/// AI: DeckBuilderScene now renders a deck list and deck card list (no CardView cards).
 pub fn setup_deck_builder_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     camera_defaults: Res<PrimaryCameraDefaults>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
-    active_card_model: Res<ActiveCardModel>,
+    player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
 ) {
+    let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
+    let player_deck_collection = player_deck_collection
+        .as_deref()
+        .unwrap_or(&fallback_player_deck_collection);
     spawn_deck_builder_scene_contents(
         &mut commands,
         &asset_server,
         &camera_defaults,
         &card_defaults,
         &card_model_registry,
-        &active_card_model,
+        &player_deck_collection,
         &mut meshes,
         &mut materials,
         masked_background_materials.map(|materials| materials.into_inner()),
@@ -1383,17 +1616,17 @@ pub fn setup_deck_builder_scene(
 
 fn spawn_deck_builder_scene_contents(
     commands: &mut Commands,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
-    card_defaults: &CardInspectionDefaults,
+    _card_defaults: &CardInspectionDefaults,
     card_model_registry: &CardModelRegistry,
-    active_card_model: &ActiveCardModel,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    player_deck_collection: &PlayerDeckCollectionModel,
+    _meshes: &mut Assets<Mesh>,
+    _materials: &mut Assets<StandardMaterial>,
+    _masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     _app_scene_parent: Option<Entity>,
-    visible_face: CardFace,
-    initial_rotation: Quat,
+    _visible_face: CardFace,
+    _initial_rotation: Quat,
 ) {
     let scene_root = commands
         .spawn((
@@ -1408,28 +1641,149 @@ fn spawn_deck_builder_scene_contents(
     let camera = spawn_primary_camera(commands, camera_defaults);
     let ui_camera = spawn_deck_builder_ui_camera(commands);
     let light = spawn_deck_builder_light(commands);
-    let card = spawn_card_structure(
-        commands,
-        asset_server,
-        card_defaults,
-        card_model_registry,
-        active_card_model,
-        meshes,
-        materials,
-        masked_background_materials,
-        visible_face,
-        initial_rotation,
-    );
+    let deck_cards = player_deck_collection
+        .primary_deck()
+        .filter(|deck| !deck.cards.is_empty())
+        .map(|deck| deck.cards.clone())
+                .unwrap_or_else(random_shuffled_default_deck_cards);
+    let deck_panel = commands
+        .spawn((
+            Name::new("DeckBuilder Content"),
+            DeckBuilderSceneEntity,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                column_gap: Val::Px(16.0),
+                ..Default::default()
+            },
+            Visibility::Visible,
+        ))
+        .id();
+    let deck_list_panel = commands
+        .spawn((
+            Name::new("Deck List"),
+            Node {
+                width: Val::Percent(24.0),
+                height: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(16.0)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                row_gap: Val::Px(8.0),
+                ..Default::default()
+            },
+        ))
+        .id();
+    let card_list_panel = commands
+        .spawn((
+            Name::new("Deck Cards"),
+            Node {
+                width: Val::Percent(72.0),
+                height: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(16.0)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::FlexStart,
+                row_gap: Val::Px(10.0),
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    commands.entity(deck_list_panel).with_children(|parent| {
+        parent.spawn((
+            Name::new("Deck Name Button"),
+            Button,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(36.0),
+                padding: UiRect::all(Val::Px(8.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            BackgroundColor(Color::srgb(0.14, 0.14, 0.14)),
+            BorderColor::all(Color::srgba(0.34, 0.34, 0.34, 0.95)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(DEFAULT_DECK_NAME),
+                TextFont {
+                    font_size: 16.0,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+    });
+    commands.entity(card_list_panel).with_children(|parent| {
+        let card_count = deck_cards.len();
+        parent.spawn((
+            Name::new("Deck Cards Header"),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(28.0),
+                padding: UiRect::all(Val::Px(8.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::FlexStart,
+                ..Default::default()
+            },
+            TextColor(Color::WHITE),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(format!("Deck Cards ({card_count})")),
+                TextFont {
+                    font_size: 14.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ));
+        });
+
+        for card_id in &deck_cards {
+            let card_model = card_model_registry.card_model_for_id(card_id);
+            let card_label = card_model.map_or(card_id.as_str(), |card| card.display_name);
+            parent.spawn((
+                Name::new(format!("Deck Card Preview {card_label}")),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(34.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..Default::default()
+                },
+                BackgroundColor(Color::srgba(0.09, 0.09, 0.09, 0.85)),
+            BorderColor::all(Color::srgb(0.34, 0.34, 0.34)),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(card_label),
+                    TextFont {
+                        font_size: 12.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
+        }
+    });
     // Keep 3D content out of the UI node hierarchy so resize-driven UI layout
     // transforms cannot move or scale the deck builder presentation.
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
     commands.entity(scene_root).add_child(light);
-    commands.entity(scene_root).add_child(card);
-    commands
-        .entity(card)
-        .insert(DeckBuilderSceneEntity)
-        .observe(card_click_navigation);
+    commands.entity(scene_root).add_child(deck_panel);
+    commands.entity(deck_panel).add_child(deck_list_panel);
+    commands.entity(deck_panel).add_child(card_list_panel);
 }
 
 /// HUMAN: Spawns the debug settings sub-screen scene.
@@ -1499,7 +1853,7 @@ fn spawn_debug_settings_scene_contents(
         materials,
         masked_background_materials,
         visible_face,
-        initial_rotation,
+        debug_settings_scene_card_transform(card_defaults, initial_rotation),
     );
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
@@ -1531,7 +1885,11 @@ pub fn setup_card_placeholder(
         &mut materials,
         masked_background_materials.map(|materials| materials.into_inner()),
         CardFace::Front,
-        Quat::IDENTITY,
+        Transform {
+            translation: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: Vec3::splat(deck_builder_centered_card_scale(&card_defaults)),
+        },
     );
 }
 
@@ -1545,7 +1903,7 @@ fn spawn_card_structure(
     materials: &mut Assets<StandardMaterial>,
     masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     visible_face: CardFace,
-    initial_rotation: Quat,
+    transform: Transform,
 ) -> Entity {
     let card_model = card_model_registry
         .active_card_model(&active_card_model)
@@ -1560,12 +1918,36 @@ fn spawn_card_structure(
         materials,
         masked_background_materials,
         visible_face,
-        Transform {
-            translation: Vec3::ZERO,
-            rotation: initial_rotation,
-            scale: Vec3::splat(deck_builder_centered_card_scale(card_defaults)),
-        },
+        transform,
     )
+}
+
+/// HUMAN: Positions the DebugSettingsScene card near the card control panel.
+/// AI: Size uses Card UI width and offsets by a fixed gap so the model and UI sit beside each other.
+fn debug_settings_scene_card_transform(
+    card_defaults: &CardInspectionDefaults,
+    rotation: Quat,
+) -> Transform {
+    let target_card_width = DEBUG_WINDOW_WIDTH;
+    let target_card_scale =
+        game_view_world_width_for_game_view_width(target_card_width, 0.0) / card_defaults.width;
+    let target_card_height = target_card_width / (card_defaults.width / card_defaults.height);
+    let card_center = game_view_world_position_from_game_view(
+        Vec2::new(
+            GAME_VIEW_WIDTH
+                - SCREEN_PADDING_LEFT
+                - DEBUG_SETTINGS_CARD_GAP_TO_CARD_UI
+                - (target_card_width * 1.5),
+            SCREEN_PADDING_TOP + (target_card_height * 0.5),
+        ),
+        0.0,
+    );
+
+    Transform {
+        translation: card_center,
+        rotation,
+        scale: Vec3::splat(target_card_scale),
+    }
 }
 
 fn spawn_card_structure_for_type(
@@ -1656,14 +2038,14 @@ fn spawn_card_structure_for_type(
         (CARD_POINT_DIGIT_HEIGHT - CARD_POINT_DIGIT_STROKE) * 0.5,
     ));
     let cost_point_background_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.06, 0.22, 0.78),
+        base_color: Color::srgb(0.04, 0.18, 0.60),
         alpha_mode: AlphaMode::Opaque,
         depth_bias: POINT_DEPTH_BIAS,
         unlit: true,
         ..Default::default()
     });
     let power_point_background_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.62, 0.05, 0.08),
+        base_color: Color::srgb(0.74, 0.18, 0.18),
         alpha_mode: AlphaMode::Opaque,
         depth_bias: POINT_DEPTH_BIAS,
         unlit: true,
@@ -1795,11 +2177,11 @@ fn spawn_card_structure_for_type(
             false,
             visible_face == CardFace::Front,
         );
-        spawn_card_cost_point_view(
+        spawn_card_power_point_view(
             parent,
-            card_model.cost,
-            cost_point_background_mesh,
-            cost_point_background_material,
+            card_model.base_power,
+            power_point_background_mesh,
+            power_point_background_material,
             horizontal_digit_mesh.clone(),
             vertical_digit_mesh.clone(),
             point_digit_material.clone(),
@@ -1807,13 +2189,13 @@ fn spawn_card_structure_for_type(
             Vec3::new(-cost_point_x, point_y, point_text_z),
             visible_face == CardFace::Front,
         );
-        spawn_card_power_point_view(
+        spawn_card_cost_point_view(
             parent,
-            card_model.base_power,
-            power_point_background_mesh,
-            power_point_background_material,
-            horizontal_digit_mesh,
-            vertical_digit_mesh,
+            card_model.cost,
+            cost_point_background_mesh,
+            cost_point_background_material,
+            horizontal_digit_mesh.clone(),
+            vertical_digit_mesh.clone(),
             point_digit_material,
             Vec3::new(power_point_x, -point_y, point_background_z),
             Vec3::new(power_point_x, -point_y, point_text_z),
@@ -2522,15 +2904,35 @@ fn next_card_ui_depth_factor(current: f32) -> f32 {
 }
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
+#[derive(SystemParam)]
+pub struct RestartAppSceneParams<'w, 's> {
+    keys: Res<'w, ButtonInput<KeyCode>>,
+    active_card_model: Res<'w, ActiveCardModel>,
+    player_deck_collection: Option<Res<'w, PlayerDeckCollectionModel>>,
+    flip_state: ResMut<'w, CardFlipState>,
+    ticks: ResMut<'w, GameTicks>,
+    gesture_model: Option<ResMut<'w, CardGestureModel>>,
+    game_deck_model: Option<ResMut<'w, GameDeckModel>>,
+    card_states: Option<ResMut<'w, CardStateModel>>,
+    scene: ViewChangeParams<'w, 's>,
+}
+
+#[cfg_attr(feature = "desktop-hot-reload", hot)]
 pub fn restart_app_scene(
-    keys: Res<ButtonInput<KeyCode>>,
-    active_card_model: Res<ActiveCardModel>,
-    mut flip_state: ResMut<CardFlipState>,
-    mut ticks: ResMut<GameTicks>,
-    mut gesture_model: Option<ResMut<CardGestureModel>>,
-    mut card_states: Option<ResMut<CardStateModel>>,
-    mut scene: ViewChangeParams,
+    params: RestartAppSceneParams,
 ) {
+    let RestartAppSceneParams {
+        keys,
+        active_card_model,
+        player_deck_collection,
+    mut flip_state,
+    mut ticks,
+    mut gesture_model,
+    mut game_deck_model,
+    mut card_states,
+    mut scene,
+} = params;
+
     if !keys.just_pressed(KeyCode::KeyR) {
         return;
     }
@@ -2539,6 +2941,9 @@ pub fn restart_app_scene(
         gesture_model.as_deref_mut(),
         scene.slot_board.as_deref_mut(),
         card_states.as_deref_mut(),
+        game_deck_model.as_deref_mut(),
+        scene.game_hand_model.as_deref_mut(),
+        player_deck_collection.as_deref(),
     );
     *scene.active_view = ActiveView::GameView;
     scene.reload_app_scene_and_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
@@ -2551,6 +2956,9 @@ fn reset_game_model(
     gesture_model: Option<&mut CardGestureModel>,
     slot_board: Option<&mut CardSlotBoardModel>,
     card_states: Option<&mut CardStateModel>,
+    game_deck_model: Option<&mut GameDeckModel>,
+    game_hand_model: Option<&mut GameHandModel>,
+    player_deck_collection: Option<&PlayerDeckCollectionModel>,
 ) {
     if let Some(gesture_model) = gesture_model {
         *gesture_model = CardGestureModel::default();
@@ -2558,8 +2966,18 @@ fn reset_game_model(
     if let Some(slot_board) = slot_board {
         *slot_board = CardSlotBoardModel::default();
     }
-    if let Some(card_states) = card_states {
+    if let Some(mut card_states) = card_states {
         *card_states = CardStateModel::default();
+        if let (Some(game_deck_model), Some(game_hand_model), Some(player_deck_collection)) =
+            (game_deck_model, game_hand_model, player_deck_collection)
+        {
+            initialize_game_models_for_player(
+                player_deck_collection,
+                game_deck_model,
+                game_hand_model,
+                &mut card_states,
+            );
+        }
     }
 }
 
@@ -2596,7 +3014,9 @@ pub fn hot_reload_auto_restart_app_scene(
         return;
     }
 
-    debug_drawing_model.request_reference_layout();
+    let fallback_slot_board = CardSlotBoardModel::default();
+    let slot_board = scene.slot_board.as_deref().unwrap_or(&fallback_slot_board);
+    debug_drawing_model.request_reference_layout(slot_board);
     scene.reload_app_scene_and_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
@@ -2681,6 +3101,8 @@ pub struct ViewChangeParams<'w, 's> {
     active_world_model: ResMut<'w, ActiveWorldModel>,
     location_model_registry: Res<'w, LocationModelRegistry>,
     active_locations: ResMut<'w, ActiveLocations>,
+    player_deck_collection: Option<Res<'w, PlayerDeckCollectionModel>>,
+    game_hand_model: Option<ResMut<'w, GameHandModel>>,
     card_state: ResMut<'w, CardInspectionState>,
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
@@ -2718,6 +3140,8 @@ impl ViewChangeParams<'_, '_> {
     fn spawn_game_view(&mut self, active_card_model: &ActiveCardModel) {
         let fallback_slot_board = CardSlotBoardModel::default();
         let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
+        let fallback_hand = GameHandModel::default();
+        let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
         spawn_game_view_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
@@ -2726,6 +3150,7 @@ impl ViewChangeParams<'_, '_> {
             &self.camera_defaults,
             &self.card_defaults,
             &self.card_model_registry,
+            game_hand_model.cards.as_slice(),
             slot_board,
             active_card_model,
             &self.world_model_registry,
@@ -2745,19 +3170,25 @@ impl ViewChangeParams<'_, '_> {
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
+        let _ = (active_card_model, visible_face, initial_rotation);
+        let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
+        let player_deck_collection =
+            self.player_deck_collection
+                .as_deref()
+                .unwrap_or(&fallback_player_deck_collection);
         spawn_deck_builder_scene_contents(
             &mut self.commands,
             &self.asset_server,
             &self.camera_defaults,
             &self.card_defaults,
             &self.card_model_registry,
-            active_card_model,
+            player_deck_collection,
             &mut self.meshes,
             &mut self.materials,
             self.masked_background_materials.as_deref_mut(),
             self.app_scene_query.single().ok(),
-            visible_face,
-            initial_rotation,
+            CardFace::Front,
+            Quat::IDENTITY,
         );
     }
 
@@ -2794,6 +3225,8 @@ impl ViewChangeParams<'_, '_> {
                 self.despawn_game_view();
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
+                let fallback_hand = GameHandModel::default();
+                let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
                 spawn_game_view_contents(
                     &mut self.commands,
                     self.app_scene_query.single().ok(),
@@ -2802,6 +3235,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
+                    game_hand_model.cards.as_slice(),
                     slot_board,
                     active_card_model,
                     &self.world_model_registry,
@@ -2815,19 +3249,24 @@ impl ViewChangeParams<'_, '_> {
             }
             ActiveView::DeckBuilderScene => {
                 self.despawn_deck_builder_scene();
+                let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
+                let player_deck_collection =
+                    self.player_deck_collection
+                        .as_deref()
+                        .unwrap_or(&fallback_player_deck_collection);
                 spawn_deck_builder_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
-                    active_card_model,
+                    player_deck_collection,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                     self.app_scene_query.single().ok(),
-                    visible_face,
-                    initial_rotation,
+                    CardFace::Front,
+                    Quat::IDENTITY,
                 );
             }
             ActiveView::DebugSettingsScene => {
@@ -2872,6 +3311,8 @@ impl ViewChangeParams<'_, '_> {
             ActiveView::GameView => {
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
+                let fallback_hand = GameHandModel::default();
+                let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
                 spawn_game_view_contents(
                     &mut self.commands,
                     Some(app_scene),
@@ -2880,6 +3321,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
+                    game_hand_model.cards.as_slice(),
                     slot_board,
                     active_card_model,
                     &self.world_model_registry,
@@ -2892,19 +3334,24 @@ impl ViewChangeParams<'_, '_> {
                 );
             }
             ActiveView::DeckBuilderScene => {
+                let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
+                let player_deck_collection =
+                    self.player_deck_collection
+                        .as_deref()
+                        .unwrap_or(&fallback_player_deck_collection);
                 spawn_deck_builder_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
-                    active_card_model,
+                    player_deck_collection,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                     Some(app_scene),
-                    visible_face,
-                    initial_rotation,
+                    CardFace::Front,
+                    Quat::IDENTITY,
                 );
             }
             ActiveView::DebugSettingsScene => {
@@ -3151,27 +3598,29 @@ fn game_view_pointer_to_window(pointer_position: Vec2, window_size: Vec2) -> Vec
 }
 
 fn game_view_card_hitboxes() -> Vec<(Vec2, Vec2)> {
-    game_view_card_hitboxes_for_count(4)
+    game_view_card_hitboxes_for_count(STARTING_HAND_CARD_COUNT)
 }
 
+// HUMAN: Builds hand-row hitboxes directly from hand area geometry for stable gestures.
+// AI: Uses the hand-area card size for row centering and spacing behavior.
 fn game_view_card_hitboxes_for_count(card_count: usize) -> Vec<(Vec2, Vec2)> {
     if card_count == 0 {
         return Vec::new();
     }
 
-    let hand_min = Vec2::new(GAME_SCENE_HAND_LEFT, GAME_SCENE_HAND_TOP);
-    let hand_size = Vec2::new(GAME_SCENE_HAND_WIDTH, GAME_SCENE_HAND_HEIGHT);
-    let card_size = Vec2::new(GAME_SCENE_HAND_CARD_WIDTH, GAME_SCENE_HAND_CARD_HEIGHT);
-    let row_width = (GAME_SCENE_HAND_CARD_WIDTH * card_count as f32)
+    let hand_min = game_view_hand_area_min();
+    let hand_size = game_view_hand_area_size();
+    let card_size = game_view_hand_card_size();
+    let row_width = (card_size.x * card_count as f32)
         + (GAME_SCENE_HAND_CARD_GAP * card_count.saturating_sub(1) as f32);
-    let row_height = GAME_SCENE_HAND_CARD_HEIGHT;
+    let row_height = card_size.y;
     let row_min = hand_min + ((hand_size - Vec2::new(row_width, row_height)) * 0.5).max(Vec2::ZERO);
 
     (0..card_count)
         .map(|index| {
             let card_min = row_min
                 + Vec2::new(
-                    index as f32 * (GAME_SCENE_HAND_CARD_WIDTH + GAME_SCENE_HAND_CARD_GAP),
+                    index as f32 * (card_size.x + GAME_SCENE_HAND_CARD_GAP),
                     0.0,
                 );
             (card_min, card_min + card_size.min(hand_size))
@@ -3271,6 +3720,33 @@ pub fn load_saved_card_settings(
     if let Some(settings) = persistent_settings {
         settings.apply_to_state(&mut card_ui_state);
     }
+}
+
+pub fn load_saved_player_deck_collection(
+    mut player_deck_collection: ResMut<PlayerDeckCollectionModel>,
+    persistent_player_decks: Option<Res<Persistent<PlayerDeckCollectionModel>>>,
+) {
+    let mut loaded_model = if let Some(persistent_player_decks) = persistent_player_decks.as_ref() {
+        (**persistent_player_decks).clone()
+    } else {
+        player_deck_collection.as_ref().clone()
+    };
+    loaded_model = ensure_player_deck_collection_model(loaded_model);
+    *player_deck_collection = loaded_model;
+}
+
+pub fn initialize_game_models(
+    player_deck_collection: Res<PlayerDeckCollectionModel>,
+    mut game_deck_model: ResMut<GameDeckModel>,
+    mut game_hand_model: ResMut<GameHandModel>,
+    mut card_states: ResMut<CardStateModel>,
+) {
+    initialize_game_models_for_player(
+        &player_deck_collection,
+        &mut game_deck_model,
+        &mut game_hand_model,
+        &mut card_states,
+    );
 }
 
 pub fn advance_ticks(mut ticks: ResMut<GameTicks>) {
@@ -3931,10 +4407,7 @@ pub fn card_ui(world: &mut World) {
 }
 
 fn should_show_card_ui(active_view: ActiveView) -> bool {
-    matches!(
-        active_view,
-        ActiveView::DeckBuilderScene | ActiveView::DebugSettingsScene
-    )
+    matches!(active_view, ActiveView::DebugSettingsScene)
 }
 
 fn depth_factor_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -4582,11 +5055,16 @@ mod tests {
             .world_mut()
             .query_filtered::<&Transform, (With<CardView>, With<DebugSettingsSceneEntity>)>();
         let card_transform = card_query.single(app.world()).unwrap();
-        let expected_card_scale =
-            deck_builder_centered_card_scale(app.world().resource::<CardInspectionDefaults>());
-        assert_close(card_transform.scale.x, expected_card_scale);
-        assert_close(card_transform.scale.y, expected_card_scale);
-        assert_close(card_transform.scale.z, expected_card_scale);
+        let expected_transform = debug_settings_scene_card_transform(
+            app.world().resource::<CardInspectionDefaults>(),
+            Quat::IDENTITY,
+        );
+        assert_close(card_transform.translation.x, expected_transform.translation.x);
+        assert_close(card_transform.translation.y, expected_transform.translation.y);
+        assert_close(card_transform.translation.z, expected_transform.translation.z);
+        assert_close(card_transform.scale.x, expected_transform.scale.x);
+        assert_close(card_transform.scale.y, expected_transform.scale.y);
+        assert_close(card_transform.scale.z, expected_transform.scale.z);
     }
 
     #[test]
@@ -4613,34 +5091,46 @@ mod tests {
                 .clone()
         };
 
-        let mut cost_query = app
+        let mut energy_query = app
             .world_mut()
-            .query::<(&Name, &CostPointView, &Visibility)>();
-        let cost_views: Vec<(String, CostPointModel, Visibility)> = cost_query
+            .query::<(&Name, &PointView, &Visibility)>();
+        let energy_views: Vec<(String, i32, Visibility)> = energy_query
             .iter(app.world())
-            .map(|(name, view, visibility)| (name.to_string(), view.model, *visibility))
+            .filter_map(|(name, view, visibility)| {
+                (view.model.point_type == PointType::CardEnergy).then_some((
+                    name.to_string(),
+                    view.model.value,
+                    *visibility,
+                ))
+            })
             .collect();
         assert_eq!(
-            cost_views,
+            energy_views,
             vec![(
-                "Card CostPointView Background".to_string(),
-                active_card.cost,
+                "Card EnergyPointView Background".to_string(),
+                active_card.cost.value,
                 Visibility::Visible,
             )]
         );
 
         let mut power_query = app
             .world_mut()
-            .query_filtered::<(&Name, &PowerPointView, &Visibility), Without<GameLocation>>();
-        let power_views: Vec<(String, PowerPointModel, Visibility)> = power_query
+            .query_filtered::<(&Name, &PointView, &Visibility), Without<GameLocation>>();
+        let power_views: Vec<(String, i32, Visibility)> = power_query
             .iter(app.world())
-            .map(|(name, view, visibility)| (name.to_string(), view.model, *visibility))
+            .filter_map(|(name, view, visibility)| {
+                (view.model.point_type == PointType::CardPower).then_some((
+                    name.to_string(),
+                    view.model.value,
+                    *visibility,
+                ))
+            })
             .collect();
         assert_eq!(
             power_views,
             vec![(
                 "Card PowerPointView Background".to_string(),
-                active_card.base_power,
+                active_card.base_power.value,
                 Visibility::Visible,
             )]
         );
@@ -4649,7 +5139,7 @@ mod tests {
         let cost_glyph_count = glyph_query
             .iter(app.world())
             .filter(|(name, visibility)| {
-                name.as_str() == "Card CostPointView Text Glyph"
+                name.as_str() == "Card EnergyPointView Text Glyph"
                     && **visibility == Visibility::Visible
             })
             .count();
@@ -4889,16 +5379,16 @@ mod tests {
             .map(|hint| hint.location_index)
             .collect();
         assert_eq!(drop_target_hints, vec![0, 1, 2]);
-        let mut point_view_query = app.world_mut().query::<(&Name, &PowerPointView)>();
+        let mut point_view_query = app.world_mut().query::<(&Name, &PointView)>();
         let point_view_values: Vec<i32> = point_view_query
             .iter(app.world())
-            .filter(|(name, _)| name.as_str() == "PowerPointView")
+            .filter(|(_, point_view)| point_view.model.point_type == PointType::LocationPower)
             .map(|(_, point_view)| point_view.model.value)
             .collect();
         assert_eq!(point_view_values, vec![0, 0, 0, 0, 0, 0]);
         let mut location_power_query = app
             .world_mut()
-            .query::<(&LocationPowerPointView, &PowerPointView)>();
+            .query::<(&PointLocationView, &PointView)>();
         let location_power_views: Vec<(usize, CardSlotSide, i32)> = location_power_query
             .iter(app.world())
             .map(|(location_power_view, point_view)| {
@@ -4938,7 +5428,7 @@ mod tests {
                 .partial_cmp(&right.translation.x)
                 .unwrap()
         });
-        assert_eq!(preview_transforms.len(), 4);
+            assert_eq!(preview_transforms.len(), STARTING_HAND_CARD_COUNT);
 
         let expected_scale = game_view_world_height_for_game_view_height(
             GAME_SCENE_HAND_CARD_HEIGHT,
@@ -4992,8 +5482,8 @@ mod tests {
         let power_view = app
             .world_mut()
             .spawn((
-                PowerPointView::new(PowerPointModel::new(0)),
-                LocationPowerPointView::new(1, CardSlotSide::LocalPlayer),
+                PointView::new(PointModel::location_power(0)),
+                PointLocationView::new(1, CardSlotSide::LocalPlayer),
             ))
             .with_children(|parent| {
                 parent.spawn(Text::new("0"));
@@ -5017,10 +5507,10 @@ mod tests {
         assert_eq!(
             app.world()
                 .entity(power_view)
-                .get::<PowerPointView>()
+                .get::<PointView>()
                 .unwrap()
                 .model,
-            PowerPointModel::new(expected_total)
+            PointModel::location_power(expected_total)
         );
         let text_child = app
             .world()
@@ -5034,6 +5524,74 @@ mod tests {
             app.world().entity(text_child).get::<Text>().unwrap().0,
             expected_total.to_string()
         );
+    }
+
+    #[test]
+    fn location_power_update_ignores_non_location_point_types() {
+        let mut app = App::new();
+        app.init_resource::<CardSlotBoardModel>()
+            .init_resource::<CardModelRegistry>()
+            .add_systems(Update, update_location_power_points);
+
+        let non_location_point = app
+            .world_mut()
+            .spawn((
+                PointView::new(PointModel::card_power(11)),
+                PointLocationView::new(0, CardSlotSide::LocalPlayer),
+            ))
+            .with_children(|parent| {
+                parent.spawn(Text::new("11"));
+            })
+            .id();
+
+        let location_power_point = app
+            .world_mut()
+            .spawn((
+                PointView::new(PointModel::location_power(0)),
+                PointLocationView::new(0, CardSlotSide::LocalPlayer),
+            ))
+            .with_children(|parent| {
+                parent.spawn(Text::new("0"));
+            })
+            .id();
+
+        {
+            let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+            assert_eq!(slots.place_next_local(0, 0), Some(0));
+        }
+
+        let expected_total = app
+            .world()
+            .resource::<CardModelRegistry>()
+            .card_models()
+            .next()
+            .unwrap()
+            .base_power
+            .value;
+
+        app.update();
+
+        let non_location_view = app.world().entity(non_location_point).get::<PointView>().unwrap();
+        assert_eq!(non_location_view.model, PointModel::card_power(11));
+        let non_location_text = app
+            .world()
+            .entity(non_location_point)
+            .get::<Children>()
+            .unwrap()
+            .first()
+            .copied()
+            .unwrap();
+        assert_eq!(
+            app.world().entity(non_location_text).get::<Text>().unwrap().0,
+            "11".to_string()
+        );
+
+        let location_power_view = app
+            .world()
+            .entity(location_power_point)
+            .get::<PointView>()
+            .unwrap();
+        assert_eq!(location_power_view.model, PointModel::location_power(expected_total));
     }
 
     #[test]
@@ -5083,7 +5641,7 @@ mod tests {
             (&Name, &Transform, &GlobalTransform),
             With<LocalPlayerHandCardPreview>,
         >();
-        assert_eq!(preview_query.iter(app.world()).count(), 4);
+        assert_eq!(preview_query.iter(app.world()).count(), STARTING_HAND_CARD_COUNT);
     }
 
     #[test]
@@ -5114,7 +5672,7 @@ mod tests {
             Without<DeckBuilderSceneEntity>,
         )>();
         let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
-        assert_eq!(initial_transforms.len(), 4);
+        assert_eq!(initial_transforms.len(), STARTING_HAND_CARD_COUNT);
 
         app.update();
 
@@ -5137,7 +5695,7 @@ mod tests {
         );
 
         let hitboxes = game_view_card_hitboxes();
-        assert_eq!(hitboxes.len(), 4);
+        assert_eq!(hitboxes.len(), STARTING_HAND_CARD_COUNT);
         let (card_min, card_max) = hitboxes[0];
         let card_center = (card_min + card_max) * 0.5;
         let window_card_center = game_view_pointer_to_window(card_center, window_size);
@@ -5163,13 +5721,14 @@ mod tests {
             window_size
         ));
 
-        let last_center = (hitboxes[3].0 + hitboxes[3].1) * 0.5;
+        let last_index = STARTING_HAND_CARD_COUNT - 1;
+        let last_center = (hitboxes[last_index].0 + hitboxes[last_index].1) * 0.5;
         assert_eq!(
             game_view_card_index_at(
                 game_view_pointer_to_window(last_center, window_size),
                 window_size
             ),
-            Some(3)
+            Some(last_index)
         );
     }
 
@@ -5190,12 +5749,13 @@ mod tests {
         );
         assert_close(group_center.x, hand_center.x);
         assert_close(group_center.y, hand_center.y);
-        assert_close(last_max.y - first_min.y, GAME_SCENE_HAND_HEIGHT);
+        assert_close(last_max.y - first_min.y, GAME_SCENE_HAND_CARD_HEIGHT);
 
         let one_hitbox = game_view_card_hitboxes_for_count(1);
         let (single_min, single_max) = one_hitbox[0];
         assert_close(((single_min + single_max) * 0.5).x, hand_center.x);
         assert_close(((single_min + single_max) * 0.5).y, hand_center.y);
+        assert_close(single_max.y - single_min.y, GAME_SCENE_HAND_CARD_HEIGHT);
     }
 
     #[test]
@@ -5277,9 +5837,9 @@ mod tests {
     }
 
     #[test]
-    fn card_ui_visibility_follows_deck_builder_scene() {
+    fn card_ui_visibility_follows_active_view() {
         assert!(!should_show_card_ui(ActiveView::GameView));
-        assert!(should_show_card_ui(ActiveView::DeckBuilderScene));
+        assert!(!should_show_card_ui(ActiveView::DeckBuilderScene));
         assert!(should_show_card_ui(ActiveView::DebugSettingsScene));
     }
 
@@ -6526,7 +7086,7 @@ mod tests {
         let mut card_query = app
             .world_mut()
             .query_filtered::<Entity, (With<CardView>, With<LocalPlayerHandCardPreview>)>();
-        assert_eq!(card_query.iter(app.world()).count(), 4);
+        assert_eq!(card_query.iter(app.world()).count(), STARTING_HAND_CARD_COUNT);
         assert_eq!(app.world().resource::<GameTicks>().0, 0);
         assert_eq!(
             app.world()

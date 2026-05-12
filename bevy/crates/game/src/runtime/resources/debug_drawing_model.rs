@@ -116,37 +116,36 @@ impl Default for DebugDrawingModel {
             requests: Vec::new(),
             next_generation: 0,
         };
-        model.request_reference_layout();
+        let slot_board = CardSlotBoardModel::default();
+        model.request_reference_layout(&slot_board);
         model
     }
 }
 
 impl DebugDrawingModel {
-    pub fn request_reference_layout(&mut self) {
+    /// HUMAN: Rebuild default debug annotations from runtime layout data.
+    /// AI: Keeps request geometry sourced from layout models instead of hardcoded coordinates.
+    pub fn request_reference_layout(&mut self, slot_board: &CardSlotBoardModel) {
         self.replace(
             DebugDrawingTarget::GameArea,
             "game area",
             DebugDrawingTarget::GameArea.quantized_rect(),
         );
-        self.replace(
-            DebugDrawingTarget::LocationAreaTwo,
-            "location area",
-            DebugDrawingTarget::LocationAreaTwo.quantized_rect(),
-        );
-        self.replace(
-            DebugDrawingTarget::LocationAreaThree,
-            "location area",
-            DebugDrawingTarget::LocationAreaThree.quantized_rect(),
-        );
-        self.replace(
-            DebugDrawingTarget::LocationAreaFour,
-            "location area",
-            DebugDrawingTarget::LocationAreaFour.quantized_rect(),
-        );
+        for (target, location_index, label) in [
+            (DebugDrawingTarget::LocationAreaTwo, 0, "location area 1"),
+            (DebugDrawingTarget::LocationAreaThree, 1, "location area 2"),
+            (DebugDrawingTarget::LocationAreaFour, 2, "location area 3"),
+        ] {
+            let rect = slot_board
+                .location_area_rect(location_index)
+                .map(DebugDrawingRect::from_card_slot_rect)
+                .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0));
+            self.replace(target, label, rect);
+        }
         for target in LOCATION_CARD_SLOT_QUADRANT_TARGETS {
             self.replace_with_color(
                 target,
-                "location area card slot",
+                "",
                 target.quantized_rect(),
                 DebugDrawingColor::blue(),
             );
@@ -248,15 +247,11 @@ impl DebugDrawingTarget {
     pub fn quantized_rect(self) -> DebugDrawingRect {
         match self {
             DebugDrawingTarget::GameArea => DebugDrawingRect::new(304.0, 0.0, 672.0, 800.0),
-            DebugDrawingTarget::LocationAreaTwo => {
-                DebugDrawingRect::new(364.0, 224.0, 184.0, 208.0)
-            }
-            DebugDrawingTarget::LocationAreaThree => {
-                DebugDrawingRect::new(548.0, 224.0, 184.0, 208.0)
-            }
-            DebugDrawingTarget::LocationAreaFour => {
-                DebugDrawingRect::new(732.0, 224.0, 184.0, 208.0)
-            }
+            DebugDrawingTarget::LocationAreaTwo
+            | DebugDrawingTarget::LocationAreaThree
+            | DebugDrawingTarget::LocationAreaFour => self
+                .runtime_rect(&CardSlotBoardModel::default())
+                .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0)),
             DebugDrawingTarget::LocationCardSlotTopLeftUpperLeft
             | DebugDrawingTarget::LocationCardSlotTopLeftUpperRight
             | DebugDrawingTarget::LocationCardSlotTopLeftLowerLeft
@@ -288,10 +283,24 @@ impl DebugDrawingTarget {
     }
 
     pub fn runtime_rect(self, slot_board: &CardSlotBoardModel) -> Option<DebugDrawingRect> {
+        if let Some(location_index) = self.location_area_index() {
+            return slot_board
+                .location_area_rect(location_index)
+                .map(DebugDrawingRect::from_card_slot_rect);
+        }
         let (location_index, side, slot_index) = self.card_slot_identity()?;
         slot_board
             .slot_rect(location_index, side, slot_index)
             .map(DebugDrawingRect::from_card_slot_rect)
+    }
+
+    fn location_area_index(self) -> Option<usize> {
+        match self {
+            DebugDrawingTarget::LocationAreaTwo => Some(0),
+            DebugDrawingTarget::LocationAreaThree => Some(1),
+            DebugDrawingTarget::LocationAreaFour => Some(2),
+            _ => None,
+        }
     }
 
     fn card_slot_identity(self) -> Option<(usize, CardSlotSide, usize)> {
@@ -379,6 +388,69 @@ mod tests {
                 .unwrap()
                 .rect
                 .left
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaTwo)
+                .unwrap()
+                .label,
+            "location area 1"
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaThree)
+                .unwrap()
+                .label,
+            "location area 2"
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaFour)
+                .unwrap()
+                .label,
+            "location area 3"
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft)
+                .unwrap()
+                .label,
+            ""
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::HandArea)
+                .unwrap()
+                .label,
+            "hand area"
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::GameArea)
+                .unwrap()
+                .label,
+            "game area"
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaTwo)
+                .unwrap()
+                .rect,
+            DebugDrawingRect::new(364.0, 224.0, 184.0, 208.0)
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaThree)
+                .unwrap()
+                .rect,
+            DebugDrawingRect::new(548.0, 224.0, 184.0, 208.0)
+        );
+        assert_eq!(
+            model
+                .request_for(DebugDrawingTarget::LocationAreaFour)
+                .unwrap()
+                .rect,
+            DebugDrawingRect::new(732.0, 224.0, 184.0, 208.0)
         );
         assert_eq!(
             model
