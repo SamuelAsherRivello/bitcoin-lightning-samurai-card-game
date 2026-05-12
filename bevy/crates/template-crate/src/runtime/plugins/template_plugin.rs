@@ -62,13 +62,5 @@ fn template_plugin_update_system(
 }
 
 #[cfg(test)]
-mod template_plugin_resource_tests {
-    use super::*;
-
-    #[test]
-    fn template_plugin_resource_when_default_is_called_sets_expected_values() {
-        let result = TemplatePluginResource::default();
-
-        assert_eq!(result.move_speed, 5.0);
-    }
-}
+#[path = "../../tests/runtime/plugins/template_plugin_resource_tests.rs"]
+mod template_plugin_resource_tests;

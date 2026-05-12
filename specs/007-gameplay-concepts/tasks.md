@@ -34,11 +34,11 @@
 - [ ] T006 [P] Create `CardDefinitionModel`, `CardInstanceModel`, `CardZone`, and the four-card master list in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
 - [ ] T007 [P] Add tests for card definition values and 12-card deck composition in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
 - [ ] T008 [P] Create `GameDeckModel` with randomized deck construction and remaining-card tracking in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
-- [ ] T009 [P] Add tests for energy-sorted deal selection, exact energy matching, partial matching, and no-match skipped deals in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
+- [X] T009 [P] Add tests for randomized-order deck deal selection, every-round scheduled deals, and partial-deck handling in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
 - [ ] T010 [P] Create `GameHandModel` with hand card ordering and centered safe-view layout data in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T011 [P] Add tests for hand append, return, removal, and centered layout overflow behavior in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T012 [P] Create `GameRoundModel`, round schedule helpers, and current-round move history records in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
-- [ ] T013 [P] Add tests for six-round energy, requested deal counts, required deal energy, round-6 End Turn, and move-history clearing in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
+- [ ] T013 [P] Add tests for six-round energy, requested deal counts, round-6 End Turn, and move-history clearing in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
 - [ ] T014 [P] Create `GameControlAction`, `GameControlButton`, and `GameControlView` components with required `HUMAN:`/`AI:` comments in `bevy/crates/game/src/runtime/components/game_control_component.rs`
 - [ ] T015 Add resource reset helpers that reset deck, hand, locations, slots, card gesture state, card states, round state, and control state in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
@@ -48,21 +48,21 @@
 
 ## Phase 3: User Story 5 - Play Local Round Progression (Priority: P1) MVP
 
-**Goal**: The near human player can play through six local rounds with eligible energy-matched deals, energy spending, undo, End Turn, and Restart.
+**Goal**: The near human player can play through six local rounds with cards dealt from deck to hand every round, energy spending, undo, End Turn, and Restart.
 
-**Independent Test**: Launch or inspect GameView and verify lower-right End Turn remains present, lower-left Restart and Undo are present, eligible cards deal by energy match, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
+**Independent Test**: Launch or inspect GameView and verify lower-right End Turn remains present, lower-left Restart and Undo are present, cards deal from deck to hand at the start of every round 1 through 6, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
 
 ### Tests for User Story 5
 
-- [ ] T016 [P] [US5] Add contract-style tests for the GameView round schedule and energy-matched eligible deal counts in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
-- [ ] T017 [P] [US5] Add deal-selection tests for round 1, round 2, round 3, and skipped rounds 4 through 6 with the initial deck in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
+- [X] T016 [P] [US5] Add contract-style tests for the GameView round schedule and every-round deck-to-hand deal counts in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
+- [X] T017 [P] [US5] Add deal-selection tests for rounds 1 through 6 with the initial deck, verifying deals occur every round with counts `1, 2, 3, 1, 1, 1` in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
 - [ ] T018 [P] [US5] Add hand recentering tests after deal, placement, undo, and restart in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T019 [P] [US5] Add integration tests for affordable placement, over-cost rejection, energy deduction, and energy restoration on undo in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T020 [P] [US5] Add restart reset tests for deck, hand, round, energy, slots, card states, gesture state, and move history in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
 ### Implementation for User Story 5
 
-- [ ] T021 [US5] Implement start-of-game and start-of-round eligible deal orchestration in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
+- [X] T021 [US5] Implement start-of-game and start-of-round deck-to-hand deal orchestration in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
 - [ ] T022 [US5] Spawn or update visible hand card entities from `GameHandModel` in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
 - [ ] T023 [US5] Animate dealt cards from below safe-view screen center into centered hand positions in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
 - [ ] T024 [US5] Add lower-left Restart and Undo controls under the aspect-ratio-safe HUD root in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
@@ -229,8 +229,8 @@
 ## Parallel Example: User Story 5
 
 ```text
-Task: "T016 [P] [US5] Add contract-style tests for the GameView round schedule and energy-matched eligible deal counts in bevy/crates/game/src/runtime/resources/game_round_model.rs"
-Task: "T017 [P] [US5] Add deal-selection tests for round 1, round 2, round 3, and skipped rounds 4 through 6 with the initial deck in bevy/crates/game/src/runtime/resources/game_deck_model.rs"
+Task: "T016 [P] [US5] Add contract-style tests for the GameView round schedule and every-round deck-to-hand deal counts in bevy/crates/game/src/runtime/resources/game_round_model.rs"
+Task: "T017 [P] [US5] Add deal-selection tests for rounds 1 through 6 with the initial deck, verifying deals occur every round with counts 1, 2, 3, 1, 1, 1 in bevy/crates/game/src/runtime/resources/game_deck_model.rs"
 Task: "T018 [P] [US5] Add hand recentering tests after deal, placement, undo, and restart in bevy/crates/game/src/runtime/resources/game_hand_model.rs"
 Task: "T020 [P] [US5] Add restart reset tests for deck, hand, round, energy, slots, card states, gesture state, and move history in bevy/crates/game/src/runtime/systems/game_restart_update_system.rs"
 ```

@@ -1,31 +1,76 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    window::{PrimaryWindow, Window},
+};
 
 use crate::runtime::components::{CardGestureView, HandCardGestureTarget};
 use crate::runtime::resources::{
     CardGestureModel, CardGestureState, CardInspectionDefaults, CardSlotBoardModel, CardSlotSide,
+    CardState, CardStateModel,
 };
 
 use super::{
-    DECK_BUILDER_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_SCENE_HAND_CARD_WORLD_Z,
-    GAME_VIEW_HEIGHT, GAME_VIEW_WIDTH, game_view_world_height_for_game_view_height,
-    game_view_world_position_from_game_view,
+    DECK_BUILDER_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_VIEW_HEIGHT,
+    GAME_VIEW_WIDTH, active_pointer_position, game_view_card_index_at_for_count,
+    game_view_hand_card_z, game_view_world_height_for_game_view_height,
+    game_view_world_position_from_game_view, window_pointer_to_game_view,
 };
 
 const CARD_GESTURE_ANIMATION_RATE: f32 = 14.0;
 const CARD_GESTURE_DRAG_SCALE_MULTIPLIER: f32 = 1.5;
 const CARD_GESTURE_DRAG_SCALE_SECONDS: f32 = 0.25;
+const HAND_LAYOUT_TWEEN_SECONDS: f32 = 0.25;
 const CARD_GESTURE_RETURN_SETTLE_EPSILON: f32 = 0.001;
-pub(super) const CARD_GESTURE_SELECTED_Z: f32 = 0.48;
-pub(super) const CARD_GESTURE_DRAG_Z: f32 = 0.56;
-pub(super) const CARD_GESTURE_SLOT_Z: f32 = 0.5;
+// Gesture depths sit above static card bands so dragged/inspected cards stay contiguous.
+pub(super) const CARD_GESTURE_SELECTED_Z: f32 = 0.88;
+pub(super) const CARD_GESTURE_DRAG_Z: f32 = 0.98;
+pub(super) const CARD_GESTURE_SLOT_Z: f32 = 0.52;
 
 /// HUMAN: Animates card gesture views toward selected, dragged, placed, or source poses.
 /// AI: Keeps interpolation visual-only; CardGestureModel owns legal state transitions.
 pub fn card_gesture_animation_system(
     time: Res<Time>,
+    primary_window_query: Query<&Window, With<PrimaryWindow>>,
+    touches: Res<Touches>,
     mut gesture_model: ResMut<CardGestureModel>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_states: Option<Res<CardStateModel>>,
     mut card_query: Query<(&HandCardGestureTarget, &mut Transform), With<CardGestureView>>,
 ) {
+    let hand_layout_interpolation = (time.delta_secs() / HAND_LAYOUT_TWEEN_SECONDS).clamp(0.0, 1.0);
+    if let Some(card_states) = card_states.as_deref() {
+        let hand_indices = card_states.indices_with_state(CardState::Hand);
+        let hand_gap_index = hand_layout_gap_index(&gesture_model, hand_indices.len());
+        let hand_card_count = hand_indices.len() + usize::from(hand_gap_index.is_some());
+        let hovered_order_index = hand_layout_hovered_order_index(
+            &primary_window_query,
+            &touches,
+            &gesture_model,
+            hand_card_count,
+        );
+        for (target, mut transform) in &mut card_query {
+            if gesture_model.is_active_for(target.hand_index) {
+                continue;
+            }
+            if let Some(order_index) = hand_indices
+                .iter()
+                .position(|hand_index| *hand_index == target.hand_index)
+            {
+                let target_order_index = match hand_gap_index {
+                    Some(gap_index) if order_index >= gap_index => order_index + 1,
+                    _ => order_index,
+                };
+                let target_transform = hand_source_transform_for_layout(
+                    target_order_index,
+                    hand_card_count,
+                    hovered_order_index,
+                    &card_defaults,
+                );
+                tween_transform(&mut transform, target_transform, hand_layout_interpolation);
+            }
+        }
+    }
+
     let Some(hand_index) = gesture_model.active_hand_index else {
         return;
     };
@@ -94,16 +139,22 @@ pub(super) fn selected_inspection_transform(card_defaults: &CardInspectionDefaul
 pub(super) fn drag_preview_transform(
     game_view_center_position: Vec2,
     source_transform: Transform,
-    _card_defaults: &CardInspectionDefaults,
+    card_defaults: &CardInspectionDefaults,
 ) -> Transform {
-    let scale = source_transform.scale * CARD_GESTURE_DRAG_SCALE_MULTIPLIER;
+    let source_game_view_height = card_defaults.height * source_transform.scale.y
+        / game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
+    let drag_world_height = game_view_world_height_for_game_view_height(
+        source_game_view_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER,
+        CARD_GESTURE_DRAG_Z,
+    );
+    let scale = drag_world_height / card_defaults.height;
 
     Transform {
         translation: game_view_world_position_from_game_view(
             game_view_center_position,
             CARD_GESTURE_DRAG_Z,
         ),
-        scale,
+        scale: Vec3::splat(scale),
         ..Default::default()
     }
 }
@@ -133,25 +184,109 @@ pub(super) fn hand_source_transform(
     hand_card_count: usize,
     card_defaults: &CardInspectionDefaults,
 ) -> Transform {
-    let Some((min, max)) = super::game_view_card_hitboxes_for_count(hand_card_count)
-        .get(hand_index)
-        .copied()
+    hand_source_transform_for_layout(hand_index, hand_card_count, None, card_defaults)
+}
+
+pub(super) fn hand_source_transform_for_layout(
+    hand_index: usize,
+    hand_card_count: usize,
+    hovered_hand_index: Option<usize>,
+    card_defaults: &CardInspectionDefaults,
+) -> Transform {
+    let Some((min, max)) =
+        super::game_view_card_hitboxes_for_count_with_hover(hand_card_count, hovered_hand_index)
+            .get(hand_index)
+            .copied()
     else {
         return Transform::default();
     };
     let scale = game_view_world_height_for_game_view_height(
         GAME_SCENE_HAND_CARD_HEIGHT,
-        GAME_SCENE_HAND_CARD_WORLD_Z,
+        game_view_hand_card_z(hand_index, hovered_hand_index),
     ) / card_defaults.height;
 
     Transform {
         translation: game_view_world_position_from_game_view(
             (min + max) * 0.5,
-            GAME_SCENE_HAND_CARD_WORLD_Z,
+            game_view_hand_card_z(hand_index, hovered_hand_index),
         ),
         scale: Vec3::splat(scale),
         ..Default::default()
     }
+}
+
+fn hand_layout_gap_index(
+    gesture_model: &CardGestureModel,
+    visible_hand_card_count: usize,
+) -> Option<usize> {
+    if gesture_model.state != CardGestureState::Dragging {
+        return None;
+    }
+    let pointer = gesture_model.pointer?;
+    let current_position = pointer.current_position;
+    if !hand_area_contains(current_position) {
+        return None;
+    }
+    Some(hand_insertion_index(
+        current_position,
+        visible_hand_card_count,
+    ))
+}
+
+fn hand_layout_hovered_order_index(
+    primary_window_query: &Query<&Window, With<PrimaryWindow>>,
+    touches: &Touches,
+    gesture_model: &CardGestureModel,
+    hand_card_count: usize,
+) -> Option<usize> {
+    if gesture_model.state != CardGestureState::Idle {
+        return None;
+    }
+    let Ok(primary_window) = primary_window_query.single() else {
+        return None;
+    };
+    let window_size = Vec2::new(
+        primary_window.resolution.width(),
+        primary_window.resolution.height(),
+    );
+    let pointer_position = active_pointer_position(primary_window, touches)?;
+    let game_view_position = window_pointer_to_game_view(pointer_position, window_size)?;
+    if !hand_area_contains(game_view_position) {
+        return None;
+    }
+
+    game_view_card_index_at_for_count(pointer_position, window_size, hand_card_count)
+}
+
+fn hand_area_contains(game_view_position: Vec2) -> bool {
+    let min = super::game_view_hand_area_min();
+    let max = min + super::game_view_hand_area_size();
+    game_view_position.x >= min.x
+        && game_view_position.x <= max.x
+        && game_view_position.y >= min.y
+        && game_view_position.y <= max.y
+}
+
+fn tween_transform(transform: &mut Transform, target: Transform, interpolation: f32) {
+    transform.translation = transform
+        .translation
+        .lerp(target.translation, interpolation);
+    transform.scale = transform.scale.lerp(target.scale, interpolation);
+    transform.rotation = transform.rotation.slerp(target.rotation, interpolation);
+}
+
+pub(super) fn hand_insertion_index(game_view_position: Vec2, hand_card_count: usize) -> usize {
+    let hitboxes = super::game_view_card_hitboxes_for_count(hand_card_count);
+    if hitboxes.is_empty() {
+        return 0;
+    }
+
+    for (index, (min, max)) in hitboxes.iter().enumerate() {
+        if game_view_position.x < (min.x + max.x) * 0.5 {
+            return index;
+        }
+    }
+    hand_card_count
 }
 
 pub(super) fn local_slots_area_hit_target(
@@ -198,84 +333,5 @@ fn return_transform_is_settled(transform: &Transform, target_transform: &Transfo
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::runtime::resources::CardInspectionDefaults;
-
-    use super::*;
-
-    #[test]
-    fn selected_inspection_uses_ninety_percent_safe_height() {
-        let defaults = CardInspectionDefaults::default();
-        let transform = selected_inspection_transform(&defaults);
-        let rendered_height = defaults.height * transform.scale.y;
-        let expected = game_view_world_height_for_game_view_height(
-            GAME_VIEW_HEIGHT * DECK_BUILDER_CARD_HEIGHT_FRACTION,
-            CARD_GESTURE_SELECTED_Z,
-        );
-
-        assert!((rendered_height - expected).abs() < 0.0001);
-    }
-
-    #[test]
-    fn slot_transform_preserves_card_aspect_ratio() {
-        let defaults = CardInspectionDefaults::default();
-        let board = CardSlotBoardModel::default();
-        let transform = slot_transform(1, 2, CardSlotSide::LocalPlayer, &board, &defaults);
-
-        assert_eq!(transform.scale.x, transform.scale.y);
-        assert_eq!(transform.scale.y, transform.scale.z);
-    }
-
-    #[test]
-    fn local_slots_area_hit_target_detects_whole_available_location_area() {
-        let board = CardSlotBoardModel::default();
-
-        assert_eq!(
-            local_slots_area_hit_target(
-                slot_center(0, 0, CardSlotSide::LocalPlayer, &board).unwrap(),
-                &board
-            ),
-            Some(0)
-        );
-        assert_eq!(
-            local_slots_area_hit_target(
-                slot_center(2, 3, CardSlotSide::LocalPlayer, &board).unwrap(),
-                &board
-            ),
-            Some(2)
-        );
-        assert_eq!(
-            local_slots_area_hit_target(
-                slot_center(2, 3, CardSlotSide::Opponent, &board).unwrap(),
-                &board
-            ),
-            None
-        );
-        assert_eq!(
-            local_slots_area_hit_target(Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT), &board),
-            None
-        );
-    }
-
-    #[test]
-    fn drag_preview_scales_to_one_hundred_fifty_percent_of_source() {
-        let defaults = CardInspectionDefaults::default();
-        let source = Transform::from_scale(Vec3::splat(0.4));
-        let transform = drag_preview_transform(Vec2::new(10.0, 10.0), source, &defaults);
-
-        assert_eq!(transform.scale, Vec3::splat(0.6));
-    }
-
-    #[test]
-    fn returning_card_settles_only_when_original_scale_is_restored() {
-        let target =
-            Transform::from_translation(Vec3::new(1.0, 2.0, 0.32)).with_scale(Vec3::splat(0.42));
-        let wrong_scale = Transform::from_translation(target.translation)
-            .with_scale(Vec3::splat(target.scale.x + 0.01));
-        let nearly_restored = Transform::from_translation(target.translation)
-            .with_scale(Vec3::splat(target.scale.x + 0.0005));
-
-        assert!(!return_transform_is_settled(&wrong_scale, &target));
-        assert!(return_transform_is_settled(&nearly_restored, &target));
-    }
-}
+#[path = "../../tests/runtime/systems/card_gesture_animation_system_tests.rs"]
+mod card_gesture_animation_system_tests;

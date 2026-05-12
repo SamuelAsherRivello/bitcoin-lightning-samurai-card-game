@@ -64,7 +64,7 @@ Runtime deck state for the near human player.
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
 | `cards` | ordered list of `CardInstanceModel` ids | Exactly 12 cards after fresh game or Restart |
-| `remaining_cards` | ordered list of `CardInstanceModel` ids | Cards not yet dealt, sorted by energy before each deal selection |
+| `remaining_cards` | ordered list of `CardInstanceModel` ids | Cards not yet dealt, kept in randomized deck order for deal selection |
 | `random_seed` | optional seed/source | May be stored for tests or diagnostics |
 
 ## GameHandModel
@@ -88,7 +88,6 @@ Authoritative six-round progression and energy state.
 | `energy_available` | integer | Starts at the current round's maximum and decreases by placement cost |
 | `energy_maximum` | integer | Round schedule value: 1, 2, 3, 4, 5, 6 |
 | `requested_cards_to_deal` | integer | Round schedule value: 1, 2, 3, 1, 1, 1 |
-| `required_deal_energy` | integer | Same value as the round energy grant |
 | `end_turn_resolved` | boolean | Allows End Turn on round 6 without dealing more cards |
 
 ## CurrentRoundMoveRecord
@@ -120,10 +119,10 @@ Presentation state for lower-left and lower-right controls.
 | Trigger | From | To | Notes |
 | ------- | ---- | -- | ----- |
 | Fresh game or Restart | Any state | Round 1, new 12-card deck, empty hand/locations/history | Deal round 1 after reset |
-| Start round | Round N | Energy set and matching-energy cards dealt | Sort remaining deck cards by energy; deal only cards whose energy equals the round energy grant |
+| Start round | Round N | Energy set and scheduled cards dealt | Deal the requested number of cards from the remaining deck order to the hand, regardless of card energy |
 | Location opens | Closed location | Open location | Left opens in round 1, middle in round 2, right in round 3; open locations show title/body and apply abilities immediately to cards already there |
 | Deal card | Deck | Hand | Animate from below screen center, then recenter hand group |
-| No matching card | Deck unchanged | Hand unchanged | If no remaining card matches the round energy grant, skip dealing for that round |
+| Fewer remaining deck cards than requested | Remaining deck cards | Hand | Deal only the cards that remain; do not create extra cards |
 | Place card | Hand | Location | Allowed only when energy is sufficient and slot is legal; open location ability applies immediately to the placed card's effective energy |
 | Undo | Current-round Location placements | Hand | Remove active location ability deltas, restore cards and their energy deductions, and clear current-round history |
 | End Turn rounds 1-5 | Round N | Round N+1 | Clear current-round history, deal next round, reset energy |

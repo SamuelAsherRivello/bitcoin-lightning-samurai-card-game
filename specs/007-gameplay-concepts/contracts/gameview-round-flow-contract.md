@@ -12,23 +12,23 @@ This contract defines externally visible GameView behavior for the local near-pl
 
 ## Round Schedule
 
-| Round | Requested Deal Count | Required Card Energy | Energy Label At Start |
-| ----- | -------------------- | -------------------- | --------------------- |
-| 1 | 1 | 1 | `Energy 1/1` |
-| 2 | 2 | 2 | `Energy 2/2` |
-| 3 | 3 | 3 | `Energy 3/3` |
-| 4 | 1 | 4 | `Energy 4/4` |
-| 5 | 1 | 5 | `Energy 5/5` |
-| 6 | 1 | 6 | `Energy 6/6` |
+| Round | Cards Dealt From Player Deck | Energy Label At Start |
+| ----- | ---------------------------- | --------------------- |
+| 1 | 1 | `Energy 1/1` |
+| 2 | 2 | `Energy 2/2` |
+| 3 | 3 | `Energy 3/3` |
+| 4 | 1 | `Energy 4/4` |
+| 5 | 1 | `Energy 5/5` |
+| 6 | 1 | `Energy 6/6` |
 
-## Deal Eligibility
+## Deal Rules
 
 | Rule | Expected Behavior |
 | ---- | ----------------- |
-| Sort before selection | Remaining deck cards are sorted by energy before each round's deal selection |
-| Exact energy match | A card may be dealt only when its energy equals the current round's energy grant |
-| No match | No card is dealt for that round |
-| Partial match | If fewer matching-energy cards remain than requested, only matching cards are dealt |
+| Preserve deck order | Remaining deck cards are selected from the randomized deck order |
+| No energy gate | A card may be dealt regardless of whether its energy equals the current round's energy grant |
+| Every round | Rounds 1 through 6 each deal cards from deck to hand according to the round schedule |
+| Partial deck | If fewer cards remain than requested, only remaining deck cards are dealt |
 
 ## Card Values
 
@@ -80,6 +80,6 @@ This contract defines externally visible GameView behavior for the local near-pl
 | Situation | Expected Behavior |
 | --------- | ----------------- |
 | Card dealt | Card starts below screen center at x = `screen_width / 2`, animates into hand, and lines up to the right of existing hand cards |
-| No eligible card | No deal animation plays and the hand remains unchanged |
+| Empty deck | No deal animation plays and the hand remains unchanged |
 | Hand changes | Entire hand group recenters within the hand area |
 | Wide hand | More than four or five cards may exceed the hand area's width while preserving centered group alignment |

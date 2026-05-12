@@ -36,21 +36,21 @@ scripts/main/RunAppDesktop.ps1
 | Lower left | Restart appears above Undo |
 | Undo label | Shows `Energy 1/1` and `Undo` on separate lines |
 | Undo state | Disabled or greyed out before any current-round placement |
-| Initial deal | One energy-1 card animates from below screen center into the hand |
+| Initial deal | One card from the near player's deck animates from below screen center into the hand |
 | Left location | Open with title `Fortress Gate` and body `+2 Energy to each card here` |
 | Middle location | Closed with title `Closed Until Round 2` and no body text |
 | Right location | Closed with title `Closed Until Round 3` and no body text |
 
 5. Verify round progression:
 
-| Round | Requested Deal | Eligible Deal With Initial Deck | Expected Energy | Expected Location State |
+| Round | Requested Deal | Expected Deal From Initial Deck | Expected Energy | Expected Location State |
 | ----- | -------------- | ------------------------------- | --------------- | ----------------------- |
-| 1 | 1 | 1 energy-1 card | 1/1 | Left open, middle closed until round 2, right closed until round 3 |
-| 2 | 2 | 2 energy-2 cards | 2/2 | Left and middle open, right closed until round 3 |
-| 3 | 3 | 3 energy-3 cards | 3/3 | All three locations open |
-| 4 | 1 | 0 cards, no energy-4 card exists | 4/4 | All three locations open |
-| 5 | 1 | 0 cards, no energy-5 card exists | 5/5 | All three locations open |
-| 6 | 1 | 0 cards, no energy-6 card exists | 6/6 | All three locations open |
+| 1 | 1 | 1 card from remaining deck order | 1/1 | Left open, middle closed until round 2, right closed until round 3 |
+| 2 | 2 | 2 cards from remaining deck order | 2/2 | Left and middle open, right closed until round 3 |
+| 3 | 3 | 3 cards from remaining deck order | 3/3 | All three locations open |
+| 4 | 1 | 1 card from remaining deck order | 4/4 | All three locations open |
+| 5 | 1 | 1 card from remaining deck order | 5/5 | All three locations open |
+| 6 | 1 | 1 card from remaining deck order | 6/6 | All three locations open |
 
 6. Verify placement and undo:
 

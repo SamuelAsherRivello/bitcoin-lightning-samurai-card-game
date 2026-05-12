@@ -22,6 +22,8 @@
 
 - Q: What project source should guide future crate, folder, file, asset, and Rust coding standards? -> A: Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.
 - Q: What initial contents should the template crate provide? -> A: Create `bevy/crates/template-crate/` with empty folders copied from the game crate and one template file in each folder so the user can populate it later.
+- Q: Which external Bevy build guidance should influence this setup spec? -> A: Adopt only the `bevy_best_practices` build guidance that supports stable development builds, the approved desktop hot reload script, and fast incremental rebuilds.
+- Q: What incremental rebuild target should project scripts optimize for? -> A: After a warmed cache, a one-line change in one crate should rebuild through the development or desktop hot reload workflow in no more than 2 seconds.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -41,6 +43,7 @@ A developer or reviewer can install/check dependencies, test, run desktop, run d
 4. **Given** the repository is checked out, **When** the reviewer runs the web script, **Then** the app builds for `wasm32-unknown-unknown`, is packaged for the browser, is served from localhost, and opens in the browser.
 5. **Given** the repository is checked out, **When** the reviewer runs the test script, **Then** the automated test suite runs from the repository root using the shared fast desktop cache.
 6. **Given** the repository is checked out in VS Code, **When** the reviewer starts the desktop run or desktop hot reload task, **Then** command output appears in the VS Code integrated terminal.
+7. **Given** the developer has already paid the first build cost for the day, **When** they change one line in one crate and rerun the development or desktop hot reload workflow, **Then** the rebuild uses the warmed incremental cache and targets a rebuild time of 2 seconds or less.
 
 ---
 
@@ -99,6 +102,8 @@ A developer can inspect a template crate skeleton and use it as the proper refer
 - If a prior desktop app, build process, or web server is still running, the stop workflow should clean up project-local processes without requiring a machine restart.
 - If desktop hot reload tooling is missing or incompatible, the hot reload script should fail with an actionable Dioxus CLI install or version message instead of silently falling back to a normal desktop run.
 - If the app runs through desktop hot reload on Windows, the workflow should avoid Bevy dynamic linking when it would conflict with Dioxus hot patching.
+- If development profile tuning, dynamic linking, or linker selection conflicts with the desktop hot reload workflow, `scripts/main/RunAppDesktopHotReload.ps1` remains authoritative and must preserve hot reload stability over raw build speed.
+- If a release build is requested, development-only features such as hot reload, asset file watching, and Bevy dynamic linking must not be enabled implicitly.
 - If the game crate gains new folders later, the template crate may require an explicit synchronization update before it can be treated as current inspiration.
 
 ## Requirements *(mandatory)*
@@ -114,6 +119,11 @@ A developer can inspect a template crate skeleton and use it as the proper refer
 - **FR-001F**: The dependency workflow MUST verify or install the Dioxus CLI version needed by the desktop hot reload workflow, with an opt-out for hot reload tool checks.
 - **FR-001G**: The web run workflow MUST target `wasm32-unknown-unknown`, package the generated Wasm for browser use, serve it locally, and open it in a browser.
 - **FR-001H**: The stop workflow MUST stop project-local desktop app, hot reload, build, and web server processes started by repository scripts.
+- **FR-001I**: Development builds MUST keep stable, script-owned target caches and MUST enable Cargo incremental compilation by default so warmed rebuilds reuse prior artifacts instead of rebuilding the workspace from scratch.
+- **FR-001J**: Development profile settings MUST prioritize fast iteration by disabling unnecessary debug information for normal local runs, using modest app-crate optimization, and allowing higher dependency optimization only when it does not harm single-crate rebuild speed.
+- **FR-001K**: Normal desktop development runs MAY use a dev-only fast feature set such as Bevy dynamic linking and asset watching, but release builds and the desktop hot reload script MUST NOT inherit those features implicitly.
+- **FR-001L**: `scripts/main/RunAppDesktopHotReload.ps1` MUST be the approved entry point for development builds that require hot reload, and builds started through that script MUST use Dioxus hot patching rather than falling back to ordinary `cargo run`.
+- **FR-001M**: Release-like desktop builds MUST use release profile semantics and MUST keep development-only hot reload, asset watching, and dynamic-linking features out of the release command unless explicitly documented as non-release diagnostics.
 - **FR-002**: The repository MUST provide VS Code task entries for test, desktop run, and desktop hot reload workflows.
 - **FR-003**: The desktop run and desktop hot reload workflows MUST show command output in the VS Code integrated terminal when started through VS Code tasks.
 - **FR-004**: The desktop app MUST default to a 1024x768 window when no valid saved placement exists.
@@ -152,6 +162,7 @@ A developer can inspect a template crate skeleton and use it as the proper refer
 - **SC-001**: The desktop run script completes the desktop build workflow from the repository root and opens the desktop app when not in check-only mode.
 - **SC-002**: The test script completes the automated test suite from the repository root.
 - **SC-002A**: The desktop hot reload script starts the Dioxus CLI hot-patch workflow from the repository root, reports the Dioxus CLI version, and keeps output in the invoking terminal.
+- **SC-002B**: After an initial warmed development cache exists, a one-line code change inside one crate rebuilds through the development or desktop hot reload workflow in 2 seconds or less in the primary Windows desktop environment, or the measured blocker is documented.
 - **SC-003**: In 100% of first-launch checks without saved placement, the desktop window opens at 1024x768.
 - **SC-004**: In placement restore checks on each connected monitor, the app reopens within 20 physical pixels of the x/y position from the last close and restores the saved window size.
 - **SC-005**: In disconnected-screen, invalid-data, and off-screen placement checks, the app opens centered on the primary screen at 1024x768 instead of restoring off-screen.
@@ -168,5 +179,7 @@ A developer can inspect a template crate skeleton and use it as the proper refer
 - Browser WebGPU is supported through the repository web runner, but desktop placement restore only applies to desktop windows.
 - Desktop hot reload is a native development workflow only; browser WebGPU remains a build/serve workflow without hot reload.
 - Hot reload is intended for explicitly hot-reload-enabled Rust systems and assets. Normal desktop run remains the fallback for release-like local review.
+- The first build of a day, after dependency changes, or after cache invalidation may take longer; the 2-second expectation applies to warmed incremental rebuilds after a small single-crate code edit.
+- Build tuning from external Bevy guidance is adopted only where it reinforces this repository's script-owned workflows and does not weaken hot reload stability.
 - `bevy/crates/shared` owns reusable runtime setup behavior; `bevy/crates/game` remains reserved for game-specific card and gameplay features.
 - `bevy/crates/template-crate` is a source-control template skeleton, not an active workspace crate, until the user intentionally populates it.

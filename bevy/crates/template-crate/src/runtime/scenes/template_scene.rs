@@ -31,12 +31,5 @@ pub fn template_scene_startup_system(mut commands: Commands) {
 }
 
 #[cfg(test)]
-mod template_scene_tests {
-    use super::*;
-
-    #[test]
-    fn template_scene_markers_can_be_constructed() {
-        let _scene = TemplateScene;
-        let _view = TemplateView;
-    }
-}
+#[path = "../../tests/runtime/scenes/template_scene_tests.rs"]
+mod template_scene_tests;

@@ -39,14 +39,5 @@ pub struct TemplateBundleComponent {
 }
 
 #[cfg(test)]
-mod template_bundle_tests {
-    use super::*;
-
-    #[test]
-    fn template_bundle_when_new_is_called_sets_expected_values() {
-        let result = TemplateBundle::new("Player", Vec3::X);
-
-        assert_eq!(result.template_component.name, "Player");
-        assert_eq!(result.template_component.velocity, Vec3::X);
-    }
-}
+#[path = "../../tests/runtime/bundles/template_bundle_tests.rs"]
+mod template_bundle_tests;

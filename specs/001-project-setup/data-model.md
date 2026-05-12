@@ -9,6 +9,7 @@
 | Template Crate Reference | Proper reference skeleton under `bevy/crates/template-crate` | Guides future Bevy crate folders, representative files, asset folders, and Rust coding standards | Must remain non-workspace reference content until intentionally populated and added |
 | Project Script | Dependency-check, headless compile, test, desktop run, desktop hot reload, web run, and stop entry points under root `scripts` | Used by VS Code tasks and manual terminal workflows | Must run from repository root |
 | Compile Workflow | `action`, `package/workspace scope`, `target_dir`, `target_triple`, `features`, `release`, linker/cache options | Shared by desktop, web, tests, and dependency warmup scripts | Must print the Cargo command and fail on non-zero Cargo exit |
+| Build Profile | `profile`, `debug_info`, `incremental`, `codegen_units`, `opt_level`, `feature_set` | Selected by compile, desktop, hot reload, web, and release-like workflows | Development profiles must favor warmed incremental rebuilds; release-like profiles must exclude development-only hot reload and dynamic-linking features |
 | Desktop Hot Reload Workflow | `dioxus_cli_version`, `target_dir`, `package`, `binary`, `env`, optional extra `dx` args | Runs the desktop package through Dioxus CLI hot patching | Must verify compatible `dx`, keep output in the calling terminal, and avoid Windows dynamic-linking conflicts by default |
 | VS Code Task | Build, test, desktop run, and desktop hot reload task definitions | Calls repository scripts with integrated terminal presentation | Must reveal output in VS Code terminal |
 
@@ -22,3 +23,4 @@
 | Relaunch with valid placement | Placement file available | Exact screen, x/y, and size restored | Window opens where reviewer left it |
 | Relaunch with invalid/off-screen placement | Placement file invalid or unavailable | 1024x768 centered primary fallback | Invalid placement is ignored |
 | Start desktop hot reload | No hot reload process | Dioxus CLI hot-patch session running | Output remains in the terminal until Ctrl+C or stop workflow |
+| One-line edit after warm cache | Development artifacts available | Incremental rebuild completes through script workflow | Target rebuild time is 2 seconds or less, or measured blocker is documented |

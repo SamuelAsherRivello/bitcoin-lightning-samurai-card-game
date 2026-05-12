@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
-use crate::runtime::resources::CardSlotSide;
+use crate::runtime::resources::{CardSlotSide, GameFont, POINT_VIEW_FONT};
 use crate::runtime::resources::{CostPointModel, PowerPointModel};
+
+pub const POINT_VIEW_BASE_TEXT_FONT_SIZE: f32 = 168.0;
+pub const POINT_VIEW_BUNDLE_FONT: GameFont = POINT_VIEW_FONT;
 
 /// HUMAN: Shared semantic type for point badges rendered in GameView and deck cards.
 /// AI: Every badge value and color decision now routes through this type family.
@@ -10,6 +13,24 @@ pub enum PointType {
     LocationPower,
     CardPower,
     CardEnergy,
+}
+
+impl PointType {
+    pub const fn is_energy(self) -> bool {
+        matches!(self, Self::CardEnergy)
+    }
+
+    pub fn background_color(self) -> Color {
+        if self.is_energy() {
+            Color::srgb(0.04, 0.18, 0.60)
+        } else {
+            Color::srgb(0.74, 0.18, 0.18)
+        }
+    }
+
+    pub fn text_color(self) -> Color {
+        Color::WHITE
+    }
 }
 
 /// HUMAN: Point payload that unifies cost, power, and total-point badge values.
@@ -50,6 +71,14 @@ impl PointModel {
 
     pub fn display_text(self) -> String {
         self.value.to_string()
+    }
+
+    pub fn background_color(self) -> Color {
+        self.point_type.background_color()
+    }
+
+    pub fn text_color(self) -> Color {
+        self.point_type.text_color()
     }
 }
 
@@ -101,51 +130,5 @@ impl PointViewBundle {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::runtime::resources::{CostPointModel, PowerPointModel};
-
-    #[test]
-    fn point_model_constructs_expected_type_and_payload() {
-        let location_power = PointModel::location_power(7);
-        let card_power = PointModel::card_power(-8);
-        let card_energy = PointModel::card_energy(99);
-
-        assert_eq!(location_power.point_type, PointType::LocationPower);
-        assert_eq!(location_power.value, 7);
-        assert_eq!(card_power.point_type, PointType::CardPower);
-        assert_eq!(card_power.value, -8);
-        assert_eq!(card_energy.point_type, PointType::CardEnergy);
-        assert_eq!(card_energy.value, 99);
-    }
-
-    #[test]
-    fn point_model_formats_numeric_display_with_negatives() {
-        let point = PointModel::new(PointType::CardPower, -99);
-
-        assert_eq!(point.display_text(), "-99");
-    }
-
-    #[test]
-    fn point_model_from_cost_and_power_inputs_preserves_type_and_value() {
-        let location_from_power = PointModel::from_power_point(
-            PointType::LocationPower,
-            PowerPointModel::new(-42),
-        );
-        let card_energy = PointModel::from_cost_point(CostPointModel::new(42));
-        let card_power = PointModel::from_power_point(PointType::CardPower, PowerPointModel::new(11));
-
-        assert_eq!(location_from_power, PointModel::new(PointType::LocationPower, -42));
-        assert_eq!(card_energy, PointModel::new(PointType::CardEnergy, 42));
-        assert_eq!(card_power, PointModel::new(PointType::CardPower, 11));
-    }
-
-    #[test]
-    fn point_view_bundle_contains_name_and_view_payload() {
-        let model = PointModel::card_power(4);
-        let bundle = PointViewBundle::new("Test Point Bundle", model);
-
-        assert_eq!(bundle.name.as_str(), "Test Point Bundle");
-        assert_eq!(bundle.view, PointView::new(model));
-    }
-}
+#[path = "../../tests/runtime/bundles/point_view_bundle_tests.rs"]
+mod point_view_bundle_tests;

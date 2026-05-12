@@ -1,9 +1,9 @@
 #[path = "bundles/mod.rs"]
 pub mod bundles;
-pub mod shaders;
-#[path = "scenes/mod.rs"]
-pub mod scenes;
 pub mod components;
 pub mod plugins;
 pub mod resources;
+#[path = "scenes/mod.rs"]
+pub mod scenes;
+pub mod shaders;
 pub mod systems;

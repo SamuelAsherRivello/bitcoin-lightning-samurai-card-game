@@ -8,6 +8,8 @@
 | Reusable headless compile helper | `scripts/other/CompileApp.ps1 -Action check -PackageName bevy-card-game -TargetDir target/run-app-desktop -Features fast-dev` |
 | Run desktop app | `scripts/main/RunAppDesktop.ps1` |
 | Check desktop compile without launch | `scripts/main/RunAppDesktop.ps1 -CheckOnly` |
+| Run release-like desktop app | `scripts/main/RunAppDesktop.ps1 -Release` |
+| Check release-like desktop compile without launch | `scripts/main/RunAppDesktop.ps1 -CheckOnly -Release` |
 | Run desktop app with explicit Windows target cache | `scripts/main/RunAppDesktop.ps1 -TargetTriple x86_64-pc-windows-msvc` |
 | Run desktop app with hot reload | `scripts/main/RunAppDesktopHotReload.ps1` |
 | Run desktop hot reload with extra `dx` args | `scripts/main/RunAppDesktopHotReload.ps1 -- --verbose` |
@@ -26,6 +28,8 @@
 | Run automated tests | `cargo test --workspace` runs from the repository root with the dedicated desktop target cache |
 | Run desktop check-only workflow | Desktop package compiles without launching the app |
 | Run desktop hot reload workflow | Dioxus CLI starts the desktop hot-patch workflow, reports its version, and keeps output attached to the terminal |
+| Change one line in one crate after warmed cache, then rerun development workflow | Rebuild uses the existing target cache and completes in 2 seconds or less, or the blocker is recorded |
+| Run release-like desktop workflow | Build uses release profile semantics and does not include development-only hot reload, asset watching, or Bevy dynamic-linking features by default |
 | Delete or ignore local placement file, then launch | Window opens at 1024x768 |
 | Move and resize window, then close normally | Placement JSON is written under `data/local_storage/` |
 | Relaunch with same screen setup | Window reopens at saved x/y and size |

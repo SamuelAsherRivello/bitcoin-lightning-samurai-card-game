@@ -12,11 +12,11 @@
 
 **Alternatives considered**: Randomly sampling 12 cards with replacement could skew card counts and make tests less stable. A fixed non-random order conflicts with the spec.
 
-## Decision: Deal Selection Sorts By Energy And Requires Exact Energy Match
+## Decision: Deal Selection Preserves Deck Order And Runs Every Round
 
-**Rationale**: The user clarified that dealing means moving cards from deck to hand, and each round should only deal cards whose energy equals the energy granted that round. Sorting remaining deck cards by energy before selection makes the rule deterministic and makes skipped rounds explicit when no matching-energy card remains.
+**Rationale**: The user clarified that dealing means moving cards from the player deck to the player hand at the start of every round 1 through 6. The randomized deck order should therefore be the deal order, and card energy should affect placement affordability rather than deal eligibility.
 
-**Alternatives considered**: Dealing the next random card would violate the exact energy-match rule. Falling back to the nearest lower-cost card would make round 4-6 deal energy-3 or lower cards, which the user explicitly rejected.
+**Alternatives considered**: Energy-matched deal selection would skip rounds when no matching card remains, which conflicts with the every-round deal requirement. Re-sorting by energy before each deal would also override the randomized deck order and couple dealing to placement energy.
 
 ## Decision: Deal, Hand, Undo, And Restart Share One Hand Layout Rule
 

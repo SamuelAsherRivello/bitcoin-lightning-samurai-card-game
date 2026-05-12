@@ -14,11 +14,12 @@ Provide repeatable dependency setup, test, desktop run, desktop hot reload, web 
 | Language/Version | Rust 2024 workspace |
 | Primary Dependencies | Bevy 0.18.1; serde and serde_json for local placement state |
 | Hot Reload Tooling | Dioxus CLI 0.7.x hot patching, inspired by `bevy-jam-1` |
+| Build Profiles | Development profiles favor warmed incremental rebuild speed; release-like builds exclude development-only hot reload, asset watching, and dynamic-linking features |
 | Storage | Ignored local JSON under `data/local_storage/window-placement.json` |
 | Testing | `scripts/other/RunTests.ps1` runs `cargo test --workspace` with the shared desktop target cache |
 | Target Platform | Windows desktop primary for placement; browser WebGPU runs through `scripts/main/RunAppWeb.ps1` without desktop placement dependency |
 | Project Type | Bevy desktop/browser game prototype |
-| Performance Goals | Placement load/save is tiny local file IO only at startup and normal close |
+| Performance Goals | Placement load/save is tiny local file IO only at startup and normal close; after a warmed cache, a one-line single-crate development rebuild should complete in 2 seconds or less |
 | Constraints | Keep reusable window setup and placement behavior under `bevy/crates/shared`; use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards; keep scripts under `scripts`; keep generated build/web/hot-reload output under ignored target/generated paths; keep local runtime persistence under ignored `data/local_storage/`; do not add card, DebugHUD, or gameplay behavior for this feature |
 | Scale/Scope | One primary desktop window, two-screen restore support, repository scripts for desktop, desktop hot reload, and web workflows, VS Code tasks |
 
@@ -87,6 +88,15 @@ See `specs/001-project-setup/research.md`.
 | Environment | `CARGO_INCREMENTAL=1`, `WGPU_BACKEND=dx12`, `BEVY_ASSET_ROOT=<repo root>` |
 | Windows compatibility | Do not enable the `fast-dev` Bevy dynamic-linking feature by default during hot patching |
 | Stop behavior | `scripts/other/StopApp.ps1` includes project-local `dx.exe` processes |
+
+## Build Profile Design
+
+| Workflow | Build Behavior |
+| -------- | -------------- |
+| Development desktop run | Uses script-owned target caches, Cargo incremental compilation, and dev-only fast features when compatible with the requested command |
+| Desktop hot reload | Uses `scripts/main/RunAppDesktopHotReload.ps1`, Dioxus CLI hot patching, a dedicated hot reload target cache, and the most stable feature set for Windows hot reload |
+| Release-like desktop run | Uses release profile semantics and excludes dev-only hot reload, asset file watching, and Bevy dynamic-linking features unless a diagnostic command explicitly opts in |
+| Incremental rebuild expectation | First build after cache invalidation may be slow; after warmup, a one-line edit in one crate should rebuild in 2 seconds or less, or the blocker should be recorded |
 
 ## Phase 1 Design
 

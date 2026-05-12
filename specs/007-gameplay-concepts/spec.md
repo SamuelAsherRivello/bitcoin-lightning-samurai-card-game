@@ -23,7 +23,7 @@
 - Q: How does the local player's round flow work? → A: A 12-card deck deals a fixed number of cards each round, the player may move hand cards to locations by spending card energy, and `End Turn` advances through round `6/6`.
 - Q: What does Undo restore? → A: Undo only returns cards moved from hand to locations during the current round; it does not undo previous rounds or card deals.
 - Q: What does Restart restore? → A: Restart clears the active GameView play state and starts a fresh game at round `1/6`.
-- Q: Which cards are eligible to deal each round? → A: Before dealing, remaining deck cards are sorted by energy and only cards whose energy equals that round's energy grant may be dealt; if no matching card exists, no card is dealt that round.
+- Q: When does the local player receive cards? → A: At the start of every round 1 through 6, GameView deals the requested number of cards from the near player's remaining deck into the near player's hand; deal eligibility is not gated by card energy.
 - Q: How do locations display and affect cards? → A: Each location has centered title/body text, starts closed until its reveal round, and only applies its open ability to cards currently placed there.
 - Q: Are cards immovable after placement? → A: Cards placed during the current round may be dragged back to the player hand area and inserted anywhere in hand during that same round; placed cards lock when the round ends.
 
@@ -106,11 +106,11 @@ A human near player can play through six local rounds by receiving cards from a 
 
 **Why this priority**: GameView needs a complete local interaction loop before future CPU behavior, scoring, or advanced card effects can be evaluated.
 
-**Independent Test**: Launch or inspect GameView and verify the lower-right End Turn button remains present, lower-left Restart and Undo controls are present, eligible cards deal into the local hand according to the round schedule and energy-matching deal rule, energy increases according to the round schedule, Undo only affects current-round placements, and Restart returns the game to round `1/6`.
+**Independent Test**: Launch or inspect GameView and verify the lower-right End Turn button remains present, lower-left Restart and Undo controls are present, cards deal from the near player's deck into the local hand at the start of every round 1 through 6 according to the round schedule, energy increases according to the round schedule, Undo only affects current-round placements, and Restart returns the game to round `1/6`.
 
 **Acceptance Scenarios**:
 
-1. **Given** GameView starts a fresh game, **When** round 1 begins, **Then** the near player has a 12-card deck order built from the available card definitions and one energy-1 card animates from below the center of the screen into the local hand.
+1. **Given** GameView starts a fresh game, **When** round 1 begins, **Then** the near player has a 12-card deck order built from the available card definitions and one card from the near player's deck animates from below the center of the screen into the local hand.
 2. **Given** cards are dealt into the local hand, **When** each card enters, **Then** it lines up to the right of existing hand cards and the full hand group recenters within the hand area.
 3. **Given** more than four or five cards are in hand, **When** the centered hand group exceeds the hand area's width, **Then** the cards may extend outside that width without changing the centering rule.
 4. **Given** the player moves a card from hand to a location, **When** the card is placed during the current round, **Then** the player's available energy is reduced by that card's energy value.
@@ -120,10 +120,10 @@ A human near player can play through six local rounds by receiving cards from a 
 8. **Given** a card was moved from hand to a location during the current round, **When** the player drags that card back to the player hand area, **Then** the card may return to hand during that same round.
 9. **Given** a current-round placed card is dragged over the hand area, **When** the player moves it before, between, or after existing hand cards, **Then** the hand cards shift on the x axis to show the insertion gap and the player may release it into that hand order.
 10. **Given** a card remained placed when the round ended, **When** a later round begins, **Then** that placed card can no longer be moved by drag.
-11. **Given** the player presses End Turn on rounds 1 through 5, **When** the next round starts, **Then** the round indicator advances, current-round placed cards lock, and the next round's cards and energy are granted.
+11. **Given** the player presses End Turn on rounds 1 through 5, **When** the next round starts, **Then** the round indicator advances, current-round placed cards lock, the next round's requested cards are dealt from deck to hand, and the next round's energy is granted.
 12. **Given** the player presses End Turn on round `6/6`, **When** the turn resolves, **Then** no additional cards are dealt.
 13. **Given** the player presses Restart at any time, **When** the restart completes, **Then** locations, hand, round, energy, deck state, and lower-left control state reset to a fresh round `1/6` game.
-14. **Given** a round requests cards, **When** no remaining deck card has an energy value equal to that round's energy grant, **Then** GameView deals no card for that round and continues play.
+14. **Given** rounds 1 through 6 begin, **When** the near player's deck has enough remaining cards for the Round Progression count, **Then** GameView deals that many cards from the deck to the hand regardless of those cards' energy values.
 
 ### Edge Cases
 
@@ -135,8 +135,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - If the final World Background image is not yet available, GameScene may use a generated DesertWorld placeholder until final art direction is supplied.
 - If location state art is not final, closed locations should use a dynamic red outline and open locations should use a dynamic green outline.
 - If the app is viewed on portrait/mobile screens, the current feature may defer portrait-specific layout to a future spec.
-- If the near player's deck has fewer matching-energy cards than a round requests, GameView should deal only the matching remaining cards and continue the round without creating extra cards.
-- If the near player's deck has cards remaining but none match the current round's energy grant, GameView should deal no card for that round.
+- If the near player's deck has fewer remaining cards than a round requests, GameView should deal only the remaining deck cards and continue the round without creating extra cards.
 - If the player attempts to move a card whose energy cost is greater than available energy, the card should remain in hand and available energy should not change.
 - If Undo returns current-round cards to hand, the hand group should recenter using the same hand layout rule as card dealing.
 - If Undo returns a card from an open location, the location ability effect applied to that card should be removed before the card is placed back in hand.
@@ -197,7 +196,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-045**: The near human player MUST start each fresh game with a deck of exactly 12 cards.
 - **FR-046**: The near player's 12-card deck MUST contain three CardInstances of each definition in the initial master card list, then randomize their order for the fresh game.
 - **FR-047**: The initial master card list MUST contain exactly the card definitions in the Card Definition Values table.
-- **FR-048**: At the start of each round, GameView MUST attempt to deal cards to the near player's hand according to the Round Progression table.
+- **FR-048**: At the start of every round 1 through 6, GameView MUST deal cards from the near player's remaining deck to the near player's hand according to the Round Progression table.
 - **FR-049**: Dealt cards MUST originate from screen x-position `screen_width / 2` and from a y-position below the bottom of the screen before animating into the hand area.
 - **FR-050**: Each dealt card MUST animate into the local player hand and line up to the right of any existing hand cards.
 - **FR-051**: After each deal, move, undo, or restart state change, the local hand card group MUST be centered within the hand area.
@@ -214,10 +213,10 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-062**: Restart MUST be available at any time during GameView play.
 - **FR-063**: Restart MUST clear the active GameView play state, including hand cards, placed cards, current-round move history, deck progress, round, energy, and control enablement.
 - **FR-064**: After Restart completes, GameView MUST be in a fresh round `1/6` state with a newly randomized 12-card near-player deck.
-- **FR-065**: Before each deal attempt, GameView MUST sort the remaining near-player deck cards by energy value for deal selection.
-- **FR-066**: GameView MUST deal only cards whose energy value equals the energy granted at the start of the current round.
-- **FR-067**: If no remaining deck card has an energy value equal to the current round's energy grant, GameView MUST deal no card for that round.
-- **FR-068**: If fewer matching-energy cards remain than the round's requested deal count, GameView MUST deal only the matching-energy cards that remain.
+- **FR-065**: GameView MUST preserve the near player's randomized remaining deck order when selecting cards to deal.
+- **FR-066**: GameView MUST NOT gate round-start card dealing by card energy value.
+- **FR-067**: If the near player's deck has fewer remaining cards than the round's requested deal count, GameView MUST deal only the remaining deck cards and continue the round.
+- **FR-068**: With the initial 12-card near-player deck and the Round Progression table, GameView MUST deal cards on every round from round 1 through round 6.
 - **FR-069**: Each location MUST render exactly two text areas: title and body.
 - **FR-070**: Location title text MUST be horizontally centered, positioned at 30% from the top of the location area, use the larger location title font, and support two lines.
 - **FR-071**: Location body text MUST be horizontally centered below the title area and support three lines.
@@ -239,14 +238,14 @@ A human near player can play through six local rounds by receiving cards from a 
 
 ### Round Progression
 
-| Round | Requested Cards | Required Card Energy | Energy Maximum | Energy Available At Round Start |
-| ----- | --------------- | -------------------- | -------------- | ------------------------------- |
-| 1 | 1 | 1 | 1 | 1 |
-| 2 | 2 | 2 | 2 | 2 |
-| 3 | 3 | 3 | 3 | 3 |
-| 4 | 1 | 4 | 4 | 4 |
-| 5 | 1 | 5 | 5 | 5 |
-| 6 | 1 | 6 | 6 | 6 |
+| Round | Cards Dealt From Player Deck | Energy Maximum | Energy Available At Round Start |
+| ----- | ---------------------------- | -------------- | ------------------------------- |
+| 1 | 1 | 1 | 1 |
+| 2 | 2 | 2 | 2 |
+| 3 | 3 | 3 | 3 |
+| 4 | 1 | 4 | 4 |
+| 5 | 1 | 5 | 5 |
+| 6 | 1 | 6 | 6 |
 
 ### Card Definition Values
 
@@ -290,7 +289,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **Game**: A future two-player match session.
 - **Player**: A future participant in a Game, controlled by a human or CPU.
 - **Deck**: A future player-owned collection of card instances available during a Game.
-- **Deal Selection**: The start-of-round process that sorts remaining deck cards by energy and moves only matching-energy cards from deck to hand.
+- **Deal Selection**: The start-of-round process that moves the requested number of cards from the near player's remaining deck order into the hand.
 - **Hand**: A future player-owned zone containing unplaced cards.
 - **Placed Cards**: Future cards a player has committed to board locations.
 - **Table Top**: A future board surface where cards can sit face up or face down.
@@ -321,7 +320,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **SC-010**: A reviewer can identify that the initial GameScene layout targets landscape and defers portrait/mobile layout.
 - **SC-011**: A reviewer can verify that GameScene renders one 3D card front centered over the 2D local player hand area.
 - **SC-012**: A reviewer can verify that GameView has one lower-right End Turn control and two lower-left controls ordered Restart above Undo.
-- **SC-013**: A reviewer can verify that a fresh game deals only matching-energy cards for each round; with the initial 12-card deck this yields 1 card on round 1, 2 cards on round 2, 3 cards on round 3, and 0 cards on rounds 4, 5, and 6.
+- **SC-013**: A reviewer can verify that a fresh game deals cards from the near player's deck to the near player's hand at the start of every round; with the initial 12-card deck this yields 1 card on round 1, 2 cards on round 2, 3 cards on round 3, and 1 card on each of rounds 4, 5, and 6.
 - **SC-014**: A reviewer can verify that round-start energy maximums and available values progress as `1, 2, 3, 4, 5, 6`.
 - **SC-015**: A reviewer can verify that Undo is disabled before any current-round placement and only returns current-round placements after cards have been moved.
 - **SC-016**: A reviewer can verify that Restart returns the active GameView state to a clean round `1/6` game with a new 12-card deck.
@@ -348,5 +347,5 @@ A human near player can play through six local rounds by receiving cards from a 
 - The near player is the local human player for this round progression.
 - Undo restores cards and energy for current-round placements because the move being undone includes the related energy deduction.
 - Manual same-round return to hand restores the same placement energy and location effect as Undo, but only for the card being returned.
-- Deal selection sorts remaining deck cards by energy before choosing cards, but still respects the exact energy-match rule for the current round.
+- Deal selection preserves the randomized remaining deck order and is independent of card energy; round energy only controls placement affordability.
 - Location ability effects modify card runtime effective energy only; card definition energy remains the immutable base value.

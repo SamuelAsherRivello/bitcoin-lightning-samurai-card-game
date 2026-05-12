@@ -5,10 +5,12 @@ use crate::runtime::resources::CardFace;
 pub mod card_gesture_component;
 pub mod card_ui_component;
 pub mod debug_drawing_component;
+pub mod game_control_component;
 
 pub use card_gesture_component::*;
 pub use card_ui_component::*;
 pub use debug_drawing_component::*;
+pub use game_control_component::*;
 
 /// HUMAN: Player marker for the local game participant.
 /// AI: Keep player state separate from card, scene, and view markers.
@@ -93,6 +95,45 @@ impl GameLocation {
             index,
             reveal_state,
         }
+    }
+}
+
+/// HUMAN: Centered title text for a GameView location.
+/// AI: Sync this from GameLocationModel when round reveal state changes.
+#[derive(Component, Debug)]
+pub struct GameLocationTitleText {
+    pub location_index: usize,
+}
+
+impl GameLocationTitleText {
+    pub const fn new(location_index: usize) -> Self {
+        Self { location_index }
+    }
+}
+
+/// HUMAN: Centered ability body text for a GameView location.
+/// AI: Keep the entity alive while closed so later rounds can reveal text in place.
+#[derive(Component, Debug)]
+pub struct GameLocationBodyText {
+    pub location_index: usize,
+}
+
+impl GameLocationBodyText {
+    pub const fn new(location_index: usize) -> Self {
+        Self { location_index }
+    }
+}
+
+/// HUMAN: Border view for a GameView location card.
+/// AI: Sync color from open/closed state without respawning the location.
+#[derive(Component, Debug)]
+pub struct GameLocationBorder {
+    pub location_index: usize,
+}
+
+impl GameLocationBorder {
+    pub const fn new(location_index: usize) -> Self {
+        Self { location_index }
     }
 }
 

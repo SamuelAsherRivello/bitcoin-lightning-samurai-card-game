@@ -4,7 +4,8 @@ use bevy_aspect_ratio_mask::Hud;
 use crate::runtime::components::AppSceneRoot;
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveWorldModel, CardInspectionDefaults, CardModelRegistry,
-    CardSlotBoardModel, LocationModelRegistry, PrimaryCameraDefaults, WorldModelRegistry,
+    CardSlotBoardModel, GameLocationModel, GameRoundModel, LocationModelRegistry,
+    PrimaryCameraDefaults, WorldModelRegistry,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 use crate::runtime::systems::SetupGameViewParams;
@@ -25,6 +26,8 @@ pub fn setup_game_view(
     active_world_model: Res<ActiveWorldModel>,
     location_model_registry: Res<LocationModelRegistry>,
     active_locations: Res<ActiveLocations>,
+    game_round_model: Option<ResMut<GameRoundModel>>,
+    game_location_model: Option<ResMut<GameLocationModel>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -46,6 +49,8 @@ pub fn setup_game_view(
         player_deck_collection: None,
         game_deck_model: None,
         game_hand_model: None,
+        game_round_model,
+        game_location_model,
         card_states: None,
         meshes,
         materials,

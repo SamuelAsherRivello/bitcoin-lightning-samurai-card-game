@@ -25,13 +25,14 @@ pub enum CardSlotSide {
 }
 
 /// HUMAN: Current gameplay state of one playable card.
-/// AI: Gesture code may only start drags from Hand; Location cards stay on board.
+/// AI: Gesture code may start drags from Hand and current-round Location; locked cards stay on board.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum CardState {
     #[default]
     Hand,
     Dragging,
     Location,
+    LocationLocked,
 }
 
 /// HUMAN: Aspect-ratio-safe GameView rectangle for a location card slot.
@@ -81,21 +82,35 @@ impl CardSlotRect {
 
 /// HUMAN: Occupancy state for one location-area card slot.
 /// AI: Store only lightweight card identity here; full card data remains in card models.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CardSlotState {
     Empty,
-    Populated { hand_index: usize },
+    Populated { hand_index: usize, card_id: String },
 }
 
 impl CardSlotState {
-    pub const fn is_empty(self) -> bool {
+    pub fn is_empty(&self) -> bool {
         matches!(self, Self::Empty)
+    }
+
+    pub fn hand_index(&self) -> Option<usize> {
+        match self {
+            Self::Empty => None,
+            Self::Populated { hand_index, .. } => Some(*hand_index),
+        }
+    }
+
+    pub fn card_id(&self) -> Option<&str> {
+        match self {
+            Self::Empty => None,
+            Self::Populated { card_id, .. } => Some(card_id.as_str()),
+        }
     }
 }
 
 /// HUMAN: One card placement slot near a shared location.
 /// AI: Keep legality deterministic for tests and separate from rendered slot entities.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CardSlotModel {
     pub location_index: usize,
     pub side: CardSlotSide,
@@ -115,7 +130,7 @@ impl CardSlotModel {
         }
     }
 
-    pub const fn accepts_local_direct_placement(self) -> bool {
+    pub fn accepts_local_direct_placement(&self) -> bool {
         matches!(self.side, CardSlotSide::LocalPlayer) && self.state.is_empty()
     }
 }
@@ -235,6 +250,17 @@ impl CardSlotBoardModel {
         slot_index: usize,
         hand_index: usize,
     ) -> bool {
+        self.place_local_with_card_id(location_index, side, slot_index, hand_index, "")
+    }
+
+    pub fn place_local_with_card_id(
+        &mut self,
+        location_index: usize,
+        side: CardSlotSide,
+        slot_index: usize,
+        hand_index: usize,
+        card_id: impl Into<String>,
+    ) -> bool {
         if !self.can_place_local(location_index, side, slot_index) {
             return false;
         }
@@ -244,7 +270,10 @@ impl CardSlotBoardModel {
                 && slot.side == side
                 && slot.slot_index == slot_index
         }) {
-            slot.state = CardSlotState::Populated { hand_index };
+            slot.state = CardSlotState::Populated {
+                hand_index,
+                card_id: card_id.into(),
+            };
             return true;
         }
 
@@ -258,12 +287,22 @@ impl CardSlotBoardModel {
     }
 
     pub fn place_next_local(&mut self, location_index: usize, hand_index: usize) -> Option<usize> {
+        self.place_next_local_with_card_id(location_index, hand_index, "")
+    }
+
+    pub fn place_next_local_with_card_id(
+        &mut self,
+        location_index: usize,
+        hand_index: usize,
+        card_id: impl Into<String>,
+    ) -> Option<usize> {
         let slot_index = self.next_available_local_slot(location_index)?;
-        self.place_local(
+        self.place_local_with_card_id(
             location_index,
             CardSlotSide::LocalPlayer,
             slot_index,
             hand_index,
+            card_id,
         )
         .then_some(slot_index)
     }
@@ -278,6 +317,25 @@ impl CardSlotBoardModel {
             .filter(|slot| !slot.state.is_empty())
             .count()
     }
+
+    pub fn remove_local_card(&mut self, hand_index: usize) -> Option<(usize, usize)> {
+        for slot in &mut self.slots {
+            if slot.side == CardSlotSide::LocalPlayer && slot.state.hand_index() == Some(hand_index)
+            {
+                slot.state = CardSlotState::Empty;
+                return Some((slot.location_index, slot.slot_index));
+            }
+        }
+
+        None
+    }
+
+    pub fn local_slot_for_card(&self, hand_index: usize) -> Option<(usize, usize)> {
+        self.slots.iter().find_map(|slot| {
+            (slot.side == CardSlotSide::LocalPlayer && slot.state.hand_index() == Some(hand_index))
+                .then_some((slot.location_index, slot.slot_index))
+        })
+    }
 }
 
 /// HUMAN: Runtime gameplay state for hand cards as they move between hand and board.
@@ -285,12 +343,15 @@ impl CardSlotBoardModel {
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CardStateModel {
     states: Vec<CardState>,
+    hand_order: Vec<usize>,
 }
 
 impl Default for CardStateModel {
     fn default() -> Self {
+        let states = vec![CardState::Hand; super::STARTING_HAND_CARD_COUNT];
         Self {
-            states: vec![CardState::Hand; super::STARTING_HAND_CARD_COUNT],
+            hand_order: (0..states.len()).collect(),
+            states,
         }
     }
 }
@@ -299,6 +360,7 @@ impl CardStateModel {
     pub fn with_size(card_count: usize) -> Self {
         Self {
             states: vec![CardState::Hand; card_count],
+            hand_order: (0..card_count).collect(),
         }
     }
 
@@ -310,12 +372,53 @@ impl CardStateModel {
         *self = Self::with_size(card_count);
     }
 
+    pub fn ensure_size(&mut self, card_count: usize) {
+        if self.states.len() < card_count {
+            let old_len = self.states.len();
+            self.states.resize(card_count, CardState::Hand);
+            self.hand_order.extend(old_len..card_count);
+        }
+    }
+
     pub fn state(&self, hand_index: usize) -> Option<CardState> {
         self.states.get(hand_index).copied()
     }
 
+    pub fn indices_with_state(&self, state: CardState) -> Vec<usize> {
+        if state == CardState::Hand {
+            return self
+                .hand_order
+                .iter()
+                .copied()
+                .filter(|index| self.state(*index) == Some(CardState::Hand))
+                .collect();
+        }
+
+        self.states
+            .iter()
+            .enumerate()
+            .filter_map(|(index, card_state)| (*card_state == state).then_some(index))
+            .collect()
+    }
+
+    pub fn hand_index_at_order(&self, order_index: usize) -> Option<usize> {
+        self.indices_with_state(CardState::Hand)
+            .get(order_index)
+            .copied()
+    }
+
     pub fn is_draggable(&self, hand_index: usize) -> bool {
-        self.state(hand_index) == Some(CardState::Hand)
+        matches!(
+            self.state(hand_index),
+            Some(CardState::Hand | CardState::Location)
+        )
+    }
+
+    pub fn is_selectable(&self, hand_index: usize) -> bool {
+        matches!(
+            self.state(hand_index),
+            Some(CardState::Hand | CardState::Location | CardState::LocationLocked)
+        )
     }
 
     pub fn begin_drag(&mut self, hand_index: usize) -> bool {
@@ -330,8 +433,21 @@ impl CardStateModel {
         self.set_state(hand_index, CardState::Hand)
     }
 
+    pub fn return_to_hand_at_order(&mut self, hand_index: usize, order_index: usize) -> bool {
+        self.reorder_hand_index(hand_index, order_index);
+        self.return_to_hand(hand_index)
+    }
+
     pub fn place_in_location(&mut self, hand_index: usize) -> bool {
         self.set_state(hand_index, CardState::Location)
+    }
+
+    pub fn lock_location_cards(&mut self) {
+        for state in &mut self.states {
+            if *state == CardState::Location {
+                *state = CardState::LocationLocked;
+            }
+        }
     }
 
     fn set_state(&mut self, hand_index: usize, state: CardState) -> bool {
@@ -340,6 +456,12 @@ impl CardStateModel {
         };
         *card_state = state;
         true
+    }
+
+    fn reorder_hand_index(&mut self, hand_index: usize, order_index: usize) {
+        self.hand_order.retain(|index| *index != hand_index);
+        let index = order_index.min(self.hand_order.len());
+        self.hand_order.insert(index, hand_index);
     }
 }
 
@@ -370,134 +492,5 @@ fn card_slot_location_left(location_index: usize) -> Option<f32> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn board_has_three_locations_and_twenty_four_slots() {
-        let board = CardSlotBoardModel::default();
-
-        assert_eq!(board.slot_count(), CARD_SLOT_TOTAL_COUNT);
-        assert_eq!(
-            board.local_direct_placement_count(),
-            CARD_SLOT_LOCAL_DIRECT_PLACEMENT_COUNT
-        );
-        for location_index in 0..CARD_SLOT_LOCATION_COUNT {
-            for side in [CardSlotSide::Opponent, CardSlotSide::LocalPlayer] {
-                for slot_index in 0..CARD_SLOT_ROW_COUNT {
-                    assert!(board.slot(location_index, side, slot_index).is_some());
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn slot_rects_match_debug_drawn_reference_lines() {
-        let board = CardSlotBoardModel::default();
-
-        assert_eq!(
-            board.slot_rect(1, CardSlotSide::Opponent, 0),
-            Some(CardSlotRect::new(548.0, 44.0, 92.0, 90.0))
-        );
-        assert_eq!(
-            board.slot_rect(1, CardSlotSide::Opponent, 3),
-            Some(CardSlotRect::new(640.0, 134.0, 92.0, 90.0))
-        );
-        assert_eq!(
-            board.slot_rect(2, CardSlotSide::LocalPlayer, 3),
-            Some(CardSlotRect::new(824.0, 522.0, 92.0, 90.0))
-        );
-        assert_eq!(
-            board.local_slots_area_rect(0),
-            Some(CardSlotRect::new(364.0, 432.0, 184.0, 180.0))
-        );
-        assert_eq!(
-            board.location_area_rect(0),
-            Some(CardSlotRect::new(364.0, 224.0, 184.0, 208.0))
-        );
-        assert_eq!(
-            board.location_area_rect(1),
-            Some(CardSlotRect::new(548.0, 224.0, 184.0, 208.0))
-        );
-        assert_eq!(
-            board.location_area_rect(2),
-            Some(CardSlotRect::new(732.0, 224.0, 184.0, 208.0))
-        );
-        assert_eq!(board.location_area_rect(99), None);
-    }
-
-    #[test]
-    fn only_empty_local_slots_accept_direct_placement() {
-        let mut board = CardSlotBoardModel::default();
-
-        assert!(board.can_place_local(0, CardSlotSide::LocalPlayer, 0));
-        assert!(!board.can_place_local(0, CardSlotSide::Opponent, 0));
-        assert!(board.place_local(0, CardSlotSide::LocalPlayer, 0, 2));
-        assert!(!board.can_place_local(0, CardSlotSide::LocalPlayer, 0));
-        assert_eq!(board.populated_count(), 1);
-    }
-
-    #[test]
-    fn valid_local_placement_covers_all_twelve_local_slots() {
-        let mut board = CardSlotBoardModel::default();
-        let mut placed = 0;
-
-        for location_index in 0..CARD_SLOT_LOCATION_COUNT {
-            for slot_index in 0..CARD_SLOT_ROW_COUNT {
-                assert!(board.place_local(
-                    location_index,
-                    CardSlotSide::LocalPlayer,
-                    slot_index,
-                    placed
-                ));
-                placed += 1;
-            }
-        }
-
-        assert_eq!(placed, CARD_SLOT_LOCAL_DIRECT_PLACEMENT_COUNT);
-        assert_eq!(
-            board.populated_count(),
-            CARD_SLOT_LOCAL_DIRECT_PLACEMENT_COUNT
-        );
-    }
-
-    #[test]
-    fn next_available_local_slot_uses_upper_left_upper_right_lower_left_lower_right_order() {
-        let mut board = CardSlotBoardModel::default();
-
-        assert_eq!(board.next_available_local_slot(1), Some(0));
-        assert_eq!(board.place_next_local(1, 10), Some(0));
-        assert_eq!(board.place_next_local(1, 11), Some(1));
-        assert_eq!(board.place_next_local(1, 12), Some(2));
-        assert_eq!(board.place_next_local(1, 13), Some(3));
-        assert_eq!(board.next_available_local_slot(1), None);
-        assert!(!board.location_has_available_local_slot(1));
-    }
-
-    #[test]
-    fn opponent_populated_and_missing_slots_reject_placement() {
-        let mut board = CardSlotBoardModel::default();
-
-        assert!(!board.place_local(0, CardSlotSide::Opponent, 0, 0));
-        assert!(board.place_local(0, CardSlotSide::LocalPlayer, 0, 0));
-        assert!(!board.place_local(0, CardSlotSide::LocalPlayer, 0, 1));
-        assert!(!board.place_local(99, CardSlotSide::LocalPlayer, 0, 1));
-        assert_eq!(board.populated_count(), 1);
-    }
-
-    #[test]
-    fn card_state_allows_drag_only_from_hand() {
-        let mut states = CardStateModel::default();
-
-        assert!(states.is_draggable(0));
-        assert!(states.begin_drag(0));
-        assert_eq!(states.state(0), Some(CardState::Dragging));
-        assert!(!states.is_draggable(0));
-        assert!(!states.begin_drag(0));
-        assert!(states.return_to_hand(0));
-        assert!(states.is_draggable(0));
-        assert!(states.place_in_location(0));
-        assert_eq!(states.state(0), Some(CardState::Location));
-        assert!(!states.is_draggable(0));
-    }
-}
+#[path = "../../tests/runtime/resources/card_slot_model_tests.rs"]
+mod card_slot_model_tests;
