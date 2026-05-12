@@ -18,6 +18,11 @@
 - Q: What persistence library should store desktop window placement? -> A: Use `bevy-persistent` to store the placement as a persistent Bevy resource; do not hand-roll direct file read/write for this config-style state.
 - Q: What units should be used for saved window size? -> A: Save and restore window size in Bevy logical window units so high-DPI monitors and Windows snap layouts reopen at the same apparent size; monitor positions remain physical desktop coordinates for multi-monitor placement.
 
+### Session 2026-05-12
+
+- Q: What project source should guide future crate, folder, file, asset, and Rust coding standards? -> A: Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.
+- Q: What initial contents should the template crate provide? -> A: Create `bevy/crates/template-crate/` with empty folders copied from the game crate and one template file in each folder so the user can populate it later.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Run Repeatable Project Scripts (Priority: P1)
@@ -68,6 +73,22 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 2. **Given** saved placement exists and the same monitor is available, **When** the reviewer launches the app again, **Then** the app opens on that monitor at the saved x/y position and size, including when the saved monitor is one of multiple connected monitors.
 3. **Given** saved placement exists but the previous screen is unavailable, invalid, or off-screen, **When** the reviewer launches the app, **Then** the app opens centered on the primary screen at 1024x768.
 
+---
+
+### User Story 4 - Reference Template Crate Structure (Priority: P2)
+
+A developer can inspect a template crate skeleton and use it as the proper reference for future Bevy crate folders, representative files, asset folders, and Rust coding standards.
+
+**Why this priority**: A local template keeps future crate setup aligned with the established game crate organization without requiring developers to copy production files manually.
+
+**Independent Test**: Inspect `bevy/crates/template-crate/` and verify it contains the same folder hierarchy as `bevy/crates/game/`, with one template placeholder file in each folder and no copied game implementation content.
+
+**Acceptance Scenarios**:
+
+1. **Given** the repository is checked out, **When** a developer opens `bevy/crates/template-crate/`, **Then** the folder hierarchy mirrors the current game crate folder hierarchy.
+2. **Given** a developer inspects any folder under `bevy/crates/template-crate/`, **When** the folder has not yet been populated with implementation content, **Then** it contains a template placeholder file that explains the folder is intentionally available for future content.
+3. **Given** a developer is adding a new Bevy crate, asset folder, or runtime file, **When** they need folder, file, or Rust coding standards guidance, **Then** project guidance directs them to use `bevy/crates/template-crate` as the proper reference.
+
 ### Edge Cases
 
 - If saved placement data is missing, the app should use the default 1024x768 desktop window.
@@ -78,6 +99,7 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 - If a prior desktop app, build process, or web server is still running, the stop workflow should clean up project-local processes without requiring a machine restart.
 - If desktop hot reload tooling is missing or incompatible, the hot reload script should fail with an actionable Dioxus CLI install or version message instead of silently falling back to a normal desktop run.
 - If the app runs through desktop hot reload on Windows, the workflow should avoid Bevy dynamic linking when it would conflict with Dioxus hot patching.
+- If the game crate gains new folders later, the template crate may require an explicit synchronization update before it can be treated as current inspiration.
 
 ## Requirements *(mandatory)*
 
@@ -106,6 +128,11 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 - **FR-009**: Dependency, test, desktop run, desktop hot reload, web run, and stop scripts MUST work from the repository root.
 - **FR-010**: Window setup and placement behavior MUST be treated as reusable system-level functionality under `bevy/crates/shared`; game-specific code may only compose it into the app.
 - **FR-011**: This feature MUST NOT include card rendering, DebugHUD controls, gameplay, or card-inspection interaction behavior.
+- **FR-012**: The repository MUST provide `bevy/crates/template-crate/` as the proper reference skeleton for future Bevy crate folders, representative files, asset folders, and Rust coding standards.
+- **FR-012A**: The template crate MUST copy the current game crate folder hierarchy while leaving implementation content for the user to populate later.
+- **FR-012B**: Every folder in the template crate MUST include one template placeholder file so the empty structure remains visible in source control.
+- **FR-012C**: Project guidance MUST state that agents use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.
+- **FR-012D**: The template crate MUST NOT be required by the build until it is intentionally populated and added to the workspace.
 
 ### Key Entities
 
@@ -116,6 +143,7 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 - **Screen Identity**: The monitor information used to reopen the app on the same display when possible.
 - **Local Runtime State**: Machine-local data used by the app under `data/local_storage/` and excluded from version control.
 - **Shared Runtime System**: Reusable non-card functionality that belongs in `bevy/crates/shared`, including desktop window defaults and placement restore/save behavior. Desktop default size constants live in `bevy/crates/shared/src/window.rs`.
+- **Template Crate**: A source-controlled skeleton under `bevy/crates/template-crate/` that serves as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.
 
 ## Success Criteria *(mandatory)*
 
@@ -130,6 +158,7 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 - **SC-006**: VS Code desktop run and desktop hot reload task output appears in the integrated terminal in 100% of task-launch checks.
 - **SC-007**: The web run script builds the Wasm target, packages the browser bundle, serves it from localhost, and returns a successful HTTP response from the generated page.
 - **SC-008**: The stop script terminates project-local desktop app, hot reload, build, and web server processes started by repository scripts.
+- **SC-009**: In 100% of template structure checks, each folder under `bevy/crates/game/` has a matching folder under `bevy/crates/template-crate/`, and each template folder contains exactly one template placeholder file before user population.
 
 ## Assumptions
 
@@ -140,3 +169,4 @@ A reviewer moves or resizes the desktop window to any connected monitor, closes 
 - Desktop hot reload is a native development workflow only; browser WebGPU remains a build/serve workflow without hot reload.
 - Hot reload is intended for explicitly hot-reload-enabled Rust systems and assets. Normal desktop run remains the fallback for release-like local review.
 - `bevy/crates/shared` owns reusable runtime setup behavior; `bevy/crates/game` remains reserved for game-specific card and gameplay features.
+- `bevy/crates/template-crate` is a source-control template skeleton, not an active workspace crate, until the user intentionally populates it.

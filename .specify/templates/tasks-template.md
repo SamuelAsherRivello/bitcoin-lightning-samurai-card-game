@@ -25,6 +25,7 @@ description: "Task list template for feature implementation"
 - **Web app**: `backend/src/`, `frontend/src/`
 - **Mobile**: `api/src/`, `ios/src/` or `android/src/`
 - Paths shown below assume single project - adjust based on plan.md structure
+- For Bevy crate, asset, and runtime work, include tasks that check `bevy/crates/template-crate` as the proper reference before creating folders or representative files.
 - For Bevy runtime work, include tasks that split changed files by one primary concept and use purposeful Plugin/Component/Scene/View/Model/System names.
 - For Bevy runtime systems, include tasks that name changed system functions as `[domain]_[schedule]_system`.
 - For changed Bevy runtime primary items, include tasks that add terse `HUMAN:` and `AI:` purpose comments.

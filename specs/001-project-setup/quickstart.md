@@ -36,3 +36,4 @@
 | Run stop workflow after desktop hot reload launch | Project-local app, `dx`, Cargo, and Rust compiler processes stop cleanly |
 | Run VS Code desktop task | Output appears in a dedicated integrated terminal panel |
 | Run VS Code desktop hot reload task | Hot reload output appears in a dedicated integrated terminal panel |
+| Inspect Bevy template reference | `bevy/crates/template-crate` contains the proper reference skeleton for Bevy crate folders, representative files, asset folders, and Rust coding standards |

@@ -33,6 +33,7 @@
 
 - Confirm the feature follows the active spec, constitution, and repo-local agent guidance.
 - Confirm source, assets, scripts, docs, and tests stay in the locations defined by this project.
+- Confirm Bevy crate folders, representative files, asset folders, and Rust coding standards use `bevy/crates/template-crate` as the proper local reference.
 - Confirm Rust workspace folders and files use typical Rust naming conventions, including lowercase crate, module, and asset directories.
 - Confirm changed runtime files are organized around one primary concept per file with purposeful Plugin/Component/Scene/View/Model/System names.
 - Confirm changed runtime items include a terse `HUMAN:` and `AI:` purpose comment immediately above the primary item.

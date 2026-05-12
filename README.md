@@ -74,6 +74,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `.github` | GitHub Actions and repository automation, including release and web export workflows. |
 | `deploy.vps.env` | Public, non-secret VPS deployment defaults used by `ReleaseWebBuildToVps`. |
 | `bevy/crates/game` | Main Bevy game crate and executable for card-specific runtime behavior. |
+| `bevy/crates/template-crate` | Proper reference skeleton for Bevy crate folders, representative files, assets, and Rust coding standards. |
 | `bevy/crates/game/src/runtime/components` | Card-specific ECS data attached to entities. |
 | `bevy/crates/game/src/runtime/resources` | Card-specific ECS resources and inspection state. |
 | `bevy/crates/game/src/runtime/systems` | Card-specific setup, pointer mapping, smoothing, and DebugHUD composition. |
@@ -109,7 +110,7 @@ The static web build is exported and hosted when a GitHub Release is published. 
 
 ## Development Notes
 
-Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, card models, pointer mapping, smoothing, DebugHUD composition, inspector UI, and view reload behavior belongs in `bevy/crates/game`.
+Keep gameplay changes small and spec-driven. Reusable system-level behavior belongs in `bevy/crates/shared`; card-specific geometry, card models, pointer mapping, smoothing, DebugHUD composition, inspector UI, and view reload behavior belongs in `bevy/crates/game`. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, assets, and Rust coding standards.
 
 ## Runtime Concepts
 

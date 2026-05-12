@@ -1,14 +1,12 @@
 <!--
 Sync Impact Report
-Version change: 1.5.0 -> 1.6.0
+Version change: 1.6.0 -> 1.6.1
 Modified principles:
-- VII. Implementation Standards: expanded with 009 Scene/Model/View naming, one-primary-concept file separation, system naming, and HUMAN/AI purpose comments.
-- X. Theme Asset Organization: added reusable theme asset layout and naming rules from 009.
+- VII. Implementation Standards: names `bevy/crates/template-crate` as the proper local reference for Bevy folder, file, asset, and Rust coding standards.
 Added sections:
-- Core Principle X. Theme Asset Organization
+None
 Removed sections: None
 Templates requiring updates:
-- ✅ .specify/templates/spec-template.md
 - ✅ .specify/templates/plan-template.md
 - ✅ .specify/templates/tasks-template.md
 Follow-up TODOs: None
@@ -38,6 +36,8 @@ User-visible changes SHOULD be verified through the real target workflow when pr
 
 ### VII. Implementation Standards
 All implementation code MUST follow Rust and Bevy conventions, including explicit ECS ownership through components, resources, systems, and plugins.
+
+Bevy crate folder, representative file, asset folder, and Rust coding standards MUST use `bevy/crates/template-crate` as the proper local reference before agents add or reorganize Bevy runtime code or assets.
 
 All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms. All folders under `bevy/`, including runtime asset folders, MUST use lowercase `snake_case` names.
 
@@ -70,6 +70,7 @@ Reusable assets that are not owned by one theme, such as shared shaders, MUST st
 
 - Keep project-specific source layout documented in `README.md` and active specs.
 - Keep runtime assets under `bevy/crates/game/assets`.
+- Keep `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.
 - Keep Rust workspace folders and files in typical Rust naming conventions, including lowercase crate and module directories.
 - Keep theme-owned card, location, and world assets under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with category-prefixed folders, and keep shared shaders under `bevy/crates/game/assets/shaders/`.
 - Keep Bevy runtime files focused on one primary runtime concept and use Scene/Model/View naming where it distinguishes app structure, data, and presentation.
@@ -93,4 +94,4 @@ Reusable assets that are not owned by one theme, such as shared shaders, MUST st
 
 This constitution applies to all future Spec Kit specifications, plans, and task lists for this repository. Specs may add narrower acceptance criteria, but they must not contradict these principles without explicitly updating this constitution and documenting the reason.
 
-**Version**: 1.6.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-11
+**Version**: 1.6.1 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-12

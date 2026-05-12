@@ -19,7 +19,7 @@ Provide repeatable dependency setup, test, desktop run, desktop hot reload, web 
 | Target Platform | Windows desktop primary for placement; browser WebGPU runs through `scripts/main/RunAppWeb.ps1` without desktop placement dependency |
 | Project Type | Bevy desktop/browser game prototype |
 | Performance Goals | Placement load/save is tiny local file IO only at startup and normal close |
-| Constraints | Keep reusable window setup and placement behavior under `bevy/crates/shared`; keep scripts under `scripts`; keep generated build/web/hot-reload output under ignored target/generated paths; keep local runtime persistence under ignored `data/local_storage/`; do not add card, DebugHUD, or gameplay behavior for this feature |
+| Constraints | Keep reusable window setup and placement behavior under `bevy/crates/shared`; use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards; keep scripts under `scripts`; keep generated build/web/hot-reload output under ignored target/generated paths; keep local runtime persistence under ignored `data/local_storage/`; do not add card, DebugHUD, or gameplay behavior for this feature |
 | Scale/Scope | One primary desktop window, two-screen restore support, repository scripts for desktop, desktop hot reload, and web workflows, VS Code tasks |
 
 ## Constitution Check
@@ -31,7 +31,7 @@ Provide repeatable dependency setup, test, desktop run, desktop hot reload, web 
 | Visible feedback requirements respected | ✅ | Script output remains visible in terminal workflows, including hot reload |
 | Browser/local storage constraints | ✅ | Desktop placement state is file-based and does not introduce browser persistence |
 | Real behavior verification path | ✅ | Dependency, test, desktop, web, and stop scripts are documented with check-only paths where available |
-| Rust and Bevy ECS standards | ✅ | Placement tracking is implemented as resources and systems |
+| Rust and Bevy ECS standards | ✅ | Placement tracking is implemented as resources and systems; `bevy/crates/template-crate` is the proper local reference for future Bevy folders and representative files |
 | Target parity risk documented | ✅ | Desktop placement applies only to desktop; browser startup is verified through the web runner |
 
 ## Project Structure
@@ -45,6 +45,9 @@ bevy/crates/shared/src/
 
 bevy/crates/game/src/
 └── main.rs                          # Composes shared window/runtime setup into the game app
+
+bevy/crates/template-crate/
+└── ...                              # Proper reference for Bevy crate folders, representative files, assets, and Rust coding standards
 
 scripts/
 ├── main/
@@ -61,7 +64,7 @@ scripts/
 └── tasks.json                      # Local VS Code task entries
 ```
 
-**Structure Decision**: Keep placement behavior in `bevy/crates/shared` because window management is system-level reusable runtime behavior. `bevy/crates/game` should only compose the shared setup into the game app. Add hot reload as a repository script/tooling workflow rather than replacing the normal desktop run path. Do not introduce app-wide settings screens, card rendering, DebugHUD behavior, gameplay behavior, or a broader configuration framework.
+**Structure Decision**: Keep placement behavior in `bevy/crates/shared` because window management is system-level reusable runtime behavior. `bevy/crates/game` should only compose the shared setup into the game app. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards before future Bevy structure changes. Add hot reload as a repository script/tooling workflow rather than replacing the normal desktop run path. Do not introduce app-wide settings screens, card rendering, DebugHUD behavior, gameplay behavior, or a broader configuration framework.
 
 ## Complexity Tracking
 

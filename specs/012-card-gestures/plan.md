@@ -18,7 +18,7 @@ Replace the current hand-card click-to-DeckBuilderScene behavior with in-game po
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Pointer gesture updates and slot hit-testing should be frame-cheap over a small fixed board: one active gesture, three locations, and twenty-four slots |
-| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; keep card gesture state as `Model` concepts and card/slot presentation as `View` concepts; remove the GameView hand-card path that opens `DeckBuilderScene`; do not modify the existing DeckBuilderScene implementation; accept that users will no longer have a path to reach it after this feature; keep all visible positions derived from the aspect-ratio-safe game view; do not implement full turn, energy, reveal, CPU, or scoring resolution |
+| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards; keep card gesture state as `Model` concepts and card/slot presentation as `View` concepts; remove the GameView hand-card path that opens `DeckBuilderScene`; do not modify the existing DeckBuilderScene implementation; accept that users will no longer have a path to reach it after this feature; keep all visible positions derived from the aspect-ratio-safe game view; do not implement full turn, energy, reveal, CPU, or scoring resolution |
 | Scale/Scope | Local player's hand cards, one active selected/dragged card at a time, three location areas, four local slots and four opponent slots per location, twelve valid direct-placement slots total |
 
 ## Constitution Check
@@ -29,6 +29,7 @@ Replace the current hand-card click-to-DeckBuilderScene behavior with in-game po
 | Source, assets, scripts, docs, and tests stay in approved locations | ✅ | Runtime code belongs under `bevy/crates/game/src/runtime/`; scripts stay under `scripts/`; no new runtime assets are required |
 | Rust naming and path casing | ✅ | New modules should use lowercase `snake_case`; no `Bevy/Crates/...` paths |
 | One primary runtime concept per file | ✅ | Planned files separate gesture model, slot model, gesture components, tween/lens logic, and update systems |
+| Template crate reference | ✅ | `bevy/crates/template-crate` is the proper local reference for Bevy folders, representative files, asset folders, and Rust coding standards |
 | Required `HUMAN:` and `AI:` comments | ✅ | Any changed or new primary runtime items must include the two-line purpose comment immediately above the item |
 | Runtime system naming | ✅ | New systems should use names such as `card_gesture_update_system`, `card_gesture_animation_system`, and `card_slot_update_system` |
 | Scene/Model/View naming | ✅ | Gesture and slot data use `Model`; visible placement/inspection concepts use `View`; `GameView` remains a view under persistent `AppScene` |
@@ -71,7 +72,7 @@ scripts/
     └── RunTests.ps1
 ```
 
-**Structure Decision**: Keep card gesture implementation in the game crate because it depends on `GameView`, hand cards, Deck Builder inspection pose parity, and gameplay slot semantics. Prefer focused model/component/system files instead of growing the already-large aggregate runtime system module. Add `bevy_tweening` only to the game crate and keep gesture hit-testing deterministic in model code so slot legality can be tested without rendering. Do not edit the Deck Builder view implementation; only remove GameView user navigation into it.
+**Structure Decision**: Keep card gesture implementation in the game crate because it depends on `GameView`, hand cards, Deck Builder inspection pose parity, and gameplay slot semantics. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Prefer focused model/component/system files instead of growing the already-large aggregate runtime system module. Add `bevy_tweening` only to the game crate and keep gesture hit-testing deterministic in model code so slot legality can be tested without rendering. Do not edit the Deck Builder view implementation; only remove GameView user navigation into it.
 
 ## Complexity Tracking
 

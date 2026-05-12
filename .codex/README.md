@@ -17,6 +17,7 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 | `.specify` | Specify configuration, templates, scripts, and constitution. |
 | `specs` | Active feature specifications. |
 | `bevy/crates/game/assets` | Runtime game assets and fixtures. |
+| `bevy/crates/template-crate` | Proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. |
 | `scripts` | Repeatable local project scripts. |
 | `documentation/images` | README-visible image assets. |
 
@@ -27,6 +28,7 @@ Use `.codex/project-identity.md` as the first checklist when changing this templ
 | Desktop window default size | Edit `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` in `bevy/crates/shared/src/window.rs`, then update `specs/001-project-setup/spec.md` if the approved launch/fallback size changes. |
 | Generated card alpha chroma key | Use `#ff00ff` as the single approved chroma-key color for AI-generated foreground and title source images that will be converted to transparent PNG layers. Do not use this color inside the subject or title artwork. |
 | Bevy runtime naming | Use `AppScene` for the persistent app-level scene, `GameView`, `DeckBuilderScene`, and `DebugSettingsScene` for active sub-screen views, `CardModel` for card data, `CardView` for rendered card presentation, and `CardViewBundle` for the visual bundle. |
+| Bevy template reference | Use `bevy/crates/template-crate` as the proper reference before adding or reorganizing Bevy crate folders, representative files, asset folders, or Rust coding patterns. |
 | Bevy runtime file shape | Keep changed runtime files focused on one primary concept, name changed systems as `[domain]_[schedule]_system`, and add `HUMAN:` / `AI:` purpose comments above changed primary items. |
 | Theme assets | Keep theme-owned card, location, and world assets under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with `card_`, `location_`, and `world_` folders. |
 

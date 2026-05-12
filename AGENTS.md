@@ -43,6 +43,7 @@ Default assistant model for this project: `gpt-5.5`.
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.
 - Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
+- Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, and Rust coding standards.
 - Keep changed Bevy runtime files focused on one primary concept per file; use purposeful names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
 - Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation. `AppScene` is always present; active sub-screen presentations are views such as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`.
 - Name changed runtime system functions as `[domain]_[schedule]_system`, for example `player_update_system`.

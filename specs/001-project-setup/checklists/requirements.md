@@ -33,3 +33,4 @@
 
 - Initial specification validation passed. Clarification should focus on exact placement fallback and persistence expectations.
 - Hot reload update adds Dioxus CLI tooling details because the user explicitly requested the setup spec and scripts to capture the `bevy-jam-1` hot reload workflow.
+- 2026-05-12 update adds template crate skeleton requirements and establishes `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards.

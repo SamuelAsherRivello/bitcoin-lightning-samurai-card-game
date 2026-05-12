@@ -8,6 +8,7 @@
 | Root docs | Keep Codex and Specify guidance visible while documenting Bevy game conventions. |
 | Scripts | Put repeatable project commands in root `scripts`. |
 | Assets | Put runtime assets under `bevy/crates/game/assets`. |
+| Template crate | Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. |
 | Theme assets | Put theme-owned cards, locations, and worlds under `bevy/crates/game/assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with `card_`, `location_`, and `world_` folders. |
 | Shaders | Put custom runtime shaders under `bevy/crates/game/assets/shaders/`. |
 | Specs | Put active feature specs in `specs`. |
@@ -21,6 +22,7 @@
 | Path casing | Bevy workspace paths are lowercase `bevy/crates/...`; do not use `Bevy/Crates/...` in code, scripts, workflows, or docs. |
 | Game crate | `bevy/crates/game` with package name `bevy-card-game`. |
 | Shared crate | `bevy/crates/shared` for reusable non-Bevy game constants and logic. |
+| Template crate | `bevy/crates/template-crate` is a non-workspace reference skeleton for Bevy crate layout, runtime role folders, asset folders, and representative Rust files. |
 | ECS layout | Keep components, resources, systems, and plugins under `bevy/crates/game/src/runtime`. |
 | Runtime file shape | Changed runtime files center on one primary plugin, component, scene, view, model, or system concept. |
 | Runtime naming | Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation; `AppScene` is persistent and active sub-screens are views such as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`. |

@@ -7,6 +7,7 @@ Use this rule when adding, moving, reviewing, or documenting Bevy runtime code.
 | Rule | Requirement |
 | ---- | ----------- |
 | Crates | Use `bevy/crates/game` for the Bevy app and gameplay; use `bevy/crates/shared` for reusable runtime support. |
+| Template reference | Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards before adding or reorganizing runtime code. |
 | ECS layout | Keep runtime code split by `components`, `resources`, `systems`, and `plugins`. |
 | Ownership | Components hold data; systems own behavior; resources hold shared state; plugins group features and app wiring. |
 | Primary concept files | Changed runtime files should center on one primary plugin, component, scene, view, model, or system concept. |
@@ -23,3 +24,4 @@ Use this rule when adding, moving, reviewing, or documenting Bevy runtime code.
 ## Reference Source
 
 Imported from the structure guidance in `https://github.com/SamuelAsherRivello/bevy-jam-1` and adapted to this repository's existing lowercase `bevy/crates` layout.
+The local `bevy/crates/template-crate` skeleton is the project-owned reference to use for current folder, file, asset, and Rust coding standards.

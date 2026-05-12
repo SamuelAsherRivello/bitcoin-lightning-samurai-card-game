@@ -3,6 +3,7 @@
 | Contract Item | Requirement |
 | ------------- | ----------- |
 | Source ownership | Window defaulting, placement loading, placement validation, and placement saving live in `bevy/crates/shared`; `bevy/crates/game` composes the shared behavior only |
+| Template reference | Future Bevy crate folders, representative files, asset folders, and Rust coding standards use `bevy/crates/template-crate` as the proper local reference |
 | Default size | The desktop window opens at 1024x768 when no valid placement exists |
 | Save timing | Placement is written only on normal window close |
 | Saved fields | Saved placement includes x/y position, size, screen name when available, screen position, screen size, and window-relative-to-screen position |
