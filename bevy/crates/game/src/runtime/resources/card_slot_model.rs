@@ -348,7 +348,8 @@ pub fn card_slot_rect(
     side: CardSlotSide,
     slot_index: usize,
 ) -> CardSlotRect {
-    let location_left = card_slot_location_left(location_index).unwrap_or(CARD_SLOT_LOCATION_LEFTS[0]);
+    let location_left =
+        card_slot_location_left(location_index).unwrap_or(CARD_SLOT_LOCATION_LEFTS[0]);
     let column = slot_index % 2;
     let row = slot_index / 2;
     let top = match side {

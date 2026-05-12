@@ -59,12 +59,12 @@ use crate::runtime::resources::{
     CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardInspectionDefaults,
     CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore, CardSlotBoardModel,
     CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel, DEFAULT_DECK_NAME,
-    DebugHudInputStore, DebugHudState, DeckModel, GameDeckModel, GameHandModel, GameTicks,
-    LocationModelRegistry, LocationScoreModel, PRIMARY_CAMERA_FOV_RADIANS,
-    PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
-    WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
-    ensure_player_deck_collection_model, load_window_placement, random_shuffled_default_deck_cards,
-    valid_window_placement,
+    DebugHudInputStore, DebugHudState, DeckModel, FullscreenViewportTransitionState, GameDeckModel,
+    GameHandModel, GameTicks, LocationModelRegistry, LocationScoreModel,
+    PRIMARY_CAMERA_FOV_RADIANS, PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults,
+    STARTING_HAND_CARD_COUNT, WindowPlacement, WindowPlacementState, WindowPlacementStore,
+    WorldModelRegistry, ensure_player_deck_collection_model, load_window_placement,
+    random_shuffled_default_deck_cards, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -134,18 +134,17 @@ const END_TURN_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0)
 const DEBUG_SETTINGS_CARD_GAP_TO_CARD_UI: f32 = 20.0;
 const POINT_VIEW_WIDTH: f32 = 46.0;
 const POINT_VIEW_HEIGHT: f32 = 36.0;
-const LOCATION_VIEW_WIDTH: f32 = 168.0;
-const LOCATION_VIEW_HEIGHT: f32 = 216.0;
 const LOCATION_POINT_VIEW_WIDTH: f32 = POINT_VIEW_WIDTH.min(POINT_VIEW_HEIGHT);
 const LOCATION_POINT_VIEW_HEIGHT: f32 = LOCATION_POINT_VIEW_WIDTH * 0.8;
 const LOCATION_POINT_VIEW_HALF_HEIGHT: f32 = LOCATION_POINT_VIEW_HEIGHT / 2.0;
-const LOCATION_POINT_VIEW_BOTTOM_OFFSET: f32 = LOCATION_POINT_VIEW_HALF_HEIGHT * 0.6;
 const CARD_POINT_BADGE_SIZE: f32 = 0.17;
 const CARD_POINT_BADGE_INSET_RATIO: f32 = 0.16;
 const CARD_POINT_DIGIT_WIDTH: f32 = 0.04;
 const CARD_POINT_DIGIT_HEIGHT: f32 = 0.076;
 const CARD_POINT_DIGIT_STROKE: f32 = 0.01;
 const CARD_POINT_DIGIT_GAP: f32 = 0.004;
+#[cfg(not(target_arch = "wasm32"))]
+const FULLSCREEN_VIEWPORT_TRANSITION_FRAMES: u8 = 6;
 
 /// HUMAN: Spawns the local player entity for the app.
 /// AI: Startup system; keep player setup separate from AppScene and view setup.
@@ -203,15 +202,25 @@ pub fn constrain_debug_settings_camera_to_safe_area(
 /// AI: Avoid native fullscreen scissor validation by using the surface-sized default viewport there.
 pub fn constrain_game_view_3d_cameras_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
+    mut fullscreen_viewport_transition: Option<ResMut<FullscreenViewportTransitionState>>,
     mut camera_query: Query<&mut Camera, (With<GameViewEntity>, With<Camera3d>)>,
 ) {
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport_for_window(window);
+    let safe_area_viewport = game_view_safe_area_viewport_for_window_transition(
+        window,
+        fullscreen_viewport_transition.as_deref(),
+    );
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
+    }
+
+    if let Some(ref mut transition) = fullscreen_viewport_transition
+        && transition.frames_remaining > 0
+    {
+        transition.frames_remaining -= 1;
     }
 }
 
@@ -221,6 +230,17 @@ fn game_view_safe_area_viewport_for_window(window: &Window) -> Option<Viewport> 
     }
 
     game_view_safe_area_viewport(window.resolution.physical_size())
+}
+
+fn game_view_safe_area_viewport_for_window_transition(
+    window: &Window,
+    fullscreen_viewport_transition: Option<&FullscreenViewportTransitionState>,
+) -> Option<Viewport> {
+    if fullscreen_viewport_transition.is_some_and(|transition| transition.frames_remaining > 0) {
+        return None;
+    }
+
+    game_view_safe_area_viewport_for_window(window)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -762,12 +782,6 @@ fn spawn_game_view_ui(
             Visibility::Visible,
         ))
         .with_children(|parent| {
-            spawn_location_row(
-                parent,
-                asset_server,
-                location_model_registry,
-                active_locations,
-            );
             spawn_location_area_bundles(
                 parent,
                 asset_server,
@@ -810,51 +824,8 @@ fn spawn_game_view_world_background(
         .id()
 }
 
-fn spawn_location_row(
-    parent: &mut ChildSpawnerCommands,
-    asset_server: &AssetServer,
-    location_model_registry: &LocationModelRegistry,
-    active_locations: &ActiveLocations,
-) {
-    parent
-        .spawn((
-            Name::new("GameView Location Row"),
-            GameViewEntity,
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(28.0),
-                top: Val::Percent(28.0),
-                width: Val::Percent(44.0),
-                height: Val::Percent(30.0),
-                display: Display::Flex,
-                flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(10.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            GlobalZIndex(10),
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            for (index, location) in location_model_registry
-                .selected_locations(active_locations)
-                .into_iter()
-                .enumerate()
-            {
-                spawn_location_ui(
-                    parent,
-                    asset_server,
-                    index,
-                    location.display_name,
-                    location.texture,
-                );
-            }
-        });
-}
-
 /// HUMAN: Spawns one visual overlay in each runtime location area.
-/// AI: Draws the bundle background first and overlays the yellow border on top.
+/// AI: Draws the bundle background at the bundle rect and overlays the yellow border.
 fn spawn_location_area_bundles(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
@@ -870,9 +841,11 @@ fn spawn_location_area_bundles(
         };
         let bundle_size = LocationViewBundle::scaled_size(area_rect);
 
-        let mut bundle_entity = parent.spawn(LocationViewBundle::new(area_rect));
-
         if let Some(location) = selected_locations.get(location_index) {
+            let mut bundle_entity = parent.spawn((
+                LocationViewBundle::new(area_rect),
+                GameLocation::new(location_index, LocationRevealState::Revealed),
+            ));
             bundle_entity.with_children(|parent| {
                 parent.spawn((
                     Name::new(format!("Game Location Background {location_index}")),
@@ -887,6 +860,8 @@ fn spawn_location_area_bundles(
                         ..Default::default()
                     },
                 ));
+
+                spawn_location_text(parent, location.display_name, 18.0);
 
                 parent.spawn((
                     Name::new(format!("Game Location Border {location_index}")),
@@ -903,58 +878,27 @@ fn spawn_location_area_bundles(
                     BorderColor::all(Color::srgba(1.0, 0.82, 0.1, 1.0)),
                     GlobalZIndex(2),
                 ));
+
+                let location_score = LocationScoreModel::empty(location_index);
+                spawn_location_power_point_view(
+                    parent,
+                    location_score.opponent_total,
+                    location_index,
+                    CardSlotSide::Opponent,
+                    bundle_size.x,
+                    true,
+                );
+                spawn_location_power_point_view(
+                    parent,
+                    location_score.local_total,
+                    location_index,
+                    CardSlotSide::LocalPlayer,
+                    bundle_size.x,
+                    false,
+                );
             });
         }
     }
-}
-
-/// HUMAN: Spawns the location card UI container and scales its texture to the card bounds.
-/// AI: Keeps card content (power points and label) anchored inside a stretched background image.
-fn spawn_location_ui(
-    parent: &mut ChildSpawnerCommands,
-    asset_server: &AssetServer,
-    index: usize,
-    display_name: &'static str,
-    texture: &'static str,
-) {
-    let mut location = parent.spawn((
-        Name::new(format!("Game Location {}", index + 1)),
-        GameLocation::new(index, LocationRevealState::Revealed),
-        ImageNode::new(asset_server.load(texture))
-            .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
-        Node {
-            width: Val::Px(LOCATION_VIEW_WIDTH),
-            height: Val::Px(LOCATION_VIEW_HEIGHT),
-            border: UiRect::all(Val::Px(4.0)),
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::all(Val::Px(10.0)),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            ..Default::default()
-        },
-        Visibility::Visible,
-    ));
-    location.insert(BorderColor::all(Color::srgb(0.58, 0.47, 0.31)));
-    location.with_children(|parent| {
-        let location_score = LocationScoreModel::empty(index);
-        spawn_location_power_point_view(
-            parent,
-            location_score.opponent_total,
-            index,
-            CardSlotSide::Opponent,
-            true,
-        );
-        spawn_location_text(parent, display_name, 18.0);
-        spawn_location_power_point_view(
-            parent,
-            location_score.local_total,
-            index,
-            CardSlotSide::LocalPlayer,
-            false,
-        );
-    });
 }
 
 fn game_view_perspective_view_size_at_z(z: f32) -> Vec2 {
@@ -1009,20 +953,21 @@ fn spawn_location_text(parent: &mut ChildSpawnerCommands, text: &'static str, fo
     ));
 }
 
-/// HUMAN: Spawns top and bottom location power badges with deterministic offsets.
-/// AI: Uses a reduced bottom offset so the local power badge sits higher.
+/// HUMAN: Spawns top and bottom location power badges centered on bundle edges.
+/// AI: Positions badge centers on the yellow border lines using bundle-local geometry.
 fn spawn_location_power_point_view(
     parent: &mut ChildSpawnerCommands,
     model: PowerPointModel,
     location_index: usize,
     side: CardSlotSide,
+    location_width: f32,
     is_top: bool,
 ) {
     let point_model = PointModel::from_power_point(PointType::LocationPower, model);
-    let point_offset = LOCATION_POINT_VIEW_HALF_HEIGHT;
-    let x_offset = (LOCATION_VIEW_WIDTH - LOCATION_POINT_VIEW_WIDTH) / 2.0;
     let point_width = LOCATION_POINT_VIEW_WIDTH;
     let point_height = LOCATION_POINT_VIEW_HEIGHT;
+    let point_offset = LOCATION_POINT_VIEW_HALF_HEIGHT;
+    let x_offset = (location_width - point_width) / 2.0;
     let mut node = Node {
         width: Val::Px(point_width),
         height: Val::Px(point_height),
@@ -1039,7 +984,7 @@ fn spawn_location_power_point_view(
     if is_top {
         node.top = Val::Px(-point_offset);
     } else {
-        node.bottom = Val::Px(-LOCATION_POINT_VIEW_BOTTOM_OFFSET);
+        node.bottom = Val::Px(-point_offset);
     }
 
     parent
@@ -1048,6 +993,7 @@ fn spawn_location_power_point_view(
             PointLocationView::new(location_index, side),
             node,
             BackgroundColor(Color::srgba(0.18, 0.02, 0.02, 0.9)),
+            GlobalZIndex(3),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -3895,6 +3841,7 @@ pub fn toggle_debug_hud_inputs(
     mut primary_window_query: Query<&mut Window, With<PrimaryWindow>>,
     monitor_query: Query<&Monitor>,
     monitor_entity_query: Query<(Entity, &Monitor)>,
+    mut fullscreen_viewport_transition: Option<ResMut<FullscreenViewportTransitionState>>,
     mut placement_state: Option<ResMut<WindowPlacementState>>,
     mut persistent_input: Option<ResMut<Persistent<DebugHudInputStore>>>,
     mut persistent_placement: Option<ResMut<Persistent<WindowPlacementStore>>>,
@@ -3904,6 +3851,7 @@ pub fn toggle_debug_hud_inputs(
 
     if keys.just_pressed(KeyCode::KeyF) {
         hud_state.is_fullscreen = !hud_state.is_fullscreen;
+        start_fullscreen_viewport_transition(fullscreen_viewport_transition.as_deref_mut());
         apply_browser_fullscreen(hud_state.is_fullscreen);
         if let Ok(mut window) = primary_window_query.single_mut() {
             if hud_state.is_fullscreen {
@@ -3970,6 +3918,21 @@ pub fn toggle_debug_hud_inputs(
     {
         warn!("Failed to save window placement: {error}");
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn start_fullscreen_viewport_transition(
+    fullscreen_viewport_transition: Option<&mut FullscreenViewportTransitionState>,
+) {
+    if let Some(transition) = fullscreen_viewport_transition {
+        transition.frames_remaining = FULLSCREEN_VIEWPORT_TRANSITION_FRAMES;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn start_fullscreen_viewport_transition(
+    _fullscreen_viewport_transition: Option<&mut FullscreenViewportTransitionState>,
+) {
 }
 
 /// HUMAN: Applies the project fullscreen preference to the primary window.
@@ -4133,9 +4096,7 @@ pub fn restore_window_placement_to_current_monitors(
             let monitor_selection = placement_state
                 .current
                 .as_ref()
-                .map(|placement| {
-                    saved_monitor_selection(placement, &monitor_entity_query)
-                })
+                .map(|placement| saved_monitor_selection(placement, &monitor_entity_query))
                 .unwrap_or(MonitorSelection::Current);
             apply_fullscreen_mode_on_monitor(&mut window, monitor_selection);
         }
@@ -5407,7 +5368,6 @@ mod tests {
         ));
 
         app.update();
-        app.update();
 
         let mut camera_query = app
             .world_mut()
@@ -5417,6 +5377,28 @@ mod tests {
         for camera in cameras {
             assert!(camera.viewport.is_none());
         }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn game_view_uses_default_viewport_during_fullscreen_transition() {
+        let window = Window {
+            resolution: WindowResolution::new(2560, 1600),
+            mode: WindowMode::Windowed,
+            ..Default::default()
+        };
+        let transition = FullscreenViewportTransitionState {
+            frames_remaining: 1,
+        };
+
+        assert!(
+            game_view_safe_area_viewport_for_window_transition(&window, Some(&transition))
+                .is_none()
+        );
+        assert!(
+            game_view_safe_area_viewport_for_window_transition(&window, None)
+                .is_some_and(|viewport| viewport.physical_size == UVec2::new(2560, 1600))
+        );
     }
 
     #[test]
@@ -5483,6 +5465,65 @@ mod tests {
                 (2, LocationRevealState::Revealed)
             ]
         );
+
+        let slot_board = CardSlotBoardModel::default();
+        let mut location_node_query = app.world_mut().query::<(&GameLocation, &Node, &Children)>();
+        let mut location_layouts: Vec<(usize, Val, Val, Val, Val, Vec<Entity>)> =
+            location_node_query
+                .iter(app.world())
+                .map(|(location, node, children)| {
+                    (
+                        location.index,
+                        node.left,
+                        node.top,
+                        node.width,
+                        node.height,
+                        children.iter().collect(),
+                    )
+                })
+                .collect();
+        location_layouts.sort_by_key(|(index, ..)| *index);
+        assert_eq!(location_layouts.len(), 3);
+
+        for (location_index, left, top, width, height, children) in location_layouts {
+            let area_rect = slot_board.location_area_rect(location_index).unwrap();
+            let bundle_size = LocationViewBundle::scaled_size(area_rect);
+            assert_eq!(
+                left,
+                Val::Px(area_rect.left + (area_rect.width - bundle_size.x) / 2.0)
+            );
+            assert_eq!(
+                top,
+                Val::Px(area_rect.top + (area_rect.height - bundle_size.y) / 2.0)
+            );
+            assert_eq!(width, Val::Px(bundle_size.x));
+            assert_eq!(height, Val::Px(bundle_size.y));
+
+            let background_name = format!("Game Location Background {location_index}");
+            let border_name = format!("Game Location Border {location_index}");
+            let mut background_node = None;
+            let mut border_node = None;
+            for child in children {
+                let entity = app.world().entity(child);
+                let Some(name) = entity.get::<Name>() else {
+                    continue;
+                };
+                if name.as_str() == background_name {
+                    background_node = entity.get::<Node>();
+                }
+                if name.as_str() == border_name {
+                    border_node = entity.get::<Node>();
+                }
+            }
+
+            for node in [background_node.unwrap(), border_node.unwrap()] {
+                assert_eq!(node.left, Val::Px(0.0));
+                assert_eq!(node.top, Val::Px(0.0));
+                assert_eq!(node.width, Val::Px(bundle_size.x));
+                assert_eq!(node.height, Val::Px(bundle_size.y));
+            }
+        }
+
         let mut slot_target_query = app.world_mut().query::<&CardSlotGestureTarget>();
         let slot_targets: Vec<CardSlotGestureTarget> =
             slot_target_query.iter(app.world()).copied().collect();
@@ -5526,6 +5567,27 @@ mod tests {
             })
             .collect();
         assert_eq!(location_power_views.len(), 6);
+
+        let mut location_power_node_query = app.world_mut().query::<(&PointLocationView, &Node)>();
+        for (location_power_view, node) in location_power_node_query.iter(app.world()) {
+            let area_rect = slot_board
+                .location_area_rect(location_power_view.location_index)
+                .unwrap();
+            let bundle_size = LocationViewBundle::scaled_size(area_rect);
+            let expected_left = (bundle_size.x - LOCATION_POINT_VIEW_WIDTH) / 2.0;
+
+            assert_eq!(node.left, Val::Px(expected_left));
+            assert_eq!(node.width, Val::Px(LOCATION_POINT_VIEW_WIDTH));
+            assert_eq!(node.height, Val::Px(LOCATION_POINT_VIEW_HEIGHT));
+            match location_power_view.side {
+                CardSlotSide::Opponent => {
+                    assert_eq!(node.top, Val::Px(-LOCATION_POINT_VIEW_HALF_HEIGHT));
+                }
+                CardSlotSide::LocalPlayer => {
+                    assert_eq!(node.bottom, Val::Px(-LOCATION_POINT_VIEW_HALF_HEIGHT));
+                }
+            }
+        }
 
         let mut hand_query = app
             .world_mut()

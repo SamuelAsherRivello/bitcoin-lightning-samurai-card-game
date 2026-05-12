@@ -5,6 +5,12 @@
 **Status**: Draft  
 **Input**: User description: "Card gestures for the game view. Mouse input should also mean mobile pointer input such as tap, press, swipe, and drag. Clicking a hand card should no longer switch to the Deck Builder scene. A click selects the card in the game view, moves it to the center at the same large inspection position used by the Deck Builder scene, around 90% of screen height, and clicking that selected card returns it to its hand position. Dragging a hand card after moving a few pixels should not count as a click. Dragging allows the card to move into empty slots in the local player's side of the three location areas. Each location has four slots above and four below, and the local human player may only allocate into the twelve closest slots below the three locations. Dropping onto an empty valid slot snaps the card there while preserving card aspect ratio and fitting the slot."
 
+## Clarifications
+
+### Session 2026-05-12
+
+- Q: Are placed cards always immovable? -> A: No. Cards placed during the current round may be dragged back to the player hand area and reinserted into the hand during that same round; after the round ends, placed cards become locked and cannot be moved by drag.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Inspect a Hand Card In Place (Priority: P1)
@@ -39,7 +45,7 @@ A player can start an input on a hand card and either inspect it with a click/ta
 3. **Given** a gesture has become a drag, **When** the player releases the pointer, **Then** the card inspection behavior is not triggered by that same gesture.
 4. **Given** the player uses a touch screen, **When** the player taps, presses, or drags a card, **Then** the same click-versus-drag rules apply as they do for mouse input.
 5. **Given** a card is already being pressed or dragged, **When** another pointer press starts on a different hand card, **Then** the second press is ignored until the first pointer gesture resolves.
-6. **Given** a card is not in `Hand` state, **When** the player presses or drags it, **Then** the card is not eligible to start a drag gesture.
+6. **Given** a card is not in `Hand` state and was not placed during the current round, **When** the player presses or drags it, **Then** the card is not eligible to start a drag gesture.
 
 ---
 
@@ -60,6 +66,10 @@ A player can drag a card from the hand area into any empty slot on the local pla
 5. **Given** a location has at least one empty local-player slot while the player is dragging a hand card, **When** the game view shows placement affordances, **Then** a light blue DropTargetHint rectangle outlines that location's entire local-player slots area.
 6. **Given** a drag resolves successfully, **When** the card finishes placement, **Then** the card's final location is the assigned destination location card slot.
 7. **Given** one or more cards are assigned to a location card slot for a player side, **When** the game view updates that location, **Then** that side's visible location power points equal the sum of the assigned cards' power values.
+8. **Given** a card was placed into a location during the current round, **When** the player drags it back to the player hand area, **Then** it returns to the hand instead of remaining locked at the location.
+9. **Given** a current-round placed card is dragged over the hand area, **When** the player moves it between hand cards, **Then** the hand cards shift along the x axis to show an insertion gap to the left, middle, or right of existing cards.
+10. **Given** a current-round placed card is released over a valid hand insertion gap, **When** the gesture resolves, **Then** the card becomes a hand card at that chosen hand order and the hand group recenters.
+11. **Given** a placed card belongs to a previous round, **When** the player presses or drags it, **Then** it cannot start a drag and remains locked in its location slot.
 
 ---
 
@@ -94,6 +104,8 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | The pointer leaves the visible application area during a drag | The drag remains controlled by the last valid pointer state, and releasing outside a valid slot returns the card to its source position. |
 | The window or safe area changes while a card is selected or being dragged | Card positions and sizes are recalculated from the current safe visible area while preserving card aspect ratio. |
 | All twelve local-player slots are populated | Dragging from hand cannot place a card until an empty local-player slot exists. |
+| A current-round placed card is dragged back over the hand area with no clear insertion gap | The card returns to its current-round location slot and remains part of the current-round move history. |
+| The round ends while cards are placed in locations | Those placed cards become locked and cannot start future drag gestures. |
 
 ## Requirements *(mandatory)*
 
@@ -129,9 +141,13 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **FR-028**: A full location's local-player slots area MUST NOT show as an available DropTargetHint and MUST reject drops.
 - **FR-029**: The game MUST guard against concurrent hand-card drag gestures so only zero or one card can be pressed for drag or actively dragged at a time.
 - **FR-030**: After a successful or cancelled drag resolves, the card's final legal destination MUST be either its original hand card slot or the assigned destination location card slot.
-- **FR-031**: Each game card MUST have a gameplay card state of `Hand`, `Dragging`, or `Location`; only cards in `Hand` state are draggable.
+- **FR-031**: Each game card MUST have a gameplay card state that distinguishes `Hand`, `Dragging`, current-round placed location cards, and locked location cards.
 - **FR-032**: Location card slot position and size data MUST live in the runtime slot data model and be reused by debug drawing, drop target hit testing, and placement transforms.
 - **FR-033**: Each visible location-side power total MUST be derived from the cards currently assigned to that location's player-side card slots.
+- **FR-034**: A location card placed during the current round MUST be eligible to start a drag back toward the player hand area during that same round.
+- **FR-035**: A location card from a previous round MUST NOT be eligible to start a drag gesture.
+- **FR-036**: While a current-round placed card is dragged over the player hand area, the hand layout MUST shift existing cards along the x axis to show the current insertion gap.
+- **FR-037**: Releasing a current-round placed card over a valid hand insertion gap MUST return it to the hand at that chosen hand order and recenter the hand group.
 
 ### Key Entities
 
@@ -140,7 +156,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | **Pointer Input** | A generalized user input source covering mouse click, mouse movement, drag, touch tap, press, swipe, stylus, and equivalent pointer interactions. |
 | **Hand Card** | A card visible in the local player's hand area and eligible for click-to-inspect or drag-to-place gestures. |
 | **Hand Card Slot** | The original hand position and size assigned to a hand card before its active gesture starts. |
-| **Card State** | The runtime gameplay state for a card: `Hand`, `Dragging`, or `Location`. |
+| **Card State** | The runtime gameplay state for a card, including `Hand`, `Dragging`, current-round placed location, and locked location. |
 | **Selected Inspected Card** | The one active card enlarged in the center of the game view for in-place inspection. |
 | **Gesture Threshold** | The movement boundary used to decide whether a press-and-release is a click or tap, or whether it becomes a drag. |
 | **Drag Gesture** | A pointer gesture that begins on a hand card and crosses the movement threshold before release. |
@@ -148,6 +164,9 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | **Opponent-Side Slot** | One of four slots above a location area; not a valid direct placement target for the local human player in this feature. |
 | **Local-Player Slot** | One of four slots below a location area; a valid direct placement target only when empty. |
 | **Location Card Slot** | The destination local-player slot assigned after a successful drag release. |
+| **Current-Round Placed Card** | A card moved from hand to a location during the current round; it may still be dragged back to the player hand area before End Turn locks it. |
+| **Locked Placed Card** | A card in a location from a previous round; it cannot be moved by drag. |
+| **Hand Insertion Gap** | The temporary visual gap shown between, before, or after hand cards while returning a current-round placed card to the hand. |
 | **Slot State** | Whether a slot is empty and can accept a card, or populated and cannot accept another directly dragged card. |
 | **Source Position** | The card's position and size before the active gesture began, used when returning from selected inspection or rejected drag. |
 | **DropTargetHint** | A user-facing light blue rectangle outlining the full local-player slots area for a location that can currently accept a dragged card. |
@@ -164,6 +183,8 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **SC-006**: In invalid placement tests covering opponent-side slots, populated local-player slots, and empty board space, 100% of invalid drops are rejected without losing the card.
 - **SC-007**: In all selected, dragged, and placed presentations, card aspect ratio remains visibly consistent with the source card.
 - **SC-008**: A reviewer can identify which of the twenty-four board slots are valid for local human direct placement in under 10 seconds after seeing the board.
+- **SC-009**: In current-round return tests, reviewers can drag a card placed this round back to the hand area, choose an insertion gap, and see the hand recenter after release.
+- **SC-010**: In prior-round lock tests, reviewers cannot drag a card that remained placed after End Turn.
 
 ## Assumptions
 

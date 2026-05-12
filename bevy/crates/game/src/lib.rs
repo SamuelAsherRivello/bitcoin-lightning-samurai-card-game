@@ -9,8 +9,8 @@ use bevy_tweening::TweeningPlugin;
 
 pub mod runtime;
 
-use runtime::shaders::materials::CardBackgroundMaskMaterial;
 use runtime::plugins::CoreGamePlugin;
+use runtime::shaders::materials::CardBackgroundMaskMaterial;
 use runtime::systems::{card_ui, inspector_ui};
 
 const GAME_VIEW_WIDTH: f32 = 1280.0;

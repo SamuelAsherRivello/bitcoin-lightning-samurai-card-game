@@ -151,6 +151,21 @@
 
 ---
 
+## Phase 8: Same-Round Placed Card Mobility Addendum
+
+**Purpose**: Add the later gameplay exception that cards placed during the current round may return to hand, while prior-round placed cards remain locked.
+
+- [ ] T048 [P] [US3] Add card state tests for `LocationCurrentRound` and `LocationLocked` drag eligibility in `bevy/crates/game/src/runtime/resources/card_gesture_model.rs`
+- [ ] T049 [P] [US3] Add hand insertion gap model tests for before-card, between-card, and after-card insertion in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
+- [ ] T050 [US3] Allow pointer press and drag start from current-round placed local cards in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
+- [ ] T051 [US3] Reject pointer press and drag start from prior-round locked location cards in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
+- [ ] T052 [US3] Show x-axis hand insertion gap movement while dragging a current-round placed card over the hand area in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
+- [ ] T053 [US3] Return a current-round placed card to the selected hand order, free its location slot, and recenter the hand group on release in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
+- [ ] T054 [US3] Mark current-round placed cards as locked when End Turn advances the round in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
+- [ ] T055 [US3] Update desktop and browser gesture verification notes for same-round return-to-hand and prior-round lock behavior in `specs/012-card-gestures/quickstart.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -164,6 +179,7 @@
 | Phase 5 US3 | Phase 2 and US2 drag path | Final polish |
 | Phase 6 US4 | Phase 2 and US2 drag path; may run alongside US3 after shared slot model exists | Final polish |
 | Phase 7 Polish | Desired user stories complete | Release/readiness |
+| Phase 8 Same-Round Placed Card Mobility Addendum | Phase 2, US2 drag path, US3 placement, and gameplay round state | Return-to-hand exception validation |
 
 ### User Story Dependencies
 
@@ -172,6 +188,7 @@
 | US1 Inspect in place | Foundational only | MVP; removes current DeckBuilderScene navigation from GameView hand cards without editing the Deck Builder view |
 | US2 Click versus drag | Foundational only; must not regress US1 | Can be implemented after or alongside US1 once gesture model exists |
 | US3 Valid local placement | US2 drag path | Needs drag state and slot model |
+| US3 Same-round return exception | US3 placement plus gameplay round state | Allows only current-round placed cards to return to hand |
 | US4 Invalid targets | US2 drag path | Can run alongside US3 after shared slot legality exists |
 
 ### Parallel Opportunities
@@ -185,6 +202,7 @@
 | US2 tests | T022, T023 |
 | US3 tests | T028, T029, T030 |
 | US4 tests | T036, T037, T038 |
+| Same-round mobility tests | T048, T049 |
 
 ---
 
@@ -221,7 +239,8 @@ Task: "T030 [P] [US3] Add slot-fit aspect ratio tests in bevy/crates/game/src/ru
 2. Add US2 to reliably separate click/tap from drag.
 3. Add US3 to place cards into empty local slots.
 4. Add US4 to reject invalid targets.
-5. Finish with desktop and browser WebGPU verification.
+5. Add same-round placed-card return-to-hand and prior-round lock behavior.
+6. Finish with desktop and browser WebGPU verification.
 
 ### Parallel Team Strategy
 
@@ -237,5 +256,5 @@ Task: "T030 [P] [US3] Add slot-fit aspect ratio tests in bevy/crates/game/src/ru
 - `[US#]` labels map tasks to user stories for traceability.
 - Keep all visible layout derived from the aspect-ratio-safe `GameView`.
 - Do not modify the existing DeckBuilderScene implementation; after this feature, users simply have no GameView gesture path to reach it.
-- Avoid adding turn legality, energy, CPU placement, reveal rules, scoring resolution, or production mobile packaging in this feature.
+- Avoid adding energy, CPU placement, reveal rules, scoring resolution, or production mobile packaging in this feature; same-round placed-card mobility is the only round-aware exception in this gesture spec.
 

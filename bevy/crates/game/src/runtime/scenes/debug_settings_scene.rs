@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use crate::runtime::components::AppSceneRoot;
-use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
     ActiveCardModel, CardInspectionDefaults, CardModelRegistry, PrimaryCameraDefaults,
 };
+use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
 /// HUMAN: Spawns the debug settings sub-screen scene.
 /// AI: DebugSettingsScene duplicates DeckBuilderScene presentation for debug configuration work.

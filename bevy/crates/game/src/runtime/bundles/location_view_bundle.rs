@@ -19,7 +19,10 @@ impl LocationViewBundle {
     pub const BORDER_THICKNESS: f32 = 2.0;
 
     pub fn scaled_size(area: CardSlotRect) -> Vec2 {
-        Vec2::new(area.width * Self::WIDTH_SCALE, area.height * Self::HEIGHT_SCALE)
+        Vec2::new(
+            area.width * Self::WIDTH_SCALE,
+            area.height * Self::HEIGHT_SCALE,
+        )
     }
 
     pub fn new(area: CardSlotRect) -> Self {
@@ -38,7 +41,6 @@ impl LocationViewBundle {
                 height: Val::Px(height),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(Self::BORDER_THICKNESS)),
                 ..Default::default()
             },
             border: BorderColor::all(Color::NONE),

@@ -10,8 +10,8 @@
 ### Session 2026-05-09
 
 - Q: Which bevy-jam-1 HUD content should be kept? -> A: Keep the top-left HUD panel, title/status text, key legend with non-functional `WASD`, and functional `F` and `I`; exclude toast, minimap, reticle, and other listed HUD systems.
-- Q: How should `003-debugging` relate to the no-HUD rule in `004-card-inspection-poc` when both are implemented? -> A: `003-debugging` replaces the no-HUD rule in `004`; the final app should show the DebugHUD by default.
-- Q: Should `004-card-inspection-poc` and `003-debugging` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
+- Q: How should `003-debugging` relate to the no-HUD rule in `006-card-bundle` when both are implemented? -> A: `003-debugging` replaces the old no-HUD rule; the final app should show the DebugHUD by default.
+- Q: Should `006-card-bundle` and `003-debugging` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
 - Q: How should debug overlay scripts, tasks, docs, and source-facing labels be named? -> A: Rename all debug overlay scripts, tasks, docs, and source-facing labels to use `DebugHUD` so generic `HUD` remains available for a future user-facing HUD.
 - Q: Should `WASD` labels visually react to key presses? -> A: `WASD` labels may visually highlight while pressed through a DebugHUD/InputSystem key-state capture, but no gameplay, camera, card, or other non-DebugHUD system may consume those keys in this spec.
 - Q: Which approved DebugHUD keys are toggles? -> A: DebugHUD key labels are classified as toggle or non-toggle: `F` and `I` are toggles; `W`, `A`, `S`, and `D` are non-toggle hold indicators.
@@ -134,7 +134,7 @@ An implementer can add runtime visual marks around requested game scene areas so
 ### Functional Requirements
 
 - **FR-001**: The prototype MUST include one top-left DebugHUD panel adapted from the bevy-jam-1 HUD pattern.
-- **FR-001A**: This debugging feature replaces the no-HUD rule from `004-card-inspection-poc` for the final combined app; the DebugHUD MUST be visible by default.
+- **FR-001A**: This debugging feature replaces the old no-HUD rule now consolidated into `006-card-bundle` for the final combined app; the DebugHUD MUST be visible by default.
 - **FR-002**: The DebugHUD MUST show the prototype title and frame/status text.
 - **FR-003**: The DebugHUD MUST show key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
 - **FR-004**: The `F` key MUST toggle FPS visibility in the DebugHUD.

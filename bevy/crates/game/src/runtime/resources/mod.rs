@@ -290,7 +290,10 @@ impl CardModelRegistry {
     }
 
     pub fn card_model_for_id(&self, card_id: &str) -> Option<&CardModel> {
-        self.slots.iter().flatten().find(|card_model| card_model.id == card_id)
+        self.slots
+            .iter()
+            .flatten()
+            .find(|card_model| card_model.id == card_id)
     }
 }
 
@@ -413,10 +416,10 @@ pub fn random_shuffled_default_deck_cards() -> Vec<String> {
         SISTER_HOTARU_CARD_MODEL_ID.to_string(),
         YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
     ]
-        .into_iter()
-        .cycle()
-        .take(STARTING_DECK_CARD_COUNT)
-        .collect();
+    .into_iter()
+    .cycle()
+    .take(STARTING_DECK_CARD_COUNT)
+    .collect();
 
     fastrand::shuffle(&mut cards);
     cards
@@ -896,6 +899,13 @@ impl DebugHudInputStore {
 pub struct WindowPlacementState {
     pub current: Option<WindowPlacement>,
     pub restored: bool,
+}
+
+/// HUMAN: Tracks native fullscreen transition frames that need the default camera viewport.
+/// AI: Keeps Bevy depth and color attachments aligned while winit surface sizes settle.
+#[derive(Resource, Debug, Default)]
+pub struct FullscreenViewportTransitionState {
+    pub frames_remaining: u8,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Resource, Serialize)]

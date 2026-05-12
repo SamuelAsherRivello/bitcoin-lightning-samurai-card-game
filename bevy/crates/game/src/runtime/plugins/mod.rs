@@ -12,8 +12,9 @@ use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardFlipState,
     CardGestureModel, CardInspectionDefaults, CardInspectionState, CardModelRegistry,
     CardSlotBoardModel, CardStateModel, CardUiState, DebugDrawingModel, DebugHudState,
-    GameDeckModel, GameHandModel, GameTicks, LocationModelRegistry, PlayerDeckCollectionModel,
-    PrimaryCameraDefaults, WindowPlacementState, WorldModelRegistry, create_player_deck_collection_store,
+    FullscreenViewportTransitionState, GameDeckModel, GameHandModel, GameTicks,
+    LocationModelRegistry, PlayerDeckCollectionModel, PrimaryCameraDefaults, WindowPlacementState,
+    WorldModelRegistry, create_player_deck_collection_store,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{
@@ -29,8 +30,7 @@ use crate::runtime::systems::{
     log_game_view_card_render_diagnostics, quit_app_on_escape,
     record_desktop_hot_reload_patch_message, restart_app_scene,
     restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
-    scene_input_system, setup_app_scene, setup_game, setup_game_view_with_params,
-    setup_inspector,
+    scene_input_system, setup_app_scene, setup_game, setup_game_view_with_params, setup_inspector,
     smooth_card_rotation, sync_browser_fullscreen_state_system, toggle_debug_hud_inputs,
     toggle_inspector, track_card_pointer_target, track_window_placement, track_window_size,
     update_card_face_visibility, update_card_flip_animation, update_card_frame_shine,
@@ -92,6 +92,7 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<DebugHudState>()
             .init_resource::<DebugDrawingModel>()
             .init_resource::<WindowPlacementState>()
+            .init_resource::<FullscreenViewportTransitionState>()
             .init_resource::<ActiveView>()
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(

@@ -1,10 +1,9 @@
-use bevy::prelude::*;
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
+use bevy::prelude::*;
 
 use crate::runtime::components::AppSceneRoot;
 use crate::runtime::resources::{
-    CardInspectionDefaults, CardModelRegistry,
-    PlayerDeckCollectionModel, PrimaryCameraDefaults,
+    CardInspectionDefaults, CardModelRegistry, PlayerDeckCollectionModel, PrimaryCameraDefaults,
 };
 
 /// HUMAN: Spawns the deck builder sub-screen view.

@@ -2,13 +2,12 @@ use bevy::prelude::*;
 use bevy_aspect_ratio_mask::Hud;
 
 use crate::runtime::components::AppSceneRoot;
-use crate::runtime::systems::SetupGameViewParams;
-use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 use crate::runtime::resources::{
-    ActiveCardModel, ActiveLocations, ActiveWorldModel, CardInspectionDefaults,
-    CardModelRegistry, CardSlotBoardModel, LocationModelRegistry, PrimaryCameraDefaults,
-    WorldModelRegistry,
+    ActiveCardModel, ActiveLocations, ActiveWorldModel, CardInspectionDefaults, CardModelRegistry,
+    CardSlotBoardModel, LocationModelRegistry, PrimaryCameraDefaults, WorldModelRegistry,
 };
+use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
+use crate::runtime::systems::SetupGameViewParams;
 
 /// HUMAN: Spawns the gameplay sub-screen view.
 /// AI: GameView is a view, not the persistent scene; keep AppScene parenting intact.
@@ -53,4 +52,3 @@ pub fn setup_game_view(
         masked_background_materials,
     });
 }
-

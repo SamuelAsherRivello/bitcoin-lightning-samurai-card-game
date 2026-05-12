@@ -3,7 +3,7 @@
 **Feature Branch**: `002-camera-setup`  
 **Created**: 2026-05-09  
 **Status**: Draft  
-**Input**: User description: "Add the camera setup as its own feature before DebugHUD and card inspection. The app needs a 3D camera with basic parameters so later features can render the card scene and still show the overlay HUD."
+**Input**: User description: "Add the camera setup as its own feature before DebugHUD and card presentation. The app needs a 3D camera with basic parameters so later features can render the card scene and still show the overlay HUD."
 
 ## Clarifications
 
@@ -20,7 +20,7 @@
 
 A reviewer launches the prototype and the app has a usable 3D camera ready to frame future scene content.
 
-**Why this priority**: Later card inspection work depends on a stable 3D view before card geometry and interaction are added.
+**Why this priority**: Later card presentation work depends on a stable 3D view before card geometry and interaction are added.
 
 **Independent Test**: Launch the prototype and verify that the scene has an active camera with a predictable viewpoint.
 
@@ -98,7 +98,7 @@ A reviewer can still see later overlay diagnostics, including the DebugHUD, afte
 
 ## Assumptions
 
-- The first visible 3D content will be origin-centered card content from `004-card-inspection-poc`.
+- The first visible 3D content will be origin-centered card content from `006-card-bundle`.
 - The camera setup is a foundation feature and should stay minimal.
 - DebugHUD overlay rendering is owned by `003-debugging`, but this feature must not block it.
 - `bevy/crates/shared` owns reusable camera setup; `bevy/crates/game` owns card-specific scene content that uses the shared camera.

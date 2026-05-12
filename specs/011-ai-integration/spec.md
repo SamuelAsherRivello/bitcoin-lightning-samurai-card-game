@@ -11,13 +11,13 @@
 
 A maintainer can read one spec that explains how Codex, Spec Kit, existing debugging work, runtime inspection, screenshots, and future AI-assisted workflows fit together.
 
-**Why this priority**: Earlier specs define debugging, card inspection, gameplay concepts, theme organization, and point systems separately. AI integration needs one durable contract that ties them together without rewriting those feature specs.
+**Why this priority**: Earlier specs define debugging, card presentation, gameplay concepts, theme organization, and point systems separately. AI integration needs one durable contract that ties them together without rewriting those feature specs.
 
 **Independent Test**: Review this spec and verify that it references prior goals, current Codex/Spec Kit workflow, and future AI runtime tooling as one coherent roadmap.
 
 **Acceptance Scenarios**:
 
-1. **Given** a maintainer reads this spec, **When** they look for previous AI-adjacent goals, **Then** they can identify how `003-debugging`, `004-card-inspection-poc`, `007-gameplay-concepts`, `009-theme-reorganization`, and `010-point-system` inform AI integration.
+1. **Given** a maintainer reads this spec, **When** they look for previous AI-adjacent goals, **Then** they can identify how `003-debugging`, `006-card-bundle`, `007-gameplay-concepts`, `009-theme-reorganization`, and `010-point-system` inform AI integration.
 2. **Given** a future task needs AI runtime inspection, **When** the implementer plans it, **Then** this spec identifies the approved MCP direction and the safety limits.
 3. **Given** a future task needs browser or desktop visual evidence, **When** the implementer plans QA, **Then** this spec distinguishes runtime MCP screenshots from browser QA screenshots.
 
@@ -104,7 +104,7 @@ Future AI-assisted workflows can add richer diagnostics, guided playtesting, bug
 
 - **FR-001**: The AI integration spec MUST describe how Codex, Spec Kit, local scripts, specs, runtime diagnostics, and screenshots work together.
 - **FR-002**: The feature MUST treat `003-debugging` as the existing owner of developer-facing diagnostics, DebugHUD behavior, inspector access, terminal self-logging, and repeatable tests.
-- **FR-003**: The feature MUST treat `004-card-inspection-poc` as an early visual QA surface that benefits from AI screenshot review.
+- **FR-003**: The feature MUST treat `006-card-bundle` as the early card presentation QA surface that benefits from AI screenshot review.
 - **FR-004**: The feature MUST treat `007-gameplay-concepts`, `009-theme-reorganization`, and `010-point-system` as domain context that future AI runtime inspection should be able to reason about.
 - **FR-005**: The feature MUST select one primary MCP for Bevy runtime inspection.
 - **FR-006**: The selected primary MCP MUST be `bevy_debugger_mcp` unless a later research update finds it unusable for this repository.

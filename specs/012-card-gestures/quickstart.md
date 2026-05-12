@@ -15,7 +15,7 @@
 | ---------- | --------------- |
 | Gesture model tests | Click/tap, threshold-crossing drag, selected-card dismissal, concurrent drag guards, and invalid transitions resolve deterministically |
 | Slot model tests | Three locations expose four opponent slots and four local-player slots each; runtime slot rectangles match debug-drawn reference lines; only locations with an empty local slot accept direct placement and assign slots in upper-left, upper-right, lower-left, lower-right order |
-| Card state tests | Cards move through `Hand`, `Dragging`, and `Location`; only `Hand` cards can start drags |
+| Card state tests | Cards move through `Hand`, `Dragging`, `LocationCurrentRound`, and `LocationLocked`; only hand cards and current-round placed cards can start allowed drags |
 | Location power tests | Location-side PowerPointViews start at 0 and update to the sum of card powers assigned to that side's slots |
 | Navigation regression tests | Clicking a hand card in `GameView` no longer opens `DeckBuilderScene`; the existing Deck Builder view implementation is not modified |
 | Animation integration | Hand-to-selected, selected-to-hand, drag-to-slot, and invalid-drop return movements animate smoothly |
@@ -33,12 +33,15 @@
 8. Confirm light blue DropTargetHint rectangles appear over available local-player slot areas while dragging and disappear for full locations.
 9. While one card is pressed or dragged, press another hand card and confirm the original card remains the only active draggable card.
 10. Try to drag a card already in `Dragging` or `Location` state and confirm it cannot start another drag.
-11. Toggle the debug drawing lines and confirm the slot rectangles used by placement match the debug-drawn slot instances.
-12. Place one or more cards into a location and confirm the local side's visible power points move from 0 to the sum of the placed cards' power values.
-13. Drag over an opponent slot, a full local location, and empty board space; confirm each invalid drop returns the card to its original hand card slot.
-14. Resize the window and confirm selected, dragged, placed cards, DropTargetHint rectangles, and location power points keep their aspect-ratio-safe layout.
-15. Confirm there is no user-facing GameView gesture path to reach the Deck Builder view.
-16. Run `scripts/other/StopApp.ps1` when finished.
+11. During the same round as placement, drag a placed card back to the hand area and confirm existing hand cards shift on the x axis to show a candidate insertion gap.
+12. Release the current-round placed card over a hand insertion gap and confirm it returns to hand at the chosen order and the hand group recenters.
+13. End the round, then try to drag a prior-round placed card and confirm it cannot start a drag.
+14. Toggle the debug drawing lines and confirm the slot rectangles used by placement match the debug-drawn slot instances.
+15. Place one or more cards into a location and confirm the local side's visible power points move from 0 to the sum of the placed cards' power values.
+16. Drag over an opponent slot, a full local location, and empty board space; confirm each invalid drop returns the card to its original hand card slot.
+17. Resize the window and confirm selected, dragged, placed cards, DropTargetHint rectangles, insertion gaps, and location power points keep their aspect-ratio-safe layout.
+18. Confirm there is no user-facing GameView gesture path to reach the Deck Builder view.
+19. Run `scripts/other/StopApp.ps1` when finished.
 
 ## Browser WebGPU Verification
 
@@ -57,7 +60,7 @@
 | File scope | Prefer focused gesture model/component/system files over expanding the aggregate runtime system module |
 | Naming | Use `Model` for gesture/slot state and `View` for visual card presentation states |
 | Purpose comments | Add required `HUMAN:` and `AI:` lines above new or changed primary runtime items |
-| Exclusions | Do not add turn legality, energy, CPU placement, reveal rules, scoring resolution, or production mobile packaging |
+| Exclusions | Do not add CPU placement, reveal rules, scoring resolution, or production mobile packaging; round-aware placed-card mobility is governed by the gameplay round spec |
 | Deck Builder boundary | Do not modify the existing Deck Builder view implementation; only remove user reachability from GameView gestures |
 
 ## Implementation Verification Notes

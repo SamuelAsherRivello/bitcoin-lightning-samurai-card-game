@@ -31,4 +31,4 @@
 
 ## Notes
 
-- This spec intentionally holds future gameplay concepts only. Active implementation remains `006-card-flip`.
+- This spec intentionally holds future gameplay concepts only. Active card presentation implementation remains `006-card-bundle`.
