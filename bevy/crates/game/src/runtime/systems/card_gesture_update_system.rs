@@ -6,22 +6,23 @@ use bevy::{
 use crate::runtime::components::{CardGestureView, DropTargetHint, HandCardGestureTarget};
 use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardGestureModel, CardGestureSlotTarget,
-    CardGestureState, CardInspectionDefaults, CardModelRegistry, CardSlotBoardModel, CardSlotSide,
-    CardState, CardStateModel, CurrentRoundMoveRecord, GameHandModel, GameLocationModel,
-    GameRoundModel, OpponentMatchModel,
+    CardGestureState, CardInspectionDefaults, CardModelRegistry, CardSlotBoardModel, CardSlotRect,
+    CardSlotSide, CardState, CardStateModel, CurrentRoundMoveRecord, GameHandModel,
+    GameLocationModel, GameRoundModel, OpponentMatchModel,
 };
 
 use super::{
-    active_pointer_position, drag_preview_transform, game_view_card_index_at_for_count,
-    hand_insertion_index, hand_source_transform, just_pressed_pointer_position,
-    local_slots_area_hit_target, selected_inspection_transform, slot_transform,
+    CARD_GESTURE_DRAG_SCALE_MULTIPLIER, active_pointer_position, drag_preview_transform,
+    game_view_card_index_at_for_count, hand_insertion_index, hand_source_transform,
+    just_pressed_pointer_position, selected_inspection_transform, slot_transform,
     window_pointer_to_game_view,
 };
 
 const DROP_TARGET_GENERAL_BORDER_COLOR: Color = Color::srgb(0.48, 0.82, 1.0);
-const DROP_TARGET_GENERAL_BACKGROUND_COLOR: Color = Color::srgba(0.28, 0.72, 1.0, 0.12);
+const DROP_TARGET_GENERAL_BACKGROUND_COLOR: Color = Color::srgba(0.28, 0.72, 1.0, 0.06);
 const DROP_TARGET_CLOSE_BORDER_COLOR: Color = Color::srgb(0.72, 0.94, 1.0);
 const DROP_TARGET_CLOSE_BACKGROUND_COLOR: Color = Color::srgba(0.36, 0.86, 1.0, 0.24);
+const DROP_TARGET_MIN_CARD_OVERLAP_RATIO: f32 = 0.25;
 
 /// HUMAN: Updates card gesture state from unified pointer input in GameView.
 /// AI: This replaces GameView click-to-DeckBuilderScene navigation without touching DeckBuilderScene behavior.
@@ -115,6 +116,11 @@ pub fn card_gesture_update_system(
 pub fn drop_target_hint_update_system(
     active_view: Res<ActiveView>,
     gesture_model: Res<CardGestureModel>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_model_registry: Option<Res<CardModelRegistry>>,
+    game_hand_model: Option<Res<GameHandModel>>,
+    game_round_model: Option<Res<GameRoundModel>>,
+    card_states: Option<Res<CardStateModel>>,
     slot_board: Res<CardSlotBoardModel>,
     mut hint_query: Query<(
         &DropTargetHint,
@@ -123,14 +129,18 @@ pub fn drop_target_hint_update_system(
         &mut BackgroundColor,
     )>,
 ) {
-    let should_show =
-        *active_view == ActiveView::GameView && gesture_model.state == CardGestureState::Dragging;
-    let close_location_index = should_show
-        .then(|| {
-            gesture_model.pointer.and_then(|pointer| {
-                local_slots_area_hit_target(pointer.current_position, &slot_board)
-            })
-        })
+    let can_pay_for_dragged_card = dragged_card_can_show_drop_targets(
+        &gesture_model,
+        card_states.as_deref(),
+        card_model_registry.as_deref(),
+        game_hand_model.as_deref(),
+        game_round_model.as_deref(),
+    );
+    let should_show = *active_view == ActiveView::GameView
+        && gesture_model.state == CardGestureState::Dragging
+        && can_pay_for_dragged_card;
+    let focused_location_index = should_show
+        .then(|| dragged_card_drop_location_index(&gesture_model, &card_defaults, &slot_board))
         .flatten();
 
     for (hint, mut visibility, mut border, mut background) in &mut hint_query {
@@ -143,7 +153,7 @@ pub fn drop_target_hint_update_system(
         };
 
         let is_close_target =
-            location_has_available_slot && close_location_index == Some(hint.location_index);
+            location_has_available_slot && focused_location_index == Some(hint.location_index);
         if is_close_target {
             *border = BorderColor::all(DROP_TARGET_CLOSE_BORDER_COLOR);
             *background = BackgroundColor(DROP_TARGET_CLOSE_BACKGROUND_COLOR);
@@ -243,9 +253,9 @@ fn handle_press(
 fn handle_move(
     game_view_position: Vec2,
     card_defaults: &CardInspectionDefaults,
-    card_model_registry: Option<&CardModelRegistry>,
-    game_hand_model: Option<&GameHandModel>,
-    game_round_model: Option<&GameRoundModel>,
+    _card_model_registry: Option<&CardModelRegistry>,
+    _game_hand_model: Option<&GameHandModel>,
+    _game_round_model: Option<&GameRoundModel>,
     gesture_model: &mut CardGestureModel,
     card_states: &mut CardStateModel,
 ) {
@@ -253,17 +263,6 @@ fn handle_move(
         gesture_model.update_pointer(game_view_position, CARD_GESTURE_DRAG_THRESHOLD);
     if started_drag && let Some(hand_index) = gesture_model.active_hand_index {
         if !card_states.is_draggable(hand_index) {
-            gesture_model.return_to_source();
-            return;
-        }
-        if card_states.state(hand_index) == Some(CardState::Hand)
-            && !can_drag_hand_card_with_energy(
-                hand_index,
-                card_model_registry,
-                game_hand_model,
-                game_round_model,
-            )
-        {
             gesture_model.return_to_source();
             return;
         }
@@ -289,7 +288,35 @@ fn handle_move(
     }
 }
 
-fn can_drag_hand_card_with_energy(
+fn dragged_card_can_show_drop_targets(
+    gesture_model: &CardGestureModel,
+    card_states: Option<&CardStateModel>,
+    card_model_registry: Option<&CardModelRegistry>,
+    game_hand_model: Option<&GameHandModel>,
+    game_round_model: Option<&GameRoundModel>,
+) -> bool {
+    let Some(hand_index) = gesture_model.active_hand_index else {
+        return true;
+    };
+    let Some(card_states) = card_states else {
+        return true;
+    };
+    if !matches!(
+        card_states.state(hand_index),
+        Some(CardState::Hand | CardState::Dragging)
+    ) {
+        return true;
+    }
+
+    can_play_hand_card_with_energy(
+        hand_index,
+        card_model_registry,
+        game_hand_model,
+        game_round_model,
+    )
+}
+
+fn can_play_hand_card_with_energy(
     hand_index: usize,
     card_model_registry: Option<&CardModelRegistry>,
     game_hand_model: Option<&GameHandModel>,
@@ -307,6 +334,66 @@ fn can_drag_hand_card_with_energy(
         .unwrap_or(0);
 
     game_round_model.can_spend(energy_cost)
+}
+
+fn dragged_card_drop_location_index(
+    gesture_model: &CardGestureModel,
+    card_defaults: &CardInspectionDefaults,
+    slot_board: &CardSlotBoardModel,
+) -> Option<usize> {
+    let card_rect = dragged_card_game_view_rect(gesture_model, card_defaults)?;
+    let card_area = card_rect.width * card_rect.height;
+    if card_area <= 0.0 {
+        return None;
+    }
+
+    (0..crate::runtime::resources::CARD_SLOT_LOCATION_COUNT)
+        .filter_map(|location_index| {
+            if !slot_board.location_has_available_local_slot(location_index) {
+                return None;
+            }
+            let zone_rect = slot_board.local_slots_area_rect(location_index)?;
+            let overlap_area = rect_overlap_area(card_rect, zone_rect);
+            (overlap_area / card_area >= DROP_TARGET_MIN_CARD_OVERLAP_RATIO)
+                .then_some((location_index, overlap_area))
+        })
+        .max_by(|(_, left_area), (_, right_area)| {
+            left_area
+                .partial_cmp(right_area)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(location_index, _)| location_index)
+}
+
+fn dragged_card_game_view_rect(
+    gesture_model: &CardGestureModel,
+    card_defaults: &CardInspectionDefaults,
+) -> Option<CardSlotRect> {
+    let pointer = gesture_model.pointer?;
+    let source_transform = gesture_model.source_transform?;
+    let source_game_view_height = card_defaults.height * source_transform.scale.y
+        / super::game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
+    let height = source_game_view_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER;
+    let width = height * (card_defaults.width / card_defaults.height);
+    let center = pointer.current_card_center();
+
+    Some(CardSlotRect::new(
+        center.x - width * 0.5,
+        center.y - height * 0.5,
+        width,
+        height,
+    ))
+}
+
+fn rect_overlap_area(left: CardSlotRect, right: CardSlotRect) -> f32 {
+    let overlap_left = left.left.max(right.left);
+    let overlap_top = left.top.max(right.top);
+    let overlap_right = (left.left + left.width).min(right.left + right.width);
+    let overlap_bottom = (left.top + left.height).min(right.top + right.height);
+    let width = (overlap_right - overlap_left).max(0.0);
+    let height = (overlap_bottom - overlap_top).max(0.0);
+
+    width * height
 }
 
 fn handle_release(
@@ -365,7 +452,8 @@ fn handle_release(
                 );
                 return;
             }
-            let Some(location_index) = local_slots_area_hit_target(game_view_position, slot_board)
+            let Some(location_index) =
+                dragged_card_drop_location_index(gesture_model, card_defaults, slot_board)
             else {
                 gesture_model.return_to_source();
                 if card_states.state(hand_index) != Some(CardState::Location) {

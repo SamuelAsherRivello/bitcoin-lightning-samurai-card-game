@@ -45,13 +45,13 @@ use crate::runtime::bundles::{
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardLayerRole, CardParallaxLayer, CardSlotGestureTarget, CardView,
-    CpuPlacedCardAnimation, CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText,
-    DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity, DebugSettingsSceneRoot,
-    DeckBuilderSceneEntity, DeckBuilderSceneRoot, DropTargetHint, EndTurnButton, GameControlAction,
-    GameControlButton, GameControlLabel, GameLocation, GameLocationBodyText, GameLocationBorder,
-    GameLocationTitleText, GameViewEntity, GameViewRoot, HandCardGestureTarget, InspectorState,
-    LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, Player,
-    PrimaryViewCamera, TurnUi, WorldBackground,
+    CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer,
+    CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity,
+    DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot, DropTargetHint,
+    EndTurnButton, GameControlAction, GameControlButton, GameControlLabel, GameLocation,
+    GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameViewEntity, GameViewRoot,
+    HandCardGestureTarget, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview,
+    LocationRevealState, MatchStatusText, Player, PrimaryViewCamera, TurnUi, WorldBackground,
 };
 #[cfg(test)]
 use crate::runtime::resources::CardState;
@@ -59,19 +59,19 @@ use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
-    CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
-    CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
-    CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
-    CpuBrainModel, DEFAULT_DECK_NAME, DebugHudInputStore, DebugHudState, DeckModel,
-    FullscreenViewportTransitionState, GameDeckModel, GameHandModel, GameLocationModel,
-    GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel, MatchModeModel,
-    MatchModePreferenceStore, MatchPlayerSide, MatchWinnerModel, OpponentMatchModel,
-    PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility, PlayerDeckCollectionModel, PowerPointModel,
-    PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, WindowPlacement, WindowPlacementState,
-    WindowPlacementStore, WorldModelRegistry, choose_level1_move, cpu_slot_hand_index,
-    ensure_player_deck_collection_model, final_winner_from_slots, load_window_placement,
-    random_shuffled_default_deck_cards, reset_two_player_match, start_match_turn,
-    sync_near_human_from_game_models, valid_window_placement,
+    CARD_SLOT_LOCATION_COUNT, CARD_SLOT_ROW_COUNT, CardFace, CardFlipState, CardGestureModel,
+    CardGestureState, CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry,
+    CardSettingsStore, CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel,
+    CardUiState, CostPointModel, CpuBrainModel, DEFAULT_DECK_NAME, DebugHudInputStore,
+    DebugHudState, DeckModel, FullscreenViewportTransitionState, GameDeckModel, GameHandModel,
+    GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel,
+    MatchModeModel, MatchModePreferenceStore, MatchPlayerSide, MatchWinnerModel,
+    OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility, PlayerDeckCollectionModel,
+    PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, WindowPlacement,
+    WindowPlacementState, WindowPlacementStore, WorldModelRegistry, choose_level1_move,
+    cpu_slot_hand_index, ensure_player_deck_collection_model, final_winner_from_slots,
+    load_window_placement, random_shuffled_default_deck_cards, reset_two_player_match,
+    start_match_turn, sync_near_human_from_game_models, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -126,6 +126,8 @@ const GAME_SCENE_HAND_CARD_GAP: f32 = 8.0;
 const GAME_SCENE_HAND_CARD_WORLD_Z: f32 = 0.3;
 const GAME_SCENE_HAND_CARD_Z_STEP: f32 = 0.035;
 const GAME_SCENE_HAND_CARD_HOVER_Z: f32 = 0.74;
+const GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y: f32 = GAME_VIEW_HEIGHT + 140.0;
+const GAME_SCENE_FAR_HAND_Y: f32 = -142.0;
 const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const GAME_SCENE_WORLD_BACKGROUND_BLEED: f32 = 1.18;
 const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -0.16;
@@ -146,6 +148,7 @@ const GAME_CONTROL_DISABLED_BORDER_COLOR: Color = Color::srgb(0.28, 0.28, 0.28);
 const CPU_CARD_MOVE_SECONDS: f32 = 0.35;
 const CPU_CARD_FLIP_SECONDS: f32 = 0.25;
 const CPU_CARD_REVEAL_STAGGER_SECONDS: f32 = 0.25;
+const CPU_CARD_REVEAL_LOCATION_PAUSE_SECONDS: f32 = 0.5;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
@@ -1285,6 +1288,7 @@ fn spawn_card_power_point_view(
 /// HUMAN: Recalculates visible location power totals from runtime slot occupancy.
 /// AI: This is the GameView bridge from placed card slots to point presentation.
 pub fn update_location_power_points(
+    active_view: Option<Res<ActiveView>>,
     slot_board: Res<CardSlotBoardModel>,
     card_model_registry: Res<CardModelRegistry>,
     game_location_model: Option<Res<GameLocationModel>>,
@@ -1292,6 +1296,10 @@ pub fn update_location_power_points(
     mut power_query: Query<(&PointLocationView, &mut PointView, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     for (location_power_view, mut power_view, children) in &mut power_query {
         if power_view.model.point_type != PointType::LocationPower {
             continue;
@@ -1362,6 +1370,7 @@ fn location_side_power_total(
 /// HUMAN: Applies open location power abilities to the red power point value on placed cards.
 /// AI: Keep this in PointView data; presentation can render its display_text normally.
 pub(crate) fn update_card_power_point_views_system(
+    active_view: Option<Res<ActiveView>>,
     slot_board: Res<CardSlotBoardModel>,
     card_model_registry: Res<CardModelRegistry>,
     game_location_model: Option<Res<GameLocationModel>>,
@@ -1370,6 +1379,10 @@ pub(crate) fn update_card_power_point_views_system(
     mut point_query: Query<(&mut PointView, Option<&Children>)>,
     mut text_query: Query<(&CardPointTextView, &mut Text2d)>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     for (hand_target, children) in &card_query {
         let Some(card_id) = game_hand_model
             .as_deref()
@@ -1528,6 +1541,11 @@ impl CardPointTextView {
     }
 }
 
+/// HUMAN: Stores pre-scene-switch visibility for hidden GameView entities.
+/// AI: Restores exact card layer visibility when returning from non-game views.
+#[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
+pub struct GameViewSceneHiddenVisibility(Visibility);
+
 fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     parent.spawn((
         Name::new("Local Player Hand"),
@@ -1563,6 +1581,22 @@ fn game_view_hand_card_size() -> Vec2 {
     Vec2::new(GAME_SCENE_HAND_CARD_WIDTH, GAME_SCENE_HAND_CARD_HEIGHT)
 }
 
+fn local_player_hand_deal_transform(card_defaults: &CardInspectionDefaults) -> Transform {
+    let card_world_scale = game_view_world_height_for_game_view_height(
+        GAME_SCENE_HAND_CARD_HEIGHT,
+        GAME_SCENE_HAND_CARD_WORLD_Z,
+    ) / card_defaults.height;
+
+    Transform {
+        translation: game_view_world_position_from_game_view(
+            Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y),
+            GAME_SCENE_HAND_CARD_WORLD_Z,
+        ),
+        scale: Vec3::splat(card_world_scale),
+        ..Default::default()
+    }
+}
+
 // HUMAN: Size and position hand cards using shared hand-area geometry.
 // AI: Use a single source of truth for card height and group centering calculations.
 fn spawn_game_view_hand_cards(
@@ -1580,14 +1614,9 @@ fn spawn_game_view_hand_cards(
         .filter_map(|card_id| card_model_registry.card_model_for_id(card_id))
         .cloned()
         .collect();
-    let hitboxes = game_view_card_hitboxes_for_count(card_models.len());
-    let card_size = game_view_hand_card_size();
+    let deal_transform = local_player_hand_deal_transform(card_defaults);
 
     for (index, card_model) in card_models.into_iter().enumerate() {
-        let (card_min, card_max) = hitboxes[index];
-        let card_z = game_view_hand_card_z(index, None);
-        let card_world_scale =
-            game_view_world_height_for_game_view_height(card_size.y, card_z) / card_defaults.height;
         spawn_game_view_hand_card(
             commands,
             asset_server,
@@ -1597,14 +1626,7 @@ fn spawn_game_view_hand_cards(
             materials,
             masked_background_materials.as_deref_mut(),
             index,
-            Transform {
-                translation: game_view_world_position_from_game_view(
-                    (card_min + card_max) * 0.5,
-                    card_z,
-                ),
-                scale: Vec3::splat(card_world_scale),
-                ..Default::default()
-            },
+            deal_transform,
         );
     }
 }
@@ -1647,6 +1669,7 @@ fn spawn_game_view_hand_card(
 /// AI: GameHandModel is authoritative; this system reconciles spawned card roots to it.
 pub fn sync_game_view_hand_card_entities_system(
     mut commands: Commands,
+    active_view: Option<Res<ActiveView>>,
     asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
@@ -1656,6 +1679,11 @@ pub fn sync_game_view_hand_card_entities_system(
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
     card_query: Query<(Entity, &HandCardGestureTarget), With<CardGestureView>>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        let _ = commands;
+        return;
+    }
+
     let Some(game_hand_model) = game_hand_model.as_deref() else {
         return;
     };
@@ -1669,18 +1697,7 @@ pub fn sync_game_view_hand_card_entities_system(
         }
     }
 
-    let card_world_scale = game_view_world_height_for_game_view_height(
-        GAME_SCENE_HAND_CARD_HEIGHT,
-        GAME_SCENE_HAND_CARD_WORLD_Z,
-    ) / card_defaults.height;
-    let deal_transform = Transform {
-        translation: game_view_world_position_from_game_view(
-            Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT + 140.0),
-            GAME_SCENE_HAND_CARD_WORLD_Z,
-        ),
-        scale: Vec3::splat(card_world_scale),
-        ..Default::default()
-    };
+    let deal_transform = local_player_hand_deal_transform(&card_defaults);
 
     for (hand_index, card_id) in game_hand_model.cards.iter().enumerate() {
         if existing_indices.contains(&hand_index) {
@@ -3095,7 +3112,12 @@ pub fn update_card_face_visibility(
     flip_state: Res<CardFlipState>,
     card_ui_state: Res<CardUiState>,
     mut face_query: Query<
-        (&CardFaceLayer, Option<&CardParallaxLayer>, &mut Visibility),
+        (
+            &CardFaceLayer,
+            Option<&CardParallaxLayer>,
+            &mut Visibility,
+            Option<&GameViewSceneHiddenVisibility>,
+        ),
         Without<CpuPlacedCardFaceLayer>,
     >,
 ) {
@@ -3103,7 +3125,10 @@ pub fn update_card_face_visibility(
         return;
     }
 
-    for (face_layer, parallax_layer, mut visibility) in &mut face_query {
+    for (face_layer, parallax_layer, mut visibility, hidden_visibility) in &mut face_query {
+        if hidden_visibility.is_some() {
+            continue;
+        }
         let is_hidden_safe_area = parallax_layer
             .is_some_and(|layer| layer.role == CardLayerRole::SafeArea)
             && !card_ui_state.show_safe_area;
@@ -3424,6 +3449,17 @@ pub struct ViewChangeParams<'w, 's> {
     app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
     hud: Option<Res<'w, Hud>>,
     game_view_roots: Query<'w, 's, Entity, With<GameViewRoot>>,
+    game_view_entities: Query<'w, 's, Entity, With<GameViewEntity>>,
+    child_query: Query<'w, 's, &'static Children>,
+    visibility_query: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static mut Visibility,
+            Option<&'static GameViewSceneHiddenVisibility>,
+        ),
+    >,
     standalone_game_view_entities: Query<
         'w,
         's,
@@ -3457,28 +3493,35 @@ pub struct ViewChangeParams<'w, 's> {
     deck_builder_scene_roots: Query<'w, 's, Entity, With<DeckBuilderSceneRoot>>,
     debug_settings_scene_roots: Query<'w, 's, Entity, With<DebugSettingsSceneRoot>>,
     primary_window_query: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
-    deck_builder_camera_query: Query<
+    view_camera_queries: ParamSet<
         'w,
         's,
-        (&'static Camera, &'static GlobalTransform),
         (
-            With<PrimaryViewCamera>,
-            With<DeckBuilderSceneEntity>,
-            With<Camera3d>,
+            Query<'w, 's, &'static mut Camera, With<GameViewEntity>>,
+            Query<
+                'w,
+                's,
+                (&'static Camera, &'static GlobalTransform),
+                (
+                    With<PrimaryViewCamera>,
+                    With<DeckBuilderSceneEntity>,
+                    With<Camera3d>,
+                ),
+            >,
+            Query<
+                'w,
+                's,
+                (&'static Camera, &'static GlobalTransform),
+                (
+                    With<PrimaryViewCamera>,
+                    With<DebugSettingsSceneEntity>,
+                    With<Camera3d>,
+                ),
+            >,
         ),
     >,
     deck_builder_card_query:
         Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DeckBuilderSceneEntity>)>,
-    debug_settings_camera_query: Query<
-        'w,
-        's,
-        (&'static Camera, &'static GlobalTransform),
-        (
-            With<PrimaryViewCamera>,
-            With<DebugSettingsSceneEntity>,
-            With<Camera3d>,
-        ),
-    >,
     debug_settings_card_query:
         Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DebugSettingsSceneEntity>)>,
     mouse_buttons: Res<'w, ButtonInput<MouseButton>>,
@@ -3503,6 +3546,79 @@ pub struct ViewChangeParams<'w, 's> {
 }
 
 impl ViewChangeParams<'_, '_> {
+    fn set_game_view_active(&mut self, is_active: bool) -> bool {
+        let mut has_game_view = false;
+
+        if is_active {
+            for (entity, mut visibility, hidden_visibility) in &mut self.visibility_query {
+                let Some(hidden_visibility) = hidden_visibility else {
+                    continue;
+                };
+                *visibility = hidden_visibility.0;
+                self.commands
+                    .entity(entity)
+                    .remove::<GameViewSceneHiddenVisibility>();
+            }
+        } else {
+            let mut visited = std::collections::HashSet::new();
+            let entities: Vec<Entity> = self.game_view_entities.iter().collect();
+            for entity in entities {
+                self.collect_game_view_entity_tree(entity, &mut visited);
+            }
+            for entity in visited {
+                let Ok((_, mut visibility, hidden_visibility)) =
+                    self.visibility_query.get_mut(entity)
+                else {
+                    continue;
+                };
+                if hidden_visibility.is_none() {
+                    self.commands
+                        .entity(entity)
+                        .insert(GameViewSceneHiddenVisibility(*visibility));
+                }
+                *visibility = Visibility::Hidden;
+            }
+        }
+
+        for _ in self.game_view_roots.iter() {
+            has_game_view = true;
+        }
+        for mut camera in &mut self.view_camera_queries.p0() {
+            camera.is_active = is_active;
+        }
+
+        has_game_view
+    }
+
+    fn collect_game_view_entity_tree(
+        &mut self,
+        entity: Entity,
+        visited: &mut std::collections::HashSet<Entity>,
+    ) {
+        if !visited.insert(entity) {
+            return;
+        }
+
+        if let Ok(children) = self.child_query.get(entity) {
+            let children: Vec<Entity> = children.iter().collect();
+            for child in children {
+                self.collect_game_view_entity_tree(child, visited);
+            }
+        }
+    }
+
+    fn hide_game_view(&mut self) {
+        self.set_game_view_active(false);
+    }
+
+    fn show_game_view_or_spawn(&mut self, active_card_model: &ActiveCardModel) {
+        if self.set_game_view_active(true) {
+            return;
+        }
+
+        self.spawn_game_view(active_card_model);
+    }
+
     fn despawn_game_view(&mut self) {
         for entity in self.game_view_roots.iter() {
             self.commands.entity(entity).despawn();
@@ -3794,6 +3910,47 @@ impl ViewChangeParams<'_, '_> {
     }
 }
 
+/// HUMAN: Guarantees preserved GameView entities stay invisible while another view is active.
+/// AI: Runs after presentation systems that may rewrite local card visibility in the same frame.
+pub fn enforce_hidden_game_view_visibility_system(
+    active_view: Res<ActiveView>,
+    game_view_entities: Query<Entity, With<GameViewEntity>>,
+    child_query: Query<&Children>,
+    mut visibility_query: Query<&mut Visibility>,
+) {
+    if *active_view == ActiveView::GameView {
+        return;
+    }
+
+    let mut visited = std::collections::HashSet::new();
+    let entities: Vec<Entity> = game_view_entities.iter().collect();
+    for entity in entities {
+        collect_entity_tree(entity, &child_query, &mut visited);
+    }
+    for entity in visited {
+        let Ok(mut visibility) = visibility_query.get_mut(entity) else {
+            continue;
+        };
+        *visibility = Visibility::Hidden;
+    }
+}
+
+fn collect_entity_tree(
+    entity: Entity,
+    child_query: &Query<&Children>,
+    visited: &mut std::collections::HashSet<Entity>,
+) {
+    if !visited.insert(entity) {
+        return;
+    }
+
+    if let Ok(children) = child_query.get(entity) {
+        for child in children.iter() {
+            collect_entity_tree(child, child_query, visited);
+        }
+    }
+}
+
 /// HUMAN: Handles the S-key debug shortcut that cycles active scenes.
 /// AI: Keep it non-toggle and wrap through GameView, DeckBuilderScene, and DebugSettingsScene.
 pub fn scene_input_system(
@@ -3810,7 +3967,7 @@ pub fn scene_input_system(
         ActiveView::GameView => {
             let initial_rotation =
                 composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.despawn_game_view();
+            params.hide_game_view();
             params.spawn_deck_builder_scene(
                 &active_card_model,
                 flip_state.visible_face,
@@ -3831,7 +3988,7 @@ pub fn scene_input_system(
         }
         ActiveView::DebugSettingsScene => {
             params.despawn_debug_settings_scene();
-            params.spawn_game_view(&active_card_model);
+            params.show_game_view_or_spawn(&active_card_model);
             *params.active_view = ActiveView::GameView;
         }
     }
@@ -3859,31 +4016,33 @@ pub fn view_input_system(
             let _ = (&mut active_card_model, &mut flip_state);
         }
         ActiveView::DeckBuilderScene => {
-            if !is_deck_builder_card_hit(
+            let is_card_hit = is_deck_builder_card_hit(
                 pointer_position,
-                params.deck_builder_camera_query.single().ok(),
+                params.view_camera_queries.p1().single().ok(),
                 params.deck_builder_card_query.single().ok(),
                 &params.card_defaults,
-            ) {
+            );
+            if !is_card_hit {
                 return;
             }
 
             params.despawn_deck_builder_scene();
-            params.spawn_game_view(&active_card_model);
+            params.show_game_view_or_spawn(&active_card_model);
             *params.active_view = ActiveView::GameView;
         }
         ActiveView::DebugSettingsScene => {
-            if !is_deck_builder_card_hit(
+            let is_card_hit = is_deck_builder_card_hit(
                 pointer_position,
-                params.debug_settings_camera_query.single().ok(),
+                params.view_camera_queries.p2().single().ok(),
                 params.debug_settings_card_query.single().ok(),
                 &params.card_defaults,
-            ) {
+            );
+            if !is_card_hit {
                 return;
             }
 
             params.despawn_debug_settings_scene();
-            params.spawn_game_view(&active_card_model);
+            params.show_game_view_or_spawn(&active_card_model);
             *params.active_view = ActiveView::GameView;
         }
     }
@@ -3898,12 +4057,12 @@ fn card_click_navigation(
         ActiveView::GameView => {}
         ActiveView::DeckBuilderScene => {
             params.despawn_deck_builder_scene();
-            params.spawn_game_view(&active_card_model);
+            params.show_game_view_or_spawn(&active_card_model);
             *params.active_view = ActiveView::GameView;
         }
         ActiveView::DebugSettingsScene => {
             params.despawn_debug_settings_scene();
-            params.spawn_game_view(&active_card_model);
+            params.show_game_view_or_spawn(&active_card_model);
             *params.active_view = ActiveView::GameView;
         }
     }
@@ -4146,7 +4305,12 @@ fn game_view_hand_card_z(card_index: usize, hovered_index: Option<usize>) -> f32
     }
 }
 
+fn is_game_view_active(active_view: Option<&ActiveView>) -> bool {
+    active_view.is_none_or(|active_view| *active_view == ActiveView::GameView)
+}
+
 pub fn update_end_turn_button(
+    active_view: Option<Res<ActiveView>>,
     mut button_query: Query<
         (
             &Interaction,
@@ -4169,6 +4333,10 @@ pub fn update_end_turn_button(
     mut gesture_model: Option<ResMut<CardGestureModel>>,
     mut cpu_brain_model: Option<ResMut<CpuBrainModel>>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     if card_gesture_blocks_game_controls(gesture_model.as_deref()) {
         return;
     }
@@ -4391,6 +4559,7 @@ fn card_gesture_blocks_game_controls(gesture_model: Option<&CardGestureModel>) -
 /// HUMAN: Keeps GameView control labels and disabled states synced to gameplay state.
 /// AI: Run this separately from button interactions so round, energy, and undo text stay live.
 pub fn update_game_control_ui_system(
+    active_view: Option<Res<ActiveView>>,
     game_round_model: Option<Res<GameRoundModel>>,
     opponent_match_model: Option<Res<OpponentMatchModel>>,
     mut text_queries: ParamSet<(
@@ -4404,6 +4573,10 @@ pub fn update_game_control_ui_system(
         &mut BorderColor,
     )>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     let Some(game_round_model) = game_round_model.as_deref() else {
         return;
     };
@@ -4533,6 +4706,7 @@ pub fn resolve_match_readiness(
 /// HUMAN: Runs paced CPU controller choices for any CPU-owned player.
 /// AI: Applies one legal move or readiness decision per elapsed CPU timer.
 pub fn cpu_brain_update_system(
+    active_view: Option<Res<ActiveView>>,
     time: Res<Time>,
     card_model_registry: Res<CardModelRegistry>,
     mut match_model: ResMut<OpponentMatchModel>,
@@ -4544,6 +4718,10 @@ pub fn cpu_brain_update_system(
     mut card_states: ResMut<CardStateModel>,
     mut slot_board: ResMut<CardSlotBoardModel>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     if match_model.is_complete() {
         return;
     }
@@ -4551,6 +4729,15 @@ pub fn cpu_brain_update_system(
     for side in [MatchPlayerSide::Near, MatchPlayerSide::Far] {
         if !match_model.player(side).controller.is_cpu() || match_model.player(side).ready_for_next
         {
+            continue;
+        }
+        if cpu_brain.wait_for_hand_presentation(
+            side,
+            match_model.turn.turn,
+            match_model.player(side).hand.len(),
+            time.delta_secs(),
+            CPU_CARD_MOVE_SECONDS,
+        ) {
             continue;
         }
         if !cpu_brain.tick(side, time.delta_secs()) {
@@ -4603,92 +4790,52 @@ pub fn cpu_brain_update_system(
     );
 }
 
-/// HUMAN: Keeps rendered CPU-placed card entities in sync with populated CPU slots.
-/// AI: CPU cards are passive and intentionally lack gesture/hover markers.
-pub fn sync_cpu_placed_card_entities_system(
+/// HUMAN: Keeps passive CPU hand cards visible while CPU players prepare moves.
+/// AI: This is presentation-only; OpponentMatchModel remains the hand authority.
+pub fn sync_cpu_hand_card_entities_system(
     mut commands: Commands,
+    active_view: Option<Res<ActiveView>>,
     asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
     match_model: Res<OpponentMatchModel>,
-    slot_board: Res<CardSlotBoardModel>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
-    mut card_query: Query<(Entity, &mut CpuPlacedCardView, &Transform)>,
+    mut hand_query: Query<(Entity, &mut CpuHandCardView)>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        let _ = commands;
+        let _ = hand_query;
+        return;
+    }
+
     let mut expected = std::collections::HashMap::new();
-    for slot in slot_board.slots() {
-        let owner = match slot.side {
-            CardSlotSide::LocalPlayer => MatchPlayerSide::Near,
-            CardSlotSide::Opponent => MatchPlayerSide::Far,
-        };
-        if !match_model.player(owner).controller.is_cpu() {
+    for owner in [MatchPlayerSide::Near, MatchPlayerSide::Far] {
+        let player = match_model.player(owner);
+        if !player.controller.is_cpu() {
             continue;
         }
-        let CardSlotState::Populated { card_id, .. } = &slot.state else {
-            continue;
-        };
-        let visible_face =
-            match match_model.placement_visibility(owner, slot.location_index, slot.slot_index) {
-                PlacementVisibility::CurrentTurnHidden => CardFace::Back,
-                PlacementVisibility::Revealed => CardFace::Front,
-            };
-        expected.insert(
-            (
-                slot.side,
-                slot.location_index,
-                slot.slot_index,
-                card_id.clone(),
-            ),
-            (owner, visible_face),
-        );
+        let visible_face = cpu_card_hand_visible_face(owner);
+        for (hand_index, card_id) in player.hand.iter().enumerate() {
+            expected.insert((owner, hand_index, card_id.clone()), visible_face);
+        }
     }
 
-    for (entity, mut view, _) in &mut card_query {
-        let key = (
-            view.side,
-            view.location_index,
-            view.slot_index,
-            view.card_id.clone(),
-        );
-        let Some((_, visible_face)) = expected.remove(&key) else {
+    for (entity, view) in &mut hand_query {
+        let key = (view.owner, view.hand_index, view.card_id.clone());
+        if expected.remove(&key).is_none() {
             commands.entity(entity).despawn();
-            continue;
-        };
-        if view.visible_face != visible_face {
-            view.visible_face = visible_face;
-            if visible_face == CardFace::Front {
-                let slot_transform = slot_transform(
-                    view.location_index,
-                    view.slot_index,
-                    view.side,
-                    &slot_board,
-                    &card_defaults,
-                );
-                commands
-                    .entity(entity)
-                    .insert(CpuPlacedCardAnimation::flip_to_front(
-                        slot_transform,
-                        cpu_card_reveal_delay_seconds(view.location_index, view.slot_index),
-                    ));
-            }
         }
     }
 
-    for ((side, location_index, slot_index, card_id), (owner, visible_face)) in expected {
+    for ((owner, hand_index, card_id), visible_face) in expected {
         let Some(card_model) = card_model_registry.card_model_for_id(&card_id).cloned() else {
             continue;
         };
-        let target_transform = slot_transform(
-            location_index,
-            slot_index,
-            side,
-            &slot_board,
-            &card_defaults,
-        );
-        let source_transform = cpu_card_deck_transform(owner, target_transform);
-        let hand_transform = cpu_card_hand_transform(owner, target_transform);
+        let hand_count = match_model.player(owner).hand.len();
+        let hand_transform = cpu_card_hand_transform(owner, hand_index, hand_count, &card_defaults);
+        let source_transform = cpu_card_deck_transform(owner, hand_transform);
         let card = spawn_card_structure_for_type(
             &mut commands,
             &asset_server,
@@ -4703,13 +4850,137 @@ pub fn sync_cpu_placed_card_entities_system(
         );
         commands.entity(card).insert((
             GameViewEntity,
+            CpuHandCardView::new(owner, hand_index, card_id, visible_face),
+            CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+                hand_transform,
+                hand_transform,
+                visible_face,
+            ),
+        ));
+    }
+}
+
+/// HUMAN: Keeps rendered CPU-placed card entities in sync with populated CPU slots.
+/// AI: CPU cards are passive and intentionally lack gesture/hover markers.
+pub fn sync_cpu_placed_card_entities_system(
+    mut commands: Commands,
+    active_view: Option<Res<ActiveView>>,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_model_registry: Res<CardModelRegistry>,
+    match_model: Res<OpponentMatchModel>,
+    slot_board: Res<CardSlotBoardModel>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
+    mut card_query: Query<(
+        Entity,
+        &mut CpuPlacedCardView,
+        &Transform,
+        Option<&CpuPlacedCardAnimation>,
+    )>,
+) {
+    if !is_game_view_active(active_view.as_deref()) {
+        let _ = commands;
+        let _ = card_query;
+        return;
+    }
+
+    let mut expected = std::collections::HashMap::new();
+    for slot in slot_board.slots() {
+        let owner = match slot.side {
+            CardSlotSide::LocalPlayer => MatchPlayerSide::Near,
+            CardSlotSide::Opponent => MatchPlayerSide::Far,
+        };
+        if !match_model.player(owner).controller.is_cpu() {
+            continue;
+        }
+        let CardSlotState::Populated { card_id, .. } = &slot.state else {
+            continue;
+        };
+        let visible_face = cpu_card_slot_visible_face(
+            owner,
+            match_model.placement_visibility(owner, slot.location_index, slot.slot_index),
+        );
+        expected.insert(
+            (
+                slot.side,
+                slot.location_index,
+                slot.slot_index,
+                card_id.clone(),
+            ),
+            (owner, visible_face),
+        );
+    }
+
+    for (entity, mut view, _, animation) in &mut card_query {
+        let key = (
+            view.side,
+            view.location_index,
+            view.slot_index,
+            view.card_id.clone(),
+        );
+        let Some((_, visible_face)) = expected.remove(&key) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if view.visible_face != visible_face && visible_face == CardFace::Front {
+            if animation
+                .is_some_and(|animation| animation.phase != CpuPlacedCardAnimationPhase::Revealing)
+            {
+                continue;
+            }
+            view.visible_face = visible_face;
+            let slot_transform = slot_transform(
+                view.location_index,
+                view.slot_index,
+                view.side,
+                &slot_board,
+                &card_defaults,
+            );
+            commands
+                .entity(entity)
+                .insert(CpuPlacedCardAnimation::flip_to_front(
+                    slot_transform,
+                    cpu_card_reveal_delay_seconds(view.location_index, view.side, view.slot_index),
+                ));
+        }
+    }
+
+    for ((side, location_index, slot_index, card_id), (owner, visible_face)) in expected {
+        let Some(card_model) = card_model_registry.card_model_for_id(&card_id).cloned() else {
+            continue;
+        };
+        let target_transform = slot_transform(
+            location_index,
+            slot_index,
+            side,
+            &slot_board,
+            &card_defaults,
+        );
+        let hand_transform = cpu_card_move_source_hand_transform(owner, target_transform);
+        let source_transform = hand_transform;
+        let card = spawn_card_structure_for_type(
+            &mut commands,
+            &asset_server,
+            &card_defaults,
+            card_model,
+            &mut meshes,
+            &mut materials,
+            masked_background_materials.as_deref_mut(),
+            cpu_card_hand_visible_face(owner),
+            true,
+            source_transform,
+        );
+        commands.entity(card).insert((
+            GameViewEntity,
             CpuPlacedCardView::new(
                 owner,
                 side,
                 location_index,
                 slot_index,
                 card_id,
-                visible_face,
+                cpu_card_hand_visible_face(owner),
             ),
             CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
                 hand_transform,
@@ -4722,7 +4993,7 @@ pub fn sync_cpu_placed_card_entities_system(
 
 fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) -> Transform {
     let source_y = match owner {
-        MatchPlayerSide::Near => GAME_VIEW_HEIGHT + 120.0,
+        MatchPlayerSide::Near => GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y,
         MatchPlayerSide::Far => -120.0,
     };
     let source_position = game_view_world_position_from_game_view(
@@ -4736,10 +5007,58 @@ fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) 
     }
 }
 
-fn cpu_card_hand_transform(owner: MatchPlayerSide, target_transform: Transform) -> Transform {
+fn cpu_card_hand_visible_face(owner: MatchPlayerSide) -> CardFace {
+    match owner {
+        MatchPlayerSide::Near => CardFace::Front,
+        MatchPlayerSide::Far => CardFace::Back,
+    }
+}
+
+fn cpu_card_slot_visible_face(
+    owner: MatchPlayerSide,
+    placement_visibility: PlacementVisibility,
+) -> CardFace {
+    match (owner, placement_visibility) {
+        (MatchPlayerSide::Near, _) | (_, PlacementVisibility::Revealed) => CardFace::Front,
+        (_, PlacementVisibility::CurrentTurnHidden) => CardFace::Back,
+    }
+}
+
+fn cpu_card_hand_transform(
+    owner: MatchPlayerSide,
+    hand_index: usize,
+    hand_count: usize,
+    card_defaults: &CardInspectionDefaults,
+) -> Transform {
+    let card_size = game_view_hand_card_size();
+    let hand_z = game_view_hand_card_z(hand_index, None);
+    let card_world_scale =
+        game_view_world_height_for_game_view_height(card_size.y, hand_z) / card_defaults.height;
+    let hitboxes = game_view_card_hitboxes_for_count(hand_count);
+    let hand_position = if owner == MatchPlayerSide::Near {
+        let (card_min, card_max) = hitboxes[hand_index];
+        game_view_world_position_from_game_view((card_min + card_max) * 0.5, hand_z)
+    } else {
+        let (card_min, card_max) = hitboxes[hand_index];
+        game_view_world_position_from_game_view(
+            Vec2::new((card_min.x + card_max.x) * 0.5, GAME_SCENE_FAR_HAND_Y),
+            hand_z,
+        )
+    };
+    Transform {
+        translation: hand_position,
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(card_world_scale),
+    }
+}
+
+fn cpu_card_move_source_hand_transform(
+    owner: MatchPlayerSide,
+    target_transform: Transform,
+) -> Transform {
     let hand_y = match owner {
-        MatchPlayerSide::Near => GAME_VIEW_HEIGHT + 42.0,
-        MatchPlayerSide::Far => -42.0,
+        MatchPlayerSide::Near => GAME_SCENE_HAND_TOP + (GAME_SCENE_HAND_HEIGHT * 0.5),
+        MatchPlayerSide::Far => GAME_SCENE_FAR_HAND_Y,
     };
     let hand_position = game_view_world_position_from_game_view(
         Vec2::new(GAME_VIEW_WIDTH * 0.5, hand_y),
@@ -4747,22 +5066,45 @@ fn cpu_card_hand_transform(owner: MatchPlayerSide, target_transform: Transform) 
     );
     Transform {
         translation: hand_position,
-        rotation: target_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI),
+        rotation: target_transform.rotation,
         scale: target_transform.scale,
     }
 }
 
-fn cpu_card_reveal_delay_seconds(location_index: usize, slot_index: usize) -> f32 {
-    ((location_index * 4) + slot_index) as f32 * CPU_CARD_REVEAL_STAGGER_SECONDS
+fn cpu_card_reveal_delay_seconds(
+    location_index: usize,
+    side: CardSlotSide,
+    slot_index: usize,
+) -> f32 {
+    let slot_order = match (side, slot_index) {
+        (CardSlotSide::Opponent, 2) => 0,
+        (CardSlotSide::Opponent, 3) => 1,
+        (CardSlotSide::Opponent, 0) => 2,
+        (CardSlotSide::Opponent, 1) => 3,
+        (CardSlotSide::LocalPlayer, 0) => 4,
+        (CardSlotSide::LocalPlayer, 1) => 5,
+        (CardSlotSide::LocalPlayer, 2) => 6,
+        (CardSlotSide::LocalPlayer, 3) => 7,
+        (_, _) => 7,
+    };
+    let location_delay = location_index as f32
+        * ((CARD_SLOT_ROW_COUNT * 2) as f32 * CPU_CARD_REVEAL_STAGGER_SECONDS
+            + CPU_CARD_REVEAL_LOCATION_PAUSE_SECONDS);
+    location_delay + slot_order as f32 * CPU_CARD_REVEAL_STAGGER_SECONDS
 }
 
 /// HUMAN: Animates CPU-controlled cards as they move into slots and reveal.
 /// AI: Presentation-only tweening; slot ownership and winner logic stay in resources.
 pub fn cpu_placed_card_animation_system(
+    active_view: Option<Res<ActiveView>>,
     time: Res<Time>,
     mut commands: Commands,
     mut card_query: Query<(Entity, &mut Transform, &mut CpuPlacedCardAnimation)>,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     for (entity, mut transform, mut animation) in &mut card_query {
         if advance_cpu_placed_card_animation(time.delta_secs(), &mut transform, &mut animation) {
             commands.entity(entity).remove::<CpuPlacedCardAnimation>();
@@ -4775,8 +5117,18 @@ fn advance_cpu_placed_card_animation(
     transform: &mut Transform,
     animation: &mut CpuPlacedCardAnimation,
 ) -> bool {
-    let move_blend = (delta_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
-    let max_flip_step = (std::f32::consts::PI / CPU_CARD_FLIP_SECONDS) * delta_seconds.max(0.0);
+    let mut active_delta_seconds = delta_seconds.max(0.0);
+    if animation.start_delay_seconds > 0.0 {
+        if active_delta_seconds < animation.start_delay_seconds {
+            animation.start_delay_seconds -= active_delta_seconds;
+            return false;
+        }
+        active_delta_seconds -= animation.start_delay_seconds;
+        animation.start_delay_seconds = 0.0;
+    }
+
+    let move_blend = (active_delta_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
+    let max_flip_step = (std::f32::consts::PI / CPU_CARD_FLIP_SECONDS) * active_delta_seconds;
 
     transform.translation = transform
         .translation
@@ -4806,6 +5158,11 @@ fn advance_cpu_placed_card_animation(
         *transform = animation.target_transform;
         transform.rotation = animation.target_transform.rotation
             * Quat::from_rotation_y(animation.target_y_rotation);
+        if animation.phase == CpuPlacedCardAnimationPhase::MovingToHand {
+            animation.target_transform = animation.slot_transform;
+            animation.phase = CpuPlacedCardAnimationPhase::MovingToSlot;
+            return false;
+        }
     }
     is_settled
 }
@@ -4813,8 +5170,10 @@ fn advance_cpu_placed_card_animation(
 /// HUMAN: Shows CPU card fronts or backs according to each card's own reveal tween.
 /// AI: This prevents CPU reveal from depending on the global debug card flip state.
 pub fn update_cpu_placed_card_face_visibility_system(
+    active_view: Option<Res<ActiveView>>,
     card_ui_state: Res<CardUiState>,
     cpu_card_query: Query<(&CpuPlacedCardView, Option<&CpuPlacedCardAnimation>)>,
+    cpu_hand_query: Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
     mut face_query: Query<
         (
             &ChildOf,
@@ -4825,13 +5184,22 @@ pub fn update_cpu_placed_card_face_visibility_system(
         With<CpuPlacedCardFaceLayer>,
     >,
 ) {
+    if !is_game_view_active(active_view.as_deref()) {
+        return;
+    }
+
     for (child_of, face_layer, parallax_layer, mut visibility) in &mut face_query {
-        let Ok((view, animation)) = cpu_card_query.get(child_of.parent()) else {
+        let visible_face = if let Ok((view, animation)) = cpu_card_query.get(child_of.parent()) {
+            animation
+                .map(|animation| animation.current_face())
+                .unwrap_or(view.visible_face)
+        } else if let Ok((view, animation)) = cpu_hand_query.get(child_of.parent()) {
+            animation
+                .map(|animation| animation.current_face())
+                .unwrap_or(view.visible_face)
+        } else {
             continue;
         };
-        let visible_face = animation
-            .map(|animation| animation.current_face())
-            .unwrap_or(view.visible_face);
         let is_hidden_safe_area = parallax_layer
             .is_some_and(|layer| layer.role == CardLayerRole::SafeArea)
             && !card_ui_state.show_safe_area;

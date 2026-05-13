@@ -1,5 +1,7 @@
 use super::*;
 use crate::runtime::resources::{CardGestureModel, CardGestureState, CardSlotBoardModel};
+use bevy::ecs::system::RunSystemOnce;
+use bevy::text::Font;
 use bevy_persistent::prelude::StorageFormat;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -669,6 +671,7 @@ fn game_view_owns_camera_world_background_and_three_locations() {
         .init_resource::<Assets<CardBackgroundMaskMaterial>>()
         .init_asset::<Image>()
         .init_asset::<Font>()
+        .init_resource::<Touches>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
@@ -908,22 +911,72 @@ fn game_view_owns_camera_world_background_and_three_locations() {
     });
     assert_eq!(preview_transforms.len(), STARTING_HAND_CARD_COUNT);
 
-    let expected_scale = game_view_world_height_for_game_view_height(
-        GAME_SCENE_HAND_CARD_HEIGHT,
-        GAME_SCENE_HAND_CARD_WORLD_Z,
-    ) / app.world().resource::<CardInspectionDefaults>().height;
-    for (index, transform) in preview_transforms.iter().enumerate() {
-        let (card_min, card_max) = game_view_card_hitboxes()[index];
-        let expected_translation = game_view_world_position_from_game_view(
-            (card_min + card_max) * 0.5,
-            GAME_SCENE_HAND_CARD_WORLD_Z,
-        );
-        assert_close(transform.translation.x, expected_translation.x);
-        assert_close(transform.translation.y, expected_translation.y);
-        assert_close(transform.translation.z, expected_translation.z);
-        assert_close(transform.scale.x, expected_scale);
-        assert_close(transform.scale.y, expected_scale);
-        assert_close(transform.scale.z, expected_scale);
+    let deal_transform =
+        local_player_hand_deal_transform(app.world().resource::<CardInspectionDefaults>());
+    for transform in preview_transforms.iter() {
+        assert_close(transform.translation.x, deal_transform.translation.x);
+        assert_close(transform.translation.y, deal_transform.translation.y);
+        assert_close(transform.translation.z, deal_transform.translation.z);
+        assert_close(transform.scale.x, deal_transform.scale.x);
+        assert_close(transform.scale.y, deal_transform.scale.y);
+        assert_close(transform.scale.z, deal_transform.scale.z);
+    }
+
+    let mut card_states = CardStateModel::default();
+    card_states.reset_to_size(STARTING_HAND_CARD_COUNT);
+    let final_hand_transforms: Vec<Transform> = (0..STARTING_HAND_CARD_COUNT)
+        .map(|index| {
+            hand_source_transform(
+                index,
+                STARTING_HAND_CARD_COUNT,
+                app.world().resource::<CardInspectionDefaults>(),
+            )
+        })
+        .collect();
+    assert!(
+        preview_transforms
+            .iter()
+            .zip(final_hand_transforms.iter())
+            .all(|(initial_transform, final_transform)| initial_transform
+                .translation
+                .distance(final_transform.translation)
+                > 0.01)
+    );
+
+    app.insert_resource(CardGestureModel::default())
+        .insert_resource(card_states)
+        .add_systems(Update, card_gesture_animation_system);
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_millis(125));
+    app.update();
+
+    preview_transforms = preview_query.iter(app.world()).copied().collect();
+    for transform in preview_transforms.iter() {
+        assert!(transform.translation.y < deal_transform.translation.y);
+        assert!(transform.translation.y > final_hand_transforms[0].translation.y);
+    }
+
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs(1));
+    app.update();
+
+    preview_transforms = preview_query.iter(app.world()).copied().collect();
+    preview_transforms.sort_by(|left, right| {
+        left.translation
+            .x
+            .partial_cmp(&right.translation.x)
+            .unwrap()
+    });
+    for (transform, final_transform) in preview_transforms.iter().zip(final_hand_transforms.iter())
+    {
+        assert_close(transform.translation.x, final_transform.translation.x);
+        assert_close(transform.translation.y, final_transform.translation.y);
+        assert_close(transform.translation.z, final_transform.translation.z);
+        assert_close(transform.scale.x, final_transform.scale.x);
+        assert_close(transform.scale.y, final_transform.scale.y);
+        assert_close(transform.scale.z, final_transform.scale.z);
     }
 
     let mut preview_layer_query = app.world_mut().query_filtered::<Entity, (
@@ -1581,9 +1634,41 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
     while elapsed < 30.0 {
         elapsed += 0.5;
         {
+            let match_model = app.world().resource::<OpponentMatchModel>();
+            let turn = match_model.turn.turn;
+            let near_hand_count = match_model.near.hand.len();
+            let far_hand_count = match_model.far.hand.len();
             let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
             brain.near_next_decision_seconds = 0.0;
             brain.far_next_decision_seconds = 0.0;
+            brain.wait_for_hand_presentation(
+                MatchPlayerSide::Near,
+                turn,
+                near_hand_count,
+                0.0,
+                CPU_CARD_MOVE_SECONDS,
+            );
+            brain.wait_for_hand_presentation(
+                MatchPlayerSide::Near,
+                turn,
+                near_hand_count,
+                CPU_CARD_MOVE_SECONDS,
+                CPU_CARD_MOVE_SECONDS,
+            );
+            brain.wait_for_hand_presentation(
+                MatchPlayerSide::Far,
+                turn,
+                far_hand_count,
+                0.0,
+                CPU_CARD_MOVE_SECONDS,
+            );
+            brain.wait_for_hand_presentation(
+                MatchPlayerSide::Far,
+                turn,
+                far_hand_count,
+                CPU_CARD_MOVE_SECONDS,
+                CPU_CARD_MOVE_SECONDS,
+            );
         }
         app.world_mut()
             .resource_mut::<Time>()
@@ -1603,8 +1688,13 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
     let match_model = app.world().resource::<OpponentMatchModel>();
     assert!(
         match_model.turn.winner.is_some(),
-        "CPU-vs-CPU did not finish within 30 seconds; status={}",
-        match_model.status_text()
+        "CPU-vs-CPU did not finish within 30 seconds; status={} turn={} near_ready={} far_ready={} near_hand={} far_hand={}",
+        match_model.status_text(),
+        match_model.turn.turn,
+        match_model.near.ready_for_next,
+        match_model.far.ready_for_next,
+        match_model.near.hand.len(),
+        match_model.far.hand.len()
     );
     assert!(
         match_model
@@ -1614,8 +1704,133 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
 }
 
 #[test]
-fn cpu_placed_card_animation_tweens_move_and_reveal_flip() {
-    let target_transform = Transform {
+fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CpuBrainModel>()
+        .insert_resource(ActiveView::DeckBuilderScene)
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::CpuVersusCpu,
+            vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
+        ))
+        .add_systems(Update, cpu_brain_update_system);
+    {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.near.draw(1);
+        match_model.near.energy_available = 1;
+    }
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs(1));
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<OpponentMatchModel>().near.hand.len(),
+        1
+    );
+    assert_eq!(
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count(),
+        0
+    );
+
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameView;
+    {
+        let match_model = app.world().resource::<OpponentMatchModel>();
+        let turn = match_model.turn.turn;
+        let near_hand_count = match_model.near.hand.len();
+        let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
+        brain.near_next_decision_seconds = 0.0;
+        brain.wait_for_hand_presentation(MatchPlayerSide::Near, turn, near_hand_count, 0.0, 0.0);
+    }
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs(1));
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<OpponentMatchModel>().near.hand.len(),
+        0
+    );
+    assert_eq!(
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count(),
+        1
+    );
+}
+
+#[test]
+fn game_view_card_sync_does_not_render_outside_game_view() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_asset::<Image>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardModelRegistry>()
+        .insert_resource(ActiveView::DeckBuilderScene)
+        .insert_resource(GameHandModel::new(vec![
+            crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+        ]))
+        .add_systems(Update, sync_game_view_hand_card_entities_system);
+
+    app.update();
+
+    let mut card_query = app
+        .world_mut()
+        .query_filtered::<Entity, (With<CardView>, With<LocalPlayerHandCardPreview>)>();
+    assert_eq!(card_query.iter(app.world()).count(), 0);
+}
+
+#[test]
+fn hidden_game_view_enforcement_hides_local_card_descendants() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .insert_resource(ActiveView::DeckBuilderScene)
+        .add_systems(Update, enforce_hidden_game_view_visibility_system);
+    let card = app
+        .world_mut()
+        .spawn((GameViewEntity, CardGestureView, Visibility::Visible))
+        .id();
+    let front_layer = app
+        .world_mut()
+        .spawn((
+            CardFaceLayer::new(CardFace::Front),
+            Visibility::Visible,
+            GlobalTransform::default(),
+        ))
+        .id();
+    app.world_mut().entity_mut(card).add_child(front_layer);
+
+    app.update();
+
+    assert_eq!(
+        app.world().entity(card).get::<Visibility>(),
+        Some(&Visibility::Hidden)
+    );
+    assert_eq!(
+        app.world().entity(front_layer).get::<Visibility>(),
+        Some(&Visibility::Hidden)
+    );
+}
+
+#[test]
+fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
+    let hand_transform = Transform {
+        translation: Vec3::new(0.0, -3.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
         translation: Vec3::new(4.0, 2.0, 0.52),
         rotation: Quat::IDENTITY,
         scale: Vec3::splat(0.25),
@@ -1626,16 +1841,205 @@ fn cpu_placed_card_animation_tweens_move_and_reveal_flip() {
         scale: Vec3::splat(0.25),
     };
     let mut transform = source_transform;
-    let mut animation = CpuPlacedCardAnimation::flip_to_front(target_transform);
+    let mut animation = CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+        hand_transform,
+        slot_transform,
+        CardFace::Back,
+    );
 
-    let is_settled = advance_cpu_placed_card_animation(0.1, &mut transform, &mut animation);
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
 
-    assert!(transform.translation.distance(source_transform.translation) > 0.01);
-    assert!(transform.translation.distance(target_transform.translation) > 0.01);
-    let (_, yaw, _) = transform.rotation.to_euler(EulerRot::XYZ);
-    assert!(yaw.abs() > 0.01);
-    assert!(yaw.abs() < std::f32::consts::PI - 0.01);
     assert!(!is_settled);
+    assert_eq!(
+        animation.phase,
+        crate::runtime::components::CpuPlacedCardAnimationPhase::MovingToSlot
+    );
+    assert_close(transform.translation.x, hand_transform.translation.x);
+    assert_close(transform.translation.y, hand_transform.translation.y);
+    assert!(
+        transform
+            .rotation
+            .angle_between(hand_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI))
+            < 0.000_1
+    );
+
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
+
+    assert!(is_settled);
+    assert_close(transform.translation.x, slot_transform.translation.x);
+    assert_close(transform.translation.y, slot_transform.translation.y);
+    assert!(
+        transform
+            .rotation
+            .angle_between(slot_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI))
+            < 0.000_1
+    );
+    assert_eq!(animation.current_face(), CardFace::Back);
+}
+
+#[test]
+fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
+    assert_eq!(
+        cpu_card_hand_visible_face(MatchPlayerSide::Near),
+        CardFace::Front
+    );
+    assert_eq!(
+        cpu_card_hand_visible_face(MatchPlayerSide::Far),
+        CardFace::Back
+    );
+    assert_eq!(
+        cpu_card_slot_visible_face(
+            MatchPlayerSide::Near,
+            PlacementVisibility::CurrentTurnHidden
+        ),
+        CardFace::Front
+    );
+    assert_eq!(
+        cpu_card_slot_visible_face(MatchPlayerSide::Far, PlacementVisibility::CurrentTurnHidden),
+        CardFace::Back
+    );
+    assert_eq!(
+        cpu_card_slot_visible_face(MatchPlayerSide::Far, PlacementVisibility::Revealed),
+        CardFace::Front
+    );
+}
+
+#[test]
+fn far_cpu_hand_sits_above_the_game_view() {
+    let card_defaults = CardInspectionDefaults::default();
+    let hand_transform = cpu_card_hand_transform(MatchPlayerSide::Far, 0, 1, &card_defaults);
+    let (card_min, card_max) = game_view_card_hitboxes_for_count(1)[0];
+    let expected_position = game_view_world_position_from_game_view(
+        Vec2::new((card_min.x + card_max.x) * 0.5, GAME_SCENE_FAR_HAND_Y),
+        hand_transform.translation.z,
+    );
+
+    assert_close(hand_transform.translation.x, expected_position.x);
+    assert_close(hand_transform.translation.y, expected_position.y);
+    assert_close(hand_transform.translation.z, expected_position.z);
+
+    let slot_transform = Transform {
+        translation: Vec3::new(1.0, 2.0, 0.52),
+        scale: Vec3::splat(0.25),
+        ..Default::default()
+    };
+    let source_transform =
+        cpu_card_move_source_hand_transform(MatchPlayerSide::Far, slot_transform);
+    let expected_source_position = game_view_world_position_from_game_view(
+        Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_SCENE_FAR_HAND_Y),
+        slot_transform.translation.z,
+    );
+
+    assert_close(source_transform.translation.x, expected_source_position.x);
+    assert_close(source_transform.translation.y, expected_source_position.y);
+    assert_close(source_transform.translation.z, expected_source_position.z);
+}
+
+#[test]
+fn cpu_brain_waits_for_hand_presentation_before_first_move() {
+    let mut brain = CpuBrainModel::default();
+
+    assert!(brain.wait_for_hand_presentation(
+        MatchPlayerSide::Near,
+        1,
+        2,
+        10.0,
+        CPU_CARD_MOVE_SECONDS,
+    ));
+    assert!(brain.wait_for_hand_presentation(
+        MatchPlayerSide::Near,
+        1,
+        2,
+        CPU_CARD_MOVE_SECONDS * 0.5,
+        CPU_CARD_MOVE_SECONDS,
+    ));
+    assert!(!brain.wait_for_hand_presentation(
+        MatchPlayerSide::Near,
+        1,
+        2,
+        CPU_CARD_MOVE_SECONDS * 0.5,
+        CPU_CARD_MOVE_SECONDS,
+    ));
+}
+
+#[test]
+fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
+    let slot_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = slot_transform;
+    transform.rotation = slot_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI);
+    let mut animation = CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.25);
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.24,
+        &mut transform,
+        &mut animation
+    ));
+    assert_eq!(animation.current_face(), CardFace::Back);
+    assert_close(animation.start_delay_seconds, 0.01);
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.134,
+        &mut transform,
+        &mut animation
+    ));
+    assert_eq!(animation.current_face(), CardFace::Back);
+    assert!(animation.current_y_rotation < std::f32::consts::PI);
+
+    assert!(advance_cpu_placed_card_animation(
+        0.126,
+        &mut transform,
+        &mut animation
+    ));
+    assert_eq!(animation.current_face(), CardFace::Front);
+    assert_close(animation.current_y_rotation, 0.0);
+}
+
+#[test]
+fn cpu_card_reveal_delays_follow_location_then_slot_order() {
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 2),
+        0.0,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 3),
+        0.25,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 0),
+        0.5,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 1),
+        0.75,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 0),
+        1.0,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 1),
+        1.25,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 2),
+        1.5,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 3),
+        1.75,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(1, CardSlotSide::Opponent, 2),
+        2.5,
+    );
+    assert_close(
+        cpu_card_reveal_delay_seconds(2, CardSlotSide::LocalPlayer, 3),
+        6.75,
+    );
 }
 
 #[test]
@@ -1656,7 +2060,11 @@ fn cpu_placed_card_face_visibility_uses_per_card_reveal_state() {
                 "test-card",
                 CardFace::Back,
             ),
-            CpuPlacedCardAnimation::move_to_slot(Transform::default(), CardFace::Back),
+            CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+                Transform::default(),
+                Transform::default(),
+                CardFace::Back,
+            ),
         ))
         .id();
     let front = app
@@ -1893,6 +2301,63 @@ fn deck_builder_rotation_system_does_not_recenter_game_view_hand_card() {
         assert_eq!(updated_transform.translation, initial_transform.translation);
         assert_eq!(updated_transform.scale, initial_transform.scale);
     }
+}
+
+#[test]
+fn initial_local_player_hand_tweens_from_offscreen_deal_source() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+        .init_asset::<Image>()
+        .init_asset::<Font>()
+        .init_resource::<Touches>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .init_resource::<WorldModelRegistry>()
+        .init_resource::<ActiveWorldModel>()
+        .init_resource::<LocationModelRegistry>()
+        .init_resource::<ActiveLocations>()
+        .add_systems(Startup, setup_game_view);
+
+    app.update();
+
+    let deal_transform =
+        local_player_hand_deal_transform(app.world().resource::<CardInspectionDefaults>());
+    let mut preview_query = app.world_mut().query_filtered::<&Transform, (
+        With<LocalPlayerHandCardPreview>,
+        With<CardView>,
+        With<GameViewEntity>,
+        Without<DeckBuilderSceneEntity>,
+    )>();
+    let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
+    assert_eq!(initial_transforms.len(), STARTING_HAND_CARD_COUNT);
+    assert!(initial_transforms.iter().all(|transform| {
+        (transform.translation - deal_transform.translation).length() < 0.000_1
+            && (transform.scale - deal_transform.scale).length() < 0.000_1
+    }));
+
+    let mut card_states = CardStateModel::default();
+    card_states.reset_to_size(STARTING_HAND_CARD_COUNT);
+    app.insert_resource(CardGestureModel::default())
+        .insert_resource(card_states);
+
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_millis(125));
+    app.world_mut()
+        .run_system_once(card_gesture_animation_system)
+        .unwrap();
+
+    let tweened_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
+    assert_eq!(tweened_transforms.len(), STARTING_HAND_CARD_COUNT);
+    assert!(tweened_transforms.iter().all(|transform| {
+        let game_view_position = game_view_position_from_world_position(transform.translation);
+        game_view_position.y < GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y
+            && transform.translation.distance(deal_transform.translation) > 0.01
+    }));
 }
 
 #[test]
@@ -2445,6 +2910,7 @@ fn card_ui_toggle_while_back_visible_keeps_card_back_visible() {
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
         .init_asset::<Image>()
+        .init_asset::<Font>()
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .init_resource::<Touches>()
@@ -2518,6 +2984,7 @@ fn card_ui_toggle_while_front_visible_changes_global_card_settings() {
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
         .init_asset::<Image>()
+        .init_asset::<Font>()
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .init_resource::<Touches>()
@@ -3599,6 +4066,7 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
         .init_asset::<Image>()
+        .init_asset::<Font>()
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .init_resource::<Touches>()
@@ -3631,7 +4099,14 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         *app.world().resource::<ActiveView>(),
         ActiveView::DeckBuilderScene
     );
-    assert_eq!(active_child_scene_root_count(&mut app), 1);
+    assert_eq!(active_child_scene_root_count(&mut app), 2);
+    let mut game_query = app
+        .world_mut()
+        .query_filtered::<&Visibility, With<GameViewRoot>>();
+    assert!(matches!(
+        game_query.single(app.world()),
+        Ok(Visibility::Hidden)
+    ));
     let mut deck_builder_query = app
         .world_mut()
         .query_filtered::<Entity, With<DeckBuilderSceneRoot>>();
@@ -3650,7 +4125,7 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         *app.world().resource::<ActiveView>(),
         ActiveView::DebugSettingsScene
     );
-    assert_eq!(active_child_scene_root_count(&mut app), 1);
+    assert_eq!(active_child_scene_root_count(&mut app), 2);
     let mut debug_settings_query = app
         .world_mut()
         .query_filtered::<Entity, With<DebugSettingsSceneRoot>>();
@@ -3669,8 +4144,132 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
     assert_eq!(active_child_scene_root_count(&mut app), 1);
     let mut game_query = app
         .world_mut()
+        .query_filtered::<&Visibility, With<GameViewRoot>>();
+    assert!(matches!(
+        game_query.single(app.world()),
+        Ok(Visibility::Visible | Visibility::Inherited)
+    ));
+}
+
+#[test]
+fn s_key_return_preserves_existing_game_view_entities() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_asset::<Image>()
+        .init_asset::<Font>()
+        .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<ButtonInput<MouseButton>>()
+        .init_resource::<Touches>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardInspectionState>()
+        .init_resource::<CardFlipState>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardGestureModel>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<ActiveCardModel>()
+        .init_resource::<WorldModelRegistry>()
+        .init_resource::<ActiveWorldModel>()
+        .init_resource::<LocationModelRegistry>()
+        .init_resource::<ActiveLocations>()
+        .init_resource::<ActiveView>()
+        .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
+        .add_systems(Update, scene_input_system);
+
+    app.update();
+
+    let game_view_root = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<GameViewRoot>>();
+        query
+            .single(app.world())
+            .expect("GameView root should spawn")
+    };
+    let expected_transform = Transform::from_xyz(12.0, 34.0, 56.0);
+    let preserved_entity = app
+        .world_mut()
+        .spawn((
+            GameViewEntity,
+            expected_transform,
+            GlobalTransform::default(),
+            Visibility::Visible,
+        ))
+        .id();
+    let preserved_child = app
+        .world_mut()
+        .spawn((GlobalTransform::default(), Visibility::Visible))
+        .id();
+    app.world_mut()
+        .entity_mut(preserved_entity)
+        .add_child(preserved_child);
+
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::KeyS);
+    app.update();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .reset(KeyCode::KeyS);
+    app.update();
+
+    assert_eq!(
+        app.world().entity(preserved_entity).get::<Visibility>(),
+        Some(&Visibility::Hidden)
+    );
+    assert_eq!(
+        app.world().entity(preserved_child).get::<Visibility>(),
+        Some(&Visibility::Hidden)
+    );
+
+    for _ in 0..2 {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyS);
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset(KeyCode::KeyS);
+        app.update();
+    }
+
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    let mut root_query = app
+        .world_mut()
         .query_filtered::<Entity, With<GameViewRoot>>();
-    assert_eq!(game_query.iter(app.world()).count(), 1);
+    assert_eq!(
+        root_query
+            .single(app.world())
+            .expect("GameView root should be reused"),
+        game_view_root
+    );
+    let transform = app
+        .world()
+        .entity(preserved_entity)
+        .get::<Transform>()
+        .expect("preserved GameView entity should survive scene cycling");
+    assert_eq!(*transform, expected_transform);
+    let visibility = app
+        .world()
+        .entity(preserved_entity)
+        .get::<Visibility>()
+        .expect("preserved GameView entity should keep visibility");
+    assert!(matches!(
+        visibility,
+        Visibility::Visible | Visibility::Inherited
+    ));
+    let child_visibility = app
+        .world()
+        .entity(preserved_child)
+        .get::<Visibility>()
+        .expect("preserved GameView child should restore visibility");
+    assert!(matches!(
+        child_visibility,
+        Visibility::Visible | Visibility::Inherited
+    ));
 }
 
 #[test]

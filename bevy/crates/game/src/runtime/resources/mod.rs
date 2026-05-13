@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod card_gesture_model;
+pub mod card_instance_state_model;
 pub mod card_slot_model;
 pub mod cpu_brain_model;
 pub mod debug_drawing_model;
@@ -16,6 +17,7 @@ pub mod opponent_match_model;
 pub mod point_model;
 
 pub use card_gesture_model::*;
+pub use card_instance_state_model::*;
 pub use card_slot_model::*;
 pub use cpu_brain_model::*;
 pub use debug_drawing_model::*;

@@ -83,6 +83,32 @@ pub struct EndTurnButton;
 #[derive(Component, Debug, Default)]
 pub struct MatchStatusText;
 
+/// HUMAN: Render marker for a passive CPU-controlled hand card.
+/// AI: CPU hand cards show turn setup only and never receive gesture/cursor markers.
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
+pub struct CpuHandCardView {
+    pub owner: MatchPlayerSide,
+    pub hand_index: usize,
+    pub card_id: String,
+    pub visible_face: CardFace,
+}
+
+impl CpuHandCardView {
+    pub fn new(
+        owner: MatchPlayerSide,
+        hand_index: usize,
+        card_id: impl Into<String>,
+        visible_face: CardFace,
+    ) -> Self {
+        Self {
+            owner,
+            hand_index,
+            card_id: card_id.into(),
+            visible_face,
+        }
+    }
+}
+
 /// HUMAN: Render marker for a card placed by a CPU-controlled player.
 /// AI: CPU-owned cards are passive and never receive gesture/cursor rotation markers.
 #[derive(Component, Clone, Debug, Eq, PartialEq)]

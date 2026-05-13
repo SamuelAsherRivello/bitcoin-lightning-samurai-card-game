@@ -24,6 +24,10 @@ pub struct CpuBrainModel {
     pub seed: u64,
     pub near_next_decision_seconds: f32,
     pub far_next_decision_seconds: f32,
+    near_presented_turn: u8,
+    far_presented_turn: u8,
+    near_hand_presentation_seconds: f32,
+    far_hand_presentation_seconds: f32,
 }
 
 impl Default for CpuBrainModel {
@@ -32,6 +36,10 @@ impl Default for CpuBrainModel {
             seed: 14,
             near_next_decision_seconds: minimum_cpu_decision_delay_seconds(),
             far_next_decision_seconds: minimum_cpu_decision_delay_seconds(),
+            near_presented_turn: 0,
+            far_presented_turn: 0,
+            near_hand_presentation_seconds: 0.0,
+            far_hand_presentation_seconds: 0.0,
         }
     }
 }
@@ -40,6 +48,35 @@ impl CpuBrainModel {
     pub fn reset(&mut self) {
         self.near_next_decision_seconds = minimum_cpu_decision_delay_seconds();
         self.far_next_decision_seconds = minimum_cpu_decision_delay_seconds();
+        self.near_presented_turn = 0;
+        self.far_presented_turn = 0;
+        self.near_hand_presentation_seconds = 0.0;
+        self.far_hand_presentation_seconds = 0.0;
+    }
+
+    pub fn wait_for_hand_presentation(
+        &mut self,
+        side: MatchPlayerSide,
+        turn: u8,
+        hand_card_count: usize,
+        delta_seconds: f32,
+        duration_seconds: f32,
+    ) -> bool {
+        let (presented_turn, timer) = self.presentation_state_mut(side);
+        if *presented_turn != turn {
+            *presented_turn = turn;
+            *timer = if hand_card_count == 0 {
+                0.0
+            } else {
+                duration_seconds.max(0.0)
+            };
+            return *timer > 0.0;
+        }
+        if *timer <= 0.0 {
+            return false;
+        }
+        *timer = (*timer - delta_seconds.max(0.0)).max(0.0);
+        *timer > 0.0
     }
 
     pub fn tick(&mut self, side: MatchPlayerSide, delta_seconds: f32) -> bool {
@@ -65,6 +102,19 @@ impl CpuBrainModel {
         match side {
             MatchPlayerSide::Near => &mut self.near_next_decision_seconds,
             MatchPlayerSide::Far => &mut self.far_next_decision_seconds,
+        }
+    }
+
+    fn presentation_state_mut(&mut self, side: MatchPlayerSide) -> (&mut u8, &mut f32) {
+        match side {
+            MatchPlayerSide::Near => (
+                &mut self.near_presented_turn,
+                &mut self.near_hand_presentation_seconds,
+            ),
+            MatchPlayerSide::Far => (
+                &mut self.far_presented_turn,
+                &mut self.far_hand_presentation_seconds,
+            ),
         }
     }
 }
