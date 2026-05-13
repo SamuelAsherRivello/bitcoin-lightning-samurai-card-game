@@ -211,7 +211,11 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
         .add_child(debug_drawing_label);
     let debug_hud = app
         .world_mut()
-        .spawn((DebugHudText, Visibility::Visible))
+        .spawn((
+            DebugHudText,
+            GlobalZIndex(DEBUG_DRAW_SOLO_OVERLAY_Z_INDEX + 1),
+            Visibility::Visible,
+        ))
         .id();
     let scene_camera = app
         .world_mut()
@@ -233,7 +237,7 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
     );
     assert_eq!(
         app.world().get::<Visibility>(debug_hud),
-        Some(&Visibility::Hidden)
+        Some(&Visibility::Visible)
     );
     assert_eq!(
         app.world().get::<Visibility>(untagged_render_child),
@@ -278,6 +282,10 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
     assert_eq!(
         *app.world().get::<GlobalZIndex>(debug_drawing).unwrap(),
         GlobalZIndex(DEBUG_DRAWING_Z_INDEX)
+    );
+    assert!(
+        app.world().get::<GlobalZIndex>(debug_hud).unwrap().0
+            > app.world().get::<GlobalZIndex>(solo_overlay).unwrap().0
     );
     assert!(!app.world().get::<Camera>(scene_camera).unwrap().is_active);
     assert!(app.world().get::<Camera>(ui_camera).unwrap().is_active);

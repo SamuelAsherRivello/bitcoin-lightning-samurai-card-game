@@ -275,10 +275,19 @@
       aspect-ratio: 1;
       border: 12px solid #f3f5f8;
       background:
-        linear-gradient(90deg, #000 10px, transparent 10px 20px, #000 20px 30px, transparent 30px 40px, #000 40px 50px, transparent 50px),
-        linear-gradient(#000 10px, transparent 10px 20px, #000 20px 30px, transparent 30px 40px, #000 40px 50px, transparent 50px),
-        repeating-linear-gradient(45deg, #000 0 8px, #fff 8px 16px, #000 16px 24px, #fff 24px 32px);
-      background-blend-mode: multiply;
+        linear-gradient(#000 0 0) 0 0 / 56px 56px no-repeat,
+        linear-gradient(#000 0 0) calc(100% - 56px) 0 / 56px 56px no-repeat,
+        linear-gradient(#000 0 0) 0 calc(100% - 56px) / 56px 56px no-repeat,
+        linear-gradient(#fff 0 0) 12px 12px / 32px 32px no-repeat,
+        linear-gradient(#fff 0 0) calc(100% - 44px) 12px / 32px 32px no-repeat,
+        linear-gradient(#fff 0 0) 12px calc(100% - 44px) / 32px 32px no-repeat,
+        linear-gradient(#000 0 0) 22px 22px / 12px 12px no-repeat,
+        linear-gradient(#000 0 0) calc(100% - 34px) 22px / 12px 12px no-repeat,
+        linear-gradient(#000 0 0) 22px calc(100% - 34px) / 12px 12px no-repeat,
+        repeating-linear-gradient(90deg, #000 0 8px, #fff 8px 16px, #000 16px 24px, #fff 24px 32px, #fff 32px 40px),
+        repeating-linear-gradient(0deg, transparent 0 8px, rgba(0, 0, 0, 0.82) 8px 16px, transparent 16px 24px, rgba(0, 0, 0, 0.82) 24px 32px, transparent 32px 40px),
+        #fff;
+      background-blend-mode: normal, normal, normal, normal, normal, normal, normal, normal, normal, multiply, normal, normal;
       box-shadow: 0 12px 24px rgba(0, 0, 0, 0.38);
     }
 
@@ -288,9 +297,8 @@
 
     .login-instruction {
       position: absolute;
-      top: 50%;
+      top: calc(50% - ((min(330px, 34vw) + 172px) / 2));
       left: calc(50% + min(330px, 34vw) / 2 + 74px);
-      transform: translateY(-50%);
       display: grid;
       gap: 20px;
       width: min(350px, 30vw);
@@ -638,6 +646,13 @@
     .overlay-actions .main-menu-button-style {
       min-height: 62px;
       font-size: 21px;
+    }
+
+    .overlay-actions .move-arrow {
+      font-size: 42px;
+      font-weight: 950;
+      line-height: 0.8;
+      transform: scaleX(1.24);
     }
 
     @media (max-width: 900px) {
@@ -1006,8 +1021,8 @@
             <div class="card-cost"><span>Cost 3</span><span>Power 6</span></div>
           </div>
           <div class="overlay-actions">
-            <div class="main-menu-button-style disabled"><span class="action-icon">←</span><span>Add To Deck 01</span></div>
-            <div class="main-menu-button-style"><span class="action-icon">→</span><span>Add To Library</span></div>
+            <div class="main-menu-button-style disabled"><span class="action-icon move-arrow">←</span><span>Move To Deck 01</span></div>
+            <div class="main-menu-button-style"><span class="action-icon move-arrow">→</span><span>Move To Library</span></div>
             <div class="lightning-action-button main-menu-button-style"><span class="action-icon">⚡</span><span>Transfer Out</span></div>
             <div class="main-menu-button-style">Back</div>
           </div>

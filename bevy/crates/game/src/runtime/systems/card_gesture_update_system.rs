@@ -8,7 +8,7 @@ use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardGestureModel, CardGestureSlotTarget,
     CardGestureState, CardInspectionDefaults, CardModelRegistry, CardSlotBoardModel, CardSlotRect,
     CardSlotSide, CardState, CardStateModel, CurrentRoundMoveRecord, GameHandModel,
-    GameLocationModel, GameRoundModel, OpponentMatchModel,
+    GameLocationModel, GameRoundModel, OpponentMatchModel, SelectedCardModalModel,
 };
 
 use super::{
@@ -38,11 +38,21 @@ pub fn card_gesture_update_system(
     opponent_match_model: Option<Res<OpponentMatchModel>>,
     mut game_round_model: Option<ResMut<GameRoundModel>>,
     mut gesture_model: ResMut<CardGestureModel>,
+    mut selected_modal: Option<ResMut<SelectedCardModalModel>>,
     mut slot_board: ResMut<CardSlotBoardModel>,
     mut card_states: ResMut<CardStateModel>,
-    mut card_query: Query<(&HandCardGestureTarget, &mut Visibility), With<CardGestureView>>,
+    mut card_query: Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
 ) {
     if *active_view != ActiveView::GameView {
+        return;
+    }
+    if selected_modal
+        .as_ref()
+        .is_some_and(|modal| modal.blocks_lower_interactions())
+    {
         return;
     }
     if opponent_match_model
@@ -96,6 +106,13 @@ pub fn card_gesture_update_system(
                     .as_ref()
                     .map(|pointer| pointer.current_position)
             });
+        let mut fallback_selected_modal;
+        let selected_modal = if let Some(selected_modal) = selected_modal.as_deref_mut() {
+            selected_modal
+        } else {
+            fallback_selected_modal = SelectedCardModalModel::default();
+            &mut fallback_selected_modal
+        };
         handle_release(
             game_view_position,
             &card_defaults,
@@ -104,6 +121,7 @@ pub fn card_gesture_update_system(
             game_location_model.as_deref(),
             game_round_model.as_deref_mut(),
             &mut gesture_model,
+            selected_modal,
             &mut slot_board,
             &mut card_states,
             &mut card_query,
@@ -122,6 +140,7 @@ pub fn drop_target_hint_update_system(
     game_round_model: Option<Res<GameRoundModel>>,
     card_states: Option<Res<CardStateModel>>,
     slot_board: Res<CardSlotBoardModel>,
+    selected_modal: Res<SelectedCardModalModel>,
     mut hint_query: Query<(
         &DropTargetHint,
         &mut Visibility,
@@ -138,6 +157,7 @@ pub fn drop_target_hint_update_system(
     );
     let should_show = *active_view == ActiveView::GameView
         && gesture_model.state == CardGestureState::Dragging
+        && !selected_modal.blocks_lower_interactions()
         && can_pay_for_dragged_card;
     let focused_location_index = should_show
         .then(|| dragged_card_drop_location_index(&gesture_model, &card_defaults, &slot_board))
@@ -173,7 +193,6 @@ fn handle_press(
     slot_board: &CardSlotBoardModel,
 ) {
     if gesture_model.state == CardGestureState::SelectedInspecting {
-        gesture_model.return_to_source();
         return;
     }
 
@@ -404,13 +423,24 @@ fn handle_release(
     game_location_model: Option<&GameLocationModel>,
     mut game_round_model: Option<&mut GameRoundModel>,
     gesture_model: &mut CardGestureModel,
+    selected_modal: &mut SelectedCardModalModel,
     slot_board: &mut CardSlotBoardModel,
     card_states: &mut CardStateModel,
-    card_query: &mut Query<(&HandCardGestureTarget, &mut Visibility), With<CardGestureView>>,
+    card_query: &mut Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
 ) {
     match gesture_model.state {
         CardGestureState::Pressed => {
-            gesture_model.select(selected_inspection_transform(card_defaults));
+            let target_transform = selected_inspection_transform(card_defaults);
+            if let Some(hand_index) = gesture_model.active_hand_index
+                && let Some((entity, source_transform)) =
+                    card_entity_and_current_transform_for_hand_index(hand_index, card_query)
+            {
+                selected_modal.select_entity(entity, source_transform, target_transform);
+            }
+            gesture_model.select(target_transform);
         }
         CardGestureState::Dragging => {
             let Some(hand_index) = gesture_model.active_hand_index else {
@@ -528,13 +558,30 @@ fn handle_release(
 
 fn hide_placed_hand_card(
     hand_index: usize,
-    card_query: &mut Query<(&HandCardGestureTarget, &mut Visibility), With<CardGestureView>>,
+    card_query: &mut Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
 ) {
-    for (target, mut visibility) in card_query.iter_mut() {
+    for (_, target, _, mut visibility) in card_query.iter_mut() {
         if target.hand_index == hand_index {
             *visibility = Visibility::Visible;
         }
     }
+}
+
+fn card_entity_and_current_transform_for_hand_index(
+    hand_index: usize,
+    card_query: &mut Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
+) -> Option<(Entity, Transform)> {
+    card_query
+        .iter_mut()
+        .find_map(|(entity, target, transform, _)| {
+            (target.hand_index == hand_index).then_some((entity, *transform))
+        })
 }
 
 fn hand_area_contains(game_view_position: Vec2) -> bool {

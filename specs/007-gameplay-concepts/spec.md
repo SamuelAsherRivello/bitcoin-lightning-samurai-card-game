@@ -27,6 +27,10 @@
 - Q: How do locations display and affect cards? → A: Each location has centered title/body text, starts closed until its reveal round, and only applies its open ability to cards currently placed there.
 - Q: Are cards immovable after placement? → A: Cards placed during the current round may be dragged back to the player hand area and inserted anywhere in hand during that same round; placed cards lock when the round ends.
 
+### Session 2026-05-13
+
+- Q: How is a winner calculated when players tie on one or more locations? → A: First compare how many locations each team wins; if tied, compare total power points across all locations; if still tied, compare most cards played in the game.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Preserve Gameplay Vocabulary (Priority: P1)
@@ -58,6 +62,7 @@ A designer can describe how cards move from deck to hand to shared board locatio
 1. **Given** a card is in a future player's hand, **When** it is placed later, **Then** it may be represented face down before reveal.
 2. **Given** a future card is revealed, **When** its front is shown, **Then** the card front comes from its card definition while the back comes from its card series.
 3. **Given** future board play is designed, **When** locations are referenced, **Then** they are shared board spaces contested by both players rather than player-owned locations.
+4. **Given** a future game reaches final scoring, **When** each shared location has both teams' placed-card power totals, **Then** the winner is calculated from location wins, then total power points, then most cards played.
 
 ---
 
@@ -128,7 +133,7 @@ A human near player can play through six local rounds by receiving cards from a 
 ### Edge Cases
 
 - If this spec mentions future systems, it should not imply they are part of the current `006-card-bundle` implementation.
-- If behavior outside the local near-player round loop is required, such as CPU rounds, scoring, location ownership, or card abilities, it should be defined by a later spec.
+- If behavior outside the local near-player round loop is required, such as CPU rounds, scoring implementation, location ownership UI, or card abilities, it should be defined by a later spec.
 - If future card fronts include non-character content, the CardDefinition concept should still apply.
 - If future scenes need different cameras, each scene should own its own camera rather than relying on AppScene for scene-specific presentation.
 - If scene switching is inspected, AppScene should have exactly one active child scene: GameScene, DeckBuilderScene, or DebugSettingsScene.
@@ -235,6 +240,13 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-084**: Releasing a current-round placed card over a valid hand insertion gap MUST return it to hand at that selected hand order and recenter the full hand group.
 - **FR-085**: Returning a current-round placed card to hand by manual drag MUST remove that card's location ability effect and restore the energy spent by that placement.
 - **FR-086**: Undo MUST return all cards still recorded in the current-round move history to hand, including cards that were moved to any location during that round and have not already been manually returned.
+- **FR-087**: Future final scoring MUST calculate each team's power score at each shared location from that team's placed cards at that location.
+- **FR-088**: A team MUST win a shared location when its location power score is higher than the other team's score at that location.
+- **FR-089**: If both teams have the same power score at a shared location, that location MUST count as tied and MUST NOT increase either team's location-win count.
+- **FR-090**: Future final winner calculation MUST first compare total locations won by each team.
+- **FR-091**: If total locations won are tied, including cases where one or more locations are tied on power, final winner calculation MUST compare each team's total power points across all locations.
+- **FR-092**: If total locations won and total power points are both tied, final winner calculation MUST compare the total number of cards each team played during the game.
+- **FR-093**: If locations won, total power points, and total cards played are all tied, the game result MUST be a draw unless a later spec defines another tie-breaker.
 
 ### Round Progression
 
@@ -263,6 +275,15 @@ A human near player can play through six local rounds by receiving cards from a 
 | Left | 1 | Fortress Gate | +2 Energy to each card here | Add +2 to each placed card's effective energy |
 | Middle | 2 | Bamboo Crossing | -2 Energy to each card here | Add -2 to each placed card's effective energy |
 | Right | 3 | Normal | (No Ability) | No ability effect |
+
+### Final Winner Calculation
+
+| Step | Rule | Winner When |
+| ---- | ---- | ----------- |
+| 1 | Compare locations won | One team has won more of the three shared locations |
+| 2 | Compare total power points | Location wins are tied and one team has more combined power across all locations |
+| 3 | Compare cards played | Location wins and total power are tied and one team played more cards during the game |
+| 4 | Draw | Locations won, total power, and cards played are all tied |
 
 ### Key Entities
 
@@ -294,6 +315,11 @@ A human near player can play through six local rounds by receiving cards from a 
 - **Placed Cards**: Future cards a player has committed to board locations.
 - **Table Top**: A future board surface where cards can sit face up or face down.
 - **Shared Location**: A future board-owned space contested by both players.
+- **Location Power Score**: The sum of one team's placed-card power values at one shared location during final scoring.
+- **Location Win**: A shared location result awarded to the team with the higher Location Power Score at that location.
+- **Tied Location**: A shared location where both teams have the same Location Power Score; it awards no Location Win.
+- **Total Power Points**: The sum of one team's placed-card power values across all shared locations, used as the first final winner tie-breaker after Location Wins.
+- **Cards Played**: The count of cards a team played during the game, used as the second final winner tie-breaker after Location Wins and Total Power Points.
 - **CardSeries**: A shared card collection identity that owns the common CardBack used across cards in that series.
 - **CardDefinition**: Static card data and front content.
 - **CardInstance**: A runtime copy of a CardDefinition with owner and match state.
@@ -330,6 +356,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **SC-020**: A reviewer can verify that Undo removes current-round location ability effects from returned cards.
 - **SC-021**: A reviewer can verify that a card placed during the current round can be dragged back to hand, inserted before, between, or after existing hand cards, and has its energy/location effect restored or removed appropriately.
 - **SC-022**: A reviewer can verify that cards still placed when End Round advances become locked and cannot be dragged in later rounds.
+- **SC-023**: A reviewer can identify final winner calculation order as locations won, then total power points, then total cards played, with tied locations awarding no location win.
 
 ## Assumptions
 

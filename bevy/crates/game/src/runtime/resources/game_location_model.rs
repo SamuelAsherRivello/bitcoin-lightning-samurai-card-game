@@ -18,6 +18,7 @@ pub enum GameLocationState {
 pub enum LocationAbility {
     NoAbility,
     EnergyDelta(i32),
+    DoublePowerIfSideCardCount(usize),
 }
 
 impl LocationAbility {
@@ -25,6 +26,20 @@ impl LocationAbility {
         match self {
             Self::NoAbility => 0,
             Self::EnergyDelta(delta) => delta,
+            Self::DoublePowerIfSideCardCount(_) => 0,
+        }
+    }
+
+    pub const fn power_multiplier(self, side_card_count: usize) -> i32 {
+        match self {
+            Self::DoublePowerIfSideCardCount(required_count) => {
+                if side_card_count == required_count {
+                    2
+                } else {
+                    1
+                }
+            }
+            _ => 1,
         }
     }
 }
@@ -125,6 +140,17 @@ impl GameLocationModel {
             .unwrap_or(0)
     }
 
+    pub fn power_multiplier_for_location_side(
+        &self,
+        location_index: usize,
+        side_card_count: usize,
+    ) -> i32 {
+        self.definition(location_index)
+            .filter(|definition| definition.is_open(self.round))
+            .map(|definition| definition.ability.power_multiplier(side_card_count))
+            .unwrap_or(1)
+    }
+
     pub fn border_color(&self, location_index: usize) -> Color {
         match self
             .definition(location_index)
@@ -186,8 +212,8 @@ pub const fn location_definition_pool() -> [LocationDefinitionModel; LOCATION_MO
             location_index: 5,
             opens_on_round: 3,
             title: "Market Square",
-            body: "(No Ability)",
-            ability: LocationAbility::NoAbility,
+            body: "Double Power, if 4 cards here",
+            ability: LocationAbility::DoublePowerIfSideCardCount(4),
         },
     ]
 }

@@ -32,30 +32,36 @@ use bevy_persistent::prelude::Persistent;
 
 pub mod card_gesture_animation_system;
 pub mod card_gesture_update_system;
+pub mod card_point_overlay_selection_update_system;
+pub mod card_selected_modal_update_system;
+pub mod card_selection_update_system;
 pub mod debug_drawing_update_system;
 pub mod visual_modifier_update_system;
 
 pub use card_gesture_animation_system::*;
 pub use card_gesture_update_system::*;
+pub use card_point_overlay_selection_update_system::*;
+pub use card_selected_modal_update_system::*;
+pub use card_selection_update_system::*;
 pub use debug_drawing_update_system::*;
 pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
-    CardViewBundle, LocationViewBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, POINT_VIEW_BUNDLE_FONT,
-    PointLocationView, PointModel, PointType, PointView, PointViewBundle,
+    CardViewBundle, LocationViewBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView,
+    PointModel, PointType, PointView, PointViewBundle,
 };
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
-    CardGestureView, CardLayerRole, CardParallaxLayer, CardSlotGestureTarget, CardView,
-    CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer,
-    CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity,
-    DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot, DropTargetHint,
-    EndRoundButton, GameControlAction, GameControlButton, GameControlLabel, GameLocation,
-    GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameViewEntity, GameViewRoot,
-    HandCardGestureTarget, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview,
-    LocationRevealState, MatchStatusText, Player, PointViewCircle, PointViewOutlineTreatment,
-    PrimaryViewCamera, RoundUi, VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget,
-    VisualModifier, WorldBackground,
+    CardGestureView, CardLayerRole, CardParallaxLayer, CardSelectionSource, CardSlotGestureTarget,
+    CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase,
+    CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText,
+    DebugSettingsSceneEntity, DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot,
+    DropTargetHint, EndRoundButton, GameControlAction, GameControlButton, GameControlLabel,
+    GameLocation, GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameViewEntity,
+    GameViewRoot, HandCardGestureTarget, InspectorState, LocalPlayerHand,
+    LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, Player, PointViewCircle,
+    PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard,
+    VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget, VisualModifier, WorldBackground,
 };
 #[cfg(test)]
 use crate::runtime::resources::CardState;
@@ -66,16 +72,17 @@ use crate::runtime::resources::{
     CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
     CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
     CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
-    CpuBrainModel, DEFAULT_DECK_NAME, DebugHudInputStore, DebugHudState, DeckModel,
-    FullscreenViewportTransitionState, GameDeckModel, GameHandModel, GameLocationModel,
-    GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel, MatchModeModel,
-    MatchModePreferenceStore, MatchPlayerSide, MatchResolutionPhase, MatchWinnerModel,
-    OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility, PlayerDeckCollectionModel,
-    PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, WindowPlacement,
-    WindowPlacementState, WindowPlacementStore, WorldModelRegistry, choose_level1_moves,
-    cpu_slot_hand_index, ensure_player_deck_collection_model, final_winner_from_slots,
-    load_window_placement, random_shuffled_default_deck_cards, reset_two_player_match,
-    start_match_round, sync_near_human_from_game_models, valid_window_placement,
+    CpuBrainModel, CpuPlacementMotionSourceModel, DEFAULT_DECK_NAME, DebugHudInputStore,
+    DebugHudState, DeckModel, FullscreenViewportTransitionState, GameDeckModel, GameHandModel,
+    GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel,
+    MatchModeModel, MatchModePreferenceStore, MatchPlayerSide, MatchResolutionPhase,
+    MatchWinnerModel, OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility,
+    PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
+    SelectedCardModalModel, WindowPlacement, WindowPlacementState, WindowPlacementStore,
+    WorldModelRegistry, choose_level1_moves, cpu_slot_hand_index,
+    ensure_player_deck_collection_model, final_winner_from_slots, load_window_placement,
+    random_shuffled_default_deck_cards, reset_two_player_match, start_match_round,
+    sync_near_human_from_game_models, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -140,7 +147,7 @@ const CARD_POINT_TEXT_RENDER_LAYER: usize = 2;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const DECK_BUILDER_CARD_HEIGHT_FRACTION: f32 = 0.9;
-const DEBUG_HUD_Z_INDEX: i32 = 100;
+const DEBUG_HUD_Z_INDEX: i32 = 1_200;
 const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
 const END_ROUND_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95);
@@ -796,6 +803,13 @@ fn initialize_legacy_game_models_for_player(
     card_states.reset_to_size(game_hand_model.len());
 }
 
+fn fallback_starting_hand_cards() -> Vec<String> {
+    random_shuffled_default_deck_cards()
+        .into_iter()
+        .take(STARTING_HAND_CARD_COUNT)
+        .collect()
+}
+
 fn spawn_card_slot_gesture_targets(
     commands: &mut Commands,
     card_defaults: &CardInspectionDefaults,
@@ -1062,6 +1076,10 @@ fn game_view_position_from_world_position(world_position: Vec3) -> Vec2 {
     )
 }
 
+fn game_view_world_units_per_game_view_pixel(z: f32) -> f32 {
+    game_view_perspective_view_size_at_z(z).y / GAME_VIEW_HEIGHT
+}
+
 fn game_view_text2d_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
     Vec3::new(
         game_view_position.x - (GAME_VIEW_WIDTH * 0.5),
@@ -1178,7 +1196,7 @@ pub fn update_game_location_views_system(
 /// AI: Reuses the point root bundle and child circle/text structure used by card badges.
 fn spawn_location_power_point_view(
     parent: &mut ChildSpawnerCommands,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
     model: PowerPointModel,
     location_index: usize,
     side: CardSlotSide,
@@ -1234,7 +1252,6 @@ fn spawn_location_power_point_view(
                 Name::new("PowerPointView Text"),
                 Text::new(point_model.display_text()),
                 TextFont {
-                    font: POINT_VIEW_BUNDLE_FONT.handle(asset_server),
                     font_size: 22.0,
                     ..Default::default()
                 },
@@ -1356,7 +1373,8 @@ fn location_side_power_total(
     location_index: usize,
     side: CardSlotSide,
 ) -> PowerPointModel {
-    let total = slot_board
+    let mut counted_card_count = 0;
+    let total: i32 = slot_board
         .slots()
         .filter(|slot| slot.location_index == location_index && slot.side == side)
         .filter(|slot| {
@@ -1382,6 +1400,7 @@ fn location_side_power_total(
                     })
                 })
                 .map(|card_model| {
+                    counted_card_count += 1;
                     card_model.base_power.value
                         + game_location_model
                             .map(|locations| {
@@ -1392,7 +1411,13 @@ fn location_side_power_total(
         })
         .sum();
 
-    PowerPointModel::new(total)
+    let multiplier = game_location_model
+        .map(|locations| {
+            locations.power_multiplier_for_location_side(location_index, counted_card_count)
+        })
+        .unwrap_or(1);
+
+    PowerPointModel::new(total * multiplier)
 }
 
 /// HUMAN: Applies open location power abilities to the red power point value on placed cards.
@@ -1452,7 +1477,7 @@ pub(crate) fn update_card_power_point_views_system(
 
 fn spawn_card_point_view_world(
     parent: &mut ChildSpawnerCommands,
-    asset_server: &AssetServer,
+    _asset_server: &AssetServer,
     name: &str,
     point_model: PointModel,
     mesh: Handle<Mesh>,
@@ -1512,9 +1537,9 @@ fn spawn_card_point_view_world(
             parent.spawn((
                 Name::new(format!("{name} Text")),
                 CardPointTextView::new(point_model.point_type),
+                CardFaceLayer::new(CardFace::Front),
                 Text2d::new(point_model.display_text()),
                 TextFont {
-                    font: POINT_VIEW_BUNDLE_FONT.handle(asset_server),
                     font_size: CARD_POINT_TEXT_FONT_SIZE,
                     ..Default::default()
                 },
@@ -1526,6 +1551,11 @@ fn spawn_card_point_view_world(
                     ..Default::default()
                 },
                 RenderLayers::layer(CARD_POINT_TEXT_RENDER_LAYER),
+                if is_visible {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                },
                 NoCpuCulling,
             ));
         })
@@ -1710,6 +1740,7 @@ fn spawn_game_view_hand_card(
             GameViewEntity,
             LocalPlayerHandCardPreview,
             HandCardGestureTarget::new(hand_index),
+            SelectableCard::new(CardSelectionSource::LocalHand { hand_index }),
             CardGestureView,
         ))
         .observe(card_click_navigation);
@@ -2005,13 +2036,14 @@ fn spawn_debug_settings_light(commands: &mut Commands) -> Entity {
 }
 
 /// HUMAN: Spawns the deck builder sub-screen view.
-/// AI: DeckBuilderScene now renders a deck list and deck card list (no CardView cards).
+/// AI: DeckBuilderScene keeps the centered card preview separate from the deck list UI.
 pub fn setup_deck_builder_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     camera_defaults: Res<PrimaryCameraDefaults>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
+    active_card_model: Res<ActiveCardModel>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -2028,6 +2060,7 @@ pub fn setup_deck_builder_scene(
         &camera_defaults,
         &card_defaults,
         &card_model_registry,
+        &active_card_model,
         &player_deck_collection,
         &mut meshes,
         &mut materials,
@@ -2040,17 +2073,18 @@ pub fn setup_deck_builder_scene(
 
 fn spawn_deck_builder_scene_contents(
     commands: &mut Commands,
-    _asset_server: &AssetServer,
+    asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
-    _card_defaults: &CardInspectionDefaults,
+    card_defaults: &CardInspectionDefaults,
     card_model_registry: &CardModelRegistry,
+    active_card_model: &ActiveCardModel,
     player_deck_collection: &PlayerDeckCollectionModel,
-    _meshes: &mut Assets<Mesh>,
-    _materials: &mut Assets<StandardMaterial>,
-    _masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
-    _app_scene_parent: Option<Entity>,
-    _visible_face: CardFace,
-    _initial_rotation: Quat,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    app_scene_parent: Option<Entity>,
+    visible_face: CardFace,
+    initial_rotation: Quat,
 ) {
     let scene_root = commands
         .spawn((
@@ -2065,6 +2099,23 @@ fn spawn_deck_builder_scene_contents(
     let camera = spawn_primary_camera(commands, camera_defaults);
     let ui_camera = spawn_deck_builder_ui_camera(commands);
     let light = spawn_deck_builder_light(commands);
+    let card = spawn_card_structure(
+        commands,
+        asset_server,
+        card_defaults,
+        card_model_registry,
+        active_card_model,
+        meshes,
+        materials,
+        masked_background_materials,
+        visible_face,
+        false,
+        Transform {
+            translation: Vec3::ZERO,
+            rotation: initial_rotation,
+            scale: Vec3::splat(deck_builder_centered_card_scale(card_defaults)),
+        },
+    );
     let deck_cards = player_deck_collection
         .primary_deck()
         .filter(|deck| !deck.cards.is_empty())
@@ -2208,9 +2259,22 @@ fn spawn_deck_builder_scene_contents(
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
     commands.entity(scene_root).add_child(light);
+    commands.entity(scene_root).add_child(card);
+    commands
+        .entity(card)
+        .insert((
+            DeckBuilderSceneEntity,
+            SelectableCard::new(CardSelectionSource::ScreenCard {
+                view: ActiveView::DeckBuilderScene,
+            }),
+        ))
+        .observe(card_click_navigation);
     commands.entity(scene_root).add_child(deck_panel);
     commands.entity(deck_panel).add_child(deck_list_panel);
     commands.entity(deck_panel).add_child(card_list_panel);
+    if let Some(parent) = app_scene_parent {
+        commands.entity(parent).add_child(scene_root);
+    }
 }
 
 /// HUMAN: Spawns the debug settings sub-screen scene.
@@ -2253,7 +2317,7 @@ fn spawn_debug_settings_scene_contents(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
-    _app_scene_parent: Option<Entity>,
+    app_scene_parent: Option<Entity>,
     visible_face: CardFace,
     initial_rotation: Quat,
 ) {
@@ -2289,8 +2353,16 @@ fn spawn_debug_settings_scene_contents(
     commands.entity(scene_root).add_child(card);
     commands
         .entity(card)
-        .insert(DebugSettingsSceneEntity)
+        .insert((
+            DebugSettingsSceneEntity,
+            SelectableCard::new(CardSelectionSource::ScreenCard {
+                view: ActiveView::DebugSettingsScene,
+            }),
+        ))
         .observe(card_click_navigation);
+    if let Some(parent) = app_scene_parent {
+        commands.entity(parent).add_child(scene_root);
+    }
 }
 
 pub fn setup_card_placeholder(
@@ -3727,8 +3799,12 @@ impl ViewChangeParams<'_, '_> {
     fn spawn_game_view(&mut self, active_card_model: &ActiveCardModel) {
         let fallback_slot_board = CardSlotBoardModel::default();
         let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
-        let fallback_hand = GameHandModel::default();
-        let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
+        let fallback_hand_cards = fallback_starting_hand_cards();
+        let game_hand_cards = self
+            .game_hand_model
+            .as_deref()
+            .map(|hand| hand.cards.as_slice())
+            .unwrap_or(fallback_hand_cards.as_slice());
         let fallback_round = GameRoundModel::default();
         let game_round_model = self.game_round_model.as_deref().unwrap_or(&fallback_round);
         let fallback_locations = GameLocationModel::default();
@@ -3744,7 +3820,7 @@ impl ViewChangeParams<'_, '_> {
             &self.camera_defaults,
             &self.card_defaults,
             &self.card_model_registry,
-            game_hand_model.cards.as_slice(),
+            game_hand_cards,
             game_round_model,
             game_location_model,
             slot_board,
@@ -3766,7 +3842,6 @@ impl ViewChangeParams<'_, '_> {
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
-        let _ = (active_card_model, visible_face, initial_rotation);
         let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
         let player_deck_collection = self
             .player_deck_collection
@@ -3778,13 +3853,14 @@ impl ViewChangeParams<'_, '_> {
             &self.camera_defaults,
             &self.card_defaults,
             &self.card_model_registry,
+            active_card_model,
             player_deck_collection,
             &mut self.meshes,
             &mut self.materials,
             self.masked_background_materials.as_deref_mut(),
             self.app_scene_query.single().ok(),
-            CardFace::Front,
-            Quat::IDENTITY,
+            visible_face,
+            initial_rotation,
         );
     }
 
@@ -3821,8 +3897,12 @@ impl ViewChangeParams<'_, '_> {
                 self.despawn_game_view();
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
-                let fallback_hand = GameHandModel::default();
-                let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
+                let fallback_hand_cards = fallback_starting_hand_cards();
+                let game_hand_cards = self
+                    .game_hand_model
+                    .as_deref()
+                    .map(|hand| hand.cards.as_slice())
+                    .unwrap_or(fallback_hand_cards.as_slice());
                 let fallback_round = GameRoundModel::default();
                 let game_round_model = self.game_round_model.as_deref().unwrap_or(&fallback_round);
                 let fallback_locations = GameLocationModel::default();
@@ -3838,7 +3918,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
-                    game_hand_model.cards.as_slice(),
+                    game_hand_cards,
                     game_round_model,
                     game_location_model,
                     slot_board,
@@ -3865,13 +3945,14 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
+                    active_card_model,
                     player_deck_collection,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                     self.app_scene_query.single().ok(),
-                    CardFace::Front,
-                    Quat::IDENTITY,
+                    visible_face,
+                    initial_rotation,
                 );
             }
             ActiveView::DebugSettingsScene => {
@@ -3916,8 +3997,12 @@ impl ViewChangeParams<'_, '_> {
             ActiveView::GameView => {
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
-                let fallback_hand = GameHandModel::default();
-                let game_hand_model = self.game_hand_model.as_deref().unwrap_or(&fallback_hand);
+                let fallback_hand_cards = fallback_starting_hand_cards();
+                let game_hand_cards = self
+                    .game_hand_model
+                    .as_deref()
+                    .map(|hand| hand.cards.as_slice())
+                    .unwrap_or(fallback_hand_cards.as_slice());
                 let fallback_round = GameRoundModel::default();
                 let game_round_model = self.game_round_model.as_deref().unwrap_or(&fallback_round);
                 let fallback_locations = GameLocationModel::default();
@@ -3933,7 +4018,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
-                    game_hand_model.cards.as_slice(),
+                    game_hand_cards,
                     game_round_model,
                     game_location_model,
                     slot_board,
@@ -3959,13 +4044,14 @@ impl ViewChangeParams<'_, '_> {
                     &self.camera_defaults,
                     &self.card_defaults,
                     &self.card_model_registry,
+                    active_card_model,
                     player_deck_collection,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
                     Some(app_scene),
-                    CardFace::Front,
-                    Quat::IDENTITY,
+                    visible_face,
+                    initial_rotation,
                 );
             }
             ActiveView::DebugSettingsScene => {
@@ -4033,10 +4119,14 @@ fn collect_entity_tree(
 /// AI: Keep it non-toggle and wrap through GameView, DeckBuilderScene, and DebugSettingsScene.
 pub fn scene_input_system(
     keys: Res<ButtonInput<KeyCode>>,
+    selected_modal: Option<Res<SelectedCardModalModel>>,
     active_card_model: Res<ActiveCardModel>,
     flip_state: Res<CardFlipState>,
     mut params: ViewChangeParams,
 ) {
+    if selected_modal.is_some_and(|modal| modal.blocks_lower_interactions()) {
+        return;
+    }
     if !keys.just_pressed(KeyCode::KeyS) {
         return;
     }
@@ -4075,10 +4165,14 @@ pub fn scene_input_system(
 /// HUMAN: Handles pointer navigation from scene card inspection back to GameView.
 /// AI: Keep pointer return behavior separate from the S-key scene cycle shortcut.
 pub fn view_input_system(
+    selected_modal: Option<Res<SelectedCardModalModel>>,
     mut params: ViewChangeParams,
     mut active_card_model: ResMut<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
 ) {
+    if selected_modal.is_some_and(|modal| modal.blocks_lower_interactions()) {
+        return;
+    }
     let Ok(primary_window) = params.primary_window_query.single() else {
         return;
     };
@@ -4128,9 +4222,13 @@ pub fn view_input_system(
 
 fn card_click_navigation(
     _click: On<Pointer<Click>>,
+    selected_modal: Option<Res<SelectedCardModalModel>>,
     mut params: ViewChangeParams,
     active_card_model: Res<ActiveCardModel>,
 ) {
+    if selected_modal.is_some_and(|modal| modal.blocks_lower_interactions()) {
+        return;
+    }
     match *params.active_view {
         ActiveView::GameView => {}
         ActiveView::DeckBuilderScene => {
@@ -4387,6 +4485,23 @@ fn is_game_view_active(active_view: Option<&ActiveView>) -> bool {
     active_view.is_none_or(|active_view| *active_view == ActiveView::GameView)
 }
 
+/// HUMAN: Clears GameView button interactions while the selected-card modal owns the pointer.
+/// AI: Run before button action systems so modal capture blocks lower UI presses at the source.
+pub fn modal_block_game_control_interactions_system(
+    selected_modal: Option<Res<SelectedCardModalModel>>,
+    mut interaction_query: Query<&mut Interaction, With<GameControlButton>>,
+) {
+    if !selected_modal.is_some_and(|modal| modal.blocks_lower_interactions()) {
+        return;
+    }
+
+    for mut interaction in &mut interaction_query {
+        if *interaction != Interaction::None {
+            *interaction = Interaction::None;
+        }
+    }
+}
+
 pub fn update_end_round_button(
     active_view: Option<Res<ActiveView>>,
     mut button_query: Query<
@@ -4631,6 +4746,7 @@ fn card_gesture_blocks_game_controls(gesture_model: Option<&CardGestureModel>) -
 /// AI: Run this separately from button interactions so round, energy, and undo text stay live.
 pub fn update_game_control_ui_system(
     active_view: Option<Res<ActiveView>>,
+    selected_modal: Option<Res<SelectedCardModalModel>>,
     game_round_model: Option<Res<GameRoundModel>>,
     opponent_match_model: Option<Res<OpponentMatchModel>>,
     mut text_queries: ParamSet<(
@@ -4683,6 +4799,14 @@ pub fn update_game_control_ui_system(
     }
 
     for (interaction, control, mut background, mut border) in &mut button_query {
+        if selected_modal
+            .as_ref()
+            .is_some_and(|modal| modal.blocks_lower_interactions())
+        {
+            background.0 = END_ROUND_BUTTON_NORMAL_COLOR;
+            *border = BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR);
+            continue;
+        }
         if game_control_action_is_disabled(
             control.action,
             Some(game_round_model),
@@ -4775,6 +4899,12 @@ fn commit_pending_cpu_placements(
         if pending_move.energy_cost > player.energy_available {
             continue;
         }
+        let source_hand_index = player
+            .hand_instance_ids
+            .iter()
+            .position(|instance_id| *instance_id == pending_move.instance_id)
+            .unwrap_or(pending_move.hand_index);
+        let source_hand_count = player.hand.len();
         let Some((_, card_id)) = player.remove_hand_card_by_instance_id(pending_move.instance_id)
         else {
             continue;
@@ -4793,6 +4923,13 @@ fn commit_pending_cpu_placements(
                 pending_move.location_index,
                 pending_move.slot_index,
             );
+            match_model.record_cpu_placement_motion_source(CpuPlacementMotionSourceModel {
+                owner: side,
+                location_index: pending_move.location_index,
+                slot_index: pending_move.slot_index,
+                hand_index: source_hand_index,
+                hand_count: source_hand_count,
+            });
             committed_count += 1;
         }
     }
@@ -5067,6 +5204,7 @@ pub fn sync_cpu_hand_card_entities_system(
         commands.entity(card).insert((
             GameViewEntity,
             CpuHandCardView::new(owner, instance_id, hand_index, card_id, visible_face),
+            SelectableCard::new(CardSelectionSource::OpponentHand { owner, hand_index }),
             CpuPlacedCardAnimation::move_to_hand(source_transform, hand_transform, visible_face),
         ));
     }
@@ -5080,7 +5218,7 @@ pub fn sync_cpu_placed_card_entities_system(
     asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
-    match_model: Res<OpponentMatchModel>,
+    mut match_model: ResMut<OpponentMatchModel>,
     slot_board: Res<CardSlotBoardModel>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -5167,7 +5305,12 @@ pub fn sync_cpu_placed_card_entities_system(
             &slot_board,
             &card_defaults,
         );
-        let hand_transform = cpu_card_move_source_hand_transform(owner, target_transform);
+        let hand_transform = match_model
+            .take_cpu_placement_motion_source(owner, location_index, slot_index)
+            .map(|source| {
+                cpu_card_hand_transform(owner, source.hand_index, source.hand_count, &card_defaults)
+            })
+            .unwrap_or_else(|| cpu_card_move_source_hand_transform(owner, target_transform));
         let source_transform = hand_transform;
         let card = spawn_card_structure_for_type(
             &mut commands,
@@ -5191,6 +5334,12 @@ pub fn sync_cpu_placed_card_entities_system(
                 card_id,
                 cpu_card_hand_visible_face(owner),
             ),
+            SelectableCard::new(CardSelectionSource::OpponentLocation {
+                owner,
+                side,
+                location_index,
+                slot_index,
+            }),
             CpuPlacedCardAnimation::move_hand_to_slot(
                 hand_transform,
                 target_transform,
@@ -5319,27 +5468,36 @@ fn advance_cpu_placed_card_animation(
     animation.phase_elapsed_seconds += active_delta_seconds;
 
     if animation.phase == CpuPlacedCardAnimationPhase::Revealing {
-        let progress = (animation.phase_elapsed_seconds / CPU_CARD_FLIP_SECONDS).clamp(0.0, 1.0);
-        let eased_progress = ease_out_cubic(progress);
-        animation.current_y_rotation =
-            std::f32::consts::PI.lerp(animation.target_y_rotation, eased_progress);
+        animation.current_y_rotation = animation.target_y_rotation;
     } else {
         let progress = (animation.phase_elapsed_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
         let eased_progress = ease_out_cubic(progress);
-        let mut translation = animation
-            .phase_start_transform
-            .translation
-            .lerp(animation.target_transform.translation, eased_progress);
-        if progress < 1.0 {
-            translation.z = CPU_CARD_MOVING_FRONT_Z;
-        }
-        transform.translation = translation;
-        let base_scale = animation
-            .phase_start_transform
-            .scale
-            .lerp(animation.target_transform.scale, eased_progress);
+        let translation_z = if progress < 1.0 {
+            CPU_CARD_MOVING_FRONT_Z
+        } else {
+            animation.target_transform.translation.z
+        };
+        transform.translation = cpu_card_move_translation(
+            animation.phase_start_transform.translation,
+            animation.target_transform.translation,
+            translation_z,
+            eased_progress,
+        );
         transform.scale = if progress < 1.0 {
-            base_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER
+            let scale_multiplier = match animation.phase {
+                CpuPlacedCardAnimationPhase::MovingToSlot => {
+                    cpu_card_move_scale_multiplier(progress)
+                }
+                CpuPlacedCardAnimationPhase::MovingToHand => 1.0,
+                CpuPlacedCardAnimationPhase::Revealing => 1.0,
+            };
+            cpu_card_move_scale(
+                animation.phase_start_transform,
+                animation.target_transform,
+                translation_z,
+                eased_progress,
+                scale_multiplier,
+            )
         } else {
             animation.target_transform.scale
         };
@@ -5347,10 +5505,13 @@ fn advance_cpu_placed_card_animation(
     transform.rotation =
         animation.target_transform.rotation * Quat::from_rotation_y(animation.current_y_rotation);
 
-    let is_settled = transform
-        .translation
-        .distance(animation.target_transform.translation)
-        <= CPU_CARD_ANIMATION_SETTLE_EPSILON
+    let reveal_duration_complete = animation.phase != CpuPlacedCardAnimationPhase::Revealing
+        || animation.phase_elapsed_seconds >= CPU_CARD_FLIP_SECONDS;
+    let is_settled = reveal_duration_complete
+        && transform
+            .translation
+            .distance(animation.target_transform.translation)
+            <= CPU_CARD_ANIMATION_SETTLE_EPSILON
         && transform.scale.distance(animation.target_transform.scale)
             <= CPU_CARD_ANIMATION_SETTLE_EPSILON
         && (animation.target_y_rotation - animation.current_y_rotation).abs()
@@ -5372,6 +5533,49 @@ fn advance_cpu_placed_card_animation(
 
 fn ease_out_cubic(progress: f32) -> f32 {
     1.0 - (1.0 - progress.clamp(0.0, 1.0)).powi(3)
+}
+
+fn cpu_card_move_scale_multiplier(progress: f32) -> f32 {
+    let progress = progress.clamp(0.0, 1.0);
+    if progress <= 0.5 {
+        1.0_f32.lerp(CPU_CARD_MOVE_SCALE_MULTIPLIER, progress * 2.0)
+    } else {
+        CPU_CARD_MOVE_SCALE_MULTIPLIER.lerp(1.0, (progress - 0.5) * 2.0)
+    }
+}
+
+fn cpu_card_move_translation(
+    start_translation: Vec3,
+    target_translation: Vec3,
+    current_z: f32,
+    eased_progress: f32,
+) -> Vec3 {
+    let start_game_view_position = game_view_position_from_world_position(start_translation);
+    let target_game_view_position = game_view_position_from_world_position(target_translation);
+    game_view_world_position_from_game_view(
+        start_game_view_position.lerp(target_game_view_position, eased_progress),
+        current_z,
+    )
+}
+
+fn cpu_card_move_scale(
+    start_transform: Transform,
+    target_transform: Transform,
+    current_z: f32,
+    eased_progress: f32,
+    scale_multiplier: f32,
+) -> Vec3 {
+    let start_world_units_per_pixel =
+        game_view_world_units_per_game_view_pixel(start_transform.translation.z);
+    let target_world_units_per_pixel =
+        game_view_world_units_per_game_view_pixel(target_transform.translation.z);
+    let current_world_units_per_pixel = game_view_world_units_per_game_view_pixel(current_z);
+    let start_apparent_scale = start_transform.scale / start_world_units_per_pixel;
+    let target_apparent_scale = target_transform.scale / target_world_units_per_pixel;
+    let apparent_scale =
+        start_apparent_scale.lerp(target_apparent_scale, eased_progress) * scale_multiplier;
+
+    apparent_scale * current_world_units_per_pixel
 }
 
 /// HUMAN: Shows CPU card fronts or backs according to each card's own reveal tween.
@@ -5678,6 +5882,79 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     for mut fps_text in &mut params.fps_text_query {
         *fps_text = TextSpan::new(fps_line.clone());
     }
+}
+
+/// HUMAN: Keeps the persistent DebugHUD rendered by the active scene UI camera.
+/// AI: UiTargetCamera is only honored on root UI nodes, so update the DebugHUD root ancestor.
+pub fn sync_debug_hud_ui_camera_system(
+    active_view: Res<ActiveView>,
+    mut commands: Commands,
+    child_of_query: Query<&ChildOf>,
+    camera_query: Query<
+        (
+            Entity,
+            &Camera,
+            Option<&GameViewEntity>,
+            Option<&DeckBuilderSceneEntity>,
+            Option<&DebugSettingsSceneEntity>,
+        ),
+        (With<Camera2d>, With<IsDefaultUiCamera>),
+    >,
+    hud_query: Query<Entity, With<DebugHudText>>,
+    target_camera_query: Query<&UiTargetCamera>,
+) {
+    let Some(ui_camera) = active_view_ui_camera(*active_view, &camera_query) else {
+        return;
+    };
+
+    for hud in &hud_query {
+        let root = ui_root_for_entity(hud, &child_of_query);
+        if target_camera_query
+            .get(root)
+            .is_ok_and(|target_camera| target_camera.0 == ui_camera)
+        {
+            continue;
+        }
+        commands.entity(root).insert(UiTargetCamera(ui_camera));
+    }
+}
+
+fn ui_root_for_entity(entity: Entity, child_of_query: &Query<&ChildOf>) -> Entity {
+    let mut root = entity;
+    while let Ok(child_of) = child_of_query.get(root) {
+        root = child_of.parent();
+    }
+    root
+}
+
+fn active_view_ui_camera(
+    active_view: ActiveView,
+    camera_query: &Query<
+        (
+            Entity,
+            &Camera,
+            Option<&GameViewEntity>,
+            Option<&DeckBuilderSceneEntity>,
+            Option<&DebugSettingsSceneEntity>,
+        ),
+        (With<Camera2d>, With<IsDefaultUiCamera>),
+    >,
+) -> Option<Entity> {
+    camera_query.iter().find_map(
+        |(entity, camera, game_view, deck_builder_scene, debug_settings_scene)| {
+            if !camera.is_active {
+                return None;
+            }
+
+            let belongs_to_active_view = match active_view {
+                ActiveView::GameView => game_view.is_some(),
+                ActiveView::DeckBuilderScene => deck_builder_scene.is_some(),
+                ActiveView::DebugSettingsScene => debug_settings_scene.is_some(),
+            };
+
+            belongs_to_active_view.then_some(entity)
+        },
+    )
 }
 
 pub fn toggle_debug_hud_inputs(
@@ -6136,6 +6413,12 @@ pub fn save_window_placement_on_close(
 }
 
 pub fn inspector_ui(world: &mut World) {
+    if world
+        .get_resource::<SelectedCardModalModel>()
+        .is_some_and(SelectedCardModalModel::blocks_lower_interactions)
+    {
+        return;
+    }
     let Some((is_visible, x, y, width, height)) = inspector_window_settings(world) else {
         return;
     };
@@ -6168,6 +6451,12 @@ pub fn inspector_ui(world: &mut World) {
 }
 
 pub fn card_ui(world: &mut World) {
+    if world
+        .get_resource::<SelectedCardModalModel>()
+        .is_some_and(SelectedCardModalModel::blocks_lower_interactions)
+    {
+        return;
+    }
     let active_view = world
         .get_resource::<ActiveView>()
         .copied()

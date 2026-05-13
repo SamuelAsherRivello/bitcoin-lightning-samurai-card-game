@@ -186,3 +186,43 @@ fn removing_played_card_preserves_unplayed_card_instance_ids() {
     player.draw(1);
     assert_eq!(player.hand, vec!["a", "c", "d"]);
 }
+
+#[test]
+fn final_winner_counts_market_square_double_power_for_full_side() {
+    let mut slots = CardSlotBoardModel::default();
+    let card_registry = CardModelRegistry::default();
+    let mut locations = GameLocationModel::default();
+    locations.reset_with_active_location_indices(&[5, 5, 0]);
+
+    for location_index in 0..2 {
+        for slot_index in 0..3 {
+            assert_eq!(
+                slots.place_for_side_with_card_id(
+                    location_index,
+                    CardSlotSide::LocalPlayer,
+                    slot_index,
+                    10 + (location_index * 10) + slot_index,
+                    crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID,
+                ),
+                true
+            );
+        }
+        for slot_index in 0..4 {
+            assert_eq!(
+                slots.place_for_side_with_card_id(
+                    location_index,
+                    CardSlotSide::Opponent,
+                    slot_index,
+                    20 + (location_index * 10) + slot_index,
+                    crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID,
+                ),
+                true
+            );
+        }
+    }
+
+    assert_eq!(
+        final_winner_from_slots(&slots, &card_registry, Some(&locations)),
+        MatchPlayerSide::Far
+    );
+}

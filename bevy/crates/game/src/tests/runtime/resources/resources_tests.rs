@@ -222,7 +222,7 @@ fn card_model_registry_has_japan_realism_characters() {
     let active_card_model = ActiveCardModel::default();
 
     assert_eq!(registry.slot_count(), CARD_MODEL_SLOT_COUNT);
-    assert_eq!(registry.available_count(), 4);
+    assert_eq!(registry.available_count(), 5);
     assert_eq!(
         registry
             .active_card_model(&active_card_model)
@@ -246,11 +246,22 @@ fn card_model_registry_exposes_cost_and_base_power_for_every_card() {
             LORD_DAICHI_CARD_MODEL_ID,
             SISTER_HOTARU_CARD_MODEL_ID,
             YOKAI_PLACEHOLDER_CARD_MODEL_ID,
+            GORO_TAKESHI_CARD_MODEL_ID,
         ]
     );
     assert!(registry.card_models().all(|card_model| {
         card_model.cost.is_in_display_contract() && card_model.base_power.is_in_display_contract()
     }));
+}
+
+#[test]
+fn goro_takeshi_card_model_uses_requested_cost_and_power() {
+    let card_model = CardModel::goro_takeshi();
+
+    assert_eq!(card_model.id, GORO_TAKESHI_CARD_MODEL_ID);
+    assert_eq!(card_model.display_name, GORO_TAKESHI_CARD_MODEL_NAME);
+    assert_eq!(card_model.cost, CostPointModel::new(5));
+    assert_eq!(card_model.base_power, PowerPointModel::new(5));
 }
 
 #[test]
@@ -322,6 +333,7 @@ fn theme_asset_root_contains_current_japan_cards_locations_and_worlds() {
         "themes/theme_japan/cards/card_lord_daichi/background.png",
         "themes/theme_japan/cards/card_sister_hotaru/background.png",
         "themes/theme_japan/cards/card_yokai_placeholder/background.png",
+        "themes/theme_japan/cards/card_goro_takeshi/background.png",
         "themes/theme_japan/cards/card_back.png",
         "themes/theme_japan/cards/safe_area.png",
         "themes/theme_japan/locations/location_fortress_gate/location.png",
@@ -422,7 +434,7 @@ fn card_model_registry_paths_cover_card_view_bundle_presentation_assets() {
 }
 
 #[test]
-fn card_model_toggle_cycles_between_four_japan_realism_cards() {
+fn card_model_toggle_cycles_between_five_japan_realism_cards() {
     let registry = CardModelRegistry::default();
     let mut active_card_model = ActiveCardModel::default();
 
@@ -451,6 +463,15 @@ fn card_model_toggle_cycles_between_four_japan_realism_cards() {
             .active_card_model(&active_card_model)
             .map(|card_model| card_model.display_name),
         Some(YOKAI_PLACEHOLDER_CARD_MODEL_NAME)
+    );
+
+    active_card_model.toggle(&registry);
+    assert_eq!(active_card_model.index, 4);
+    assert_eq!(
+        registry
+            .active_card_model(&active_card_model)
+            .map(|card_model| card_model.display_name),
+        Some(GORO_TAKESHI_CARD_MODEL_NAME)
     );
 
     active_card_model.toggle(&registry);

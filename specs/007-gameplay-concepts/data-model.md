@@ -49,6 +49,28 @@ Represents runtime state for one shared location in GameView.
 | `display_body` | string | Closed: empty; open: location ability text or `(No Ability)` |
 | `placed_cards` | ordered list of card instance ids | Contains only cards whose zone is `Location` at this location |
 
+## FinalScoreModel
+
+Represents future end-of-game scoring across the three shared locations.
+
+| Field | Type | Validation |
+| ----- | ---- | ---------- |
+| `team_id` | enum/string | Identifies one of the two teams or players in the game |
+| `location_power_scores` | map from location index to integer | Sum of that team's placed-card power at each shared location |
+| `locations_won` | integer | Count of locations where this team's score is higher than the opponent's score |
+| `total_power_points` | integer | Sum of this team's power across all shared locations |
+| `cards_played` | integer | Count of cards this team played during the game |
+| `result` | enum | `Win`, `Loss`, or `Draw` after applying winner calculation rules |
+
+## Final Winner Calculation
+
+| Priority | Comparison | Tie Behavior |
+| -------- | ---------- | ------------ |
+| 1 | Locations won | A location with equal team power is tied and awards no location win |
+| 2 | Total power points across all locations | Used only when total locations won are tied |
+| 3 | Total cards played during the game | Used only when locations won and total power points are tied |
+| 4 | Draw | Used when all prior comparisons tie |
+
 ## Location Definition Values
 
 | Location | Opens On Round | Title | Body | Ability |
@@ -127,3 +149,4 @@ Presentation state for lower-left and lower-right controls.
 | Undo | Current-round Location placements | Hand | Remove active location ability deltas, restore cards and their energy deductions, and clear current-round history |
 | End Round on rounds 1-5 | Round N | Round N+1 | Clear current-round history, deal next round, reset energy |
 | End Round on round 6 | Round 6 | Round 6 resolved | No additional deal |
+| Final scoring | Completed game | Win, loss, or draw | Compare locations won, then total power points, then cards played |

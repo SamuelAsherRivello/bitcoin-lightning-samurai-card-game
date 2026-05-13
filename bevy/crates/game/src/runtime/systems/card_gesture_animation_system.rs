@@ -6,7 +6,7 @@ use bevy::{
 use crate::runtime::components::{CardGestureView, HandCardGestureTarget};
 use crate::runtime::resources::{
     CardGestureModel, CardGestureState, CardInspectionDefaults, CardSlotBoardModel, CardSlotSide,
-    CardState, CardStateModel,
+    CardState, CardStateModel, SelectedCardModalModel,
 };
 
 use super::{
@@ -35,8 +35,12 @@ pub fn card_gesture_animation_system(
     mut gesture_model: ResMut<CardGestureModel>,
     card_defaults: Res<CardInspectionDefaults>,
     card_states: Option<Res<CardStateModel>>,
-    mut card_query: Query<(&HandCardGestureTarget, &mut Transform), With<CardGestureView>>,
+    selected_modal: Option<Res<SelectedCardModalModel>>,
+    mut card_query: Query<(Entity, &HandCardGestureTarget, &mut Transform), With<CardGestureView>>,
 ) {
+    let modal_selected_entity = selected_modal
+        .as_ref()
+        .and_then(|modal| modal.selected_entity);
     let hand_layout_interpolation = (time.delta_secs() / HAND_LAYOUT_TWEEN_SECONDS).clamp(0.0, 1.0);
     if let Some(card_states) = card_states.as_deref() {
         let hand_indices = card_states.indices_with_state(CardState::Hand);
@@ -48,7 +52,10 @@ pub fn card_gesture_animation_system(
             &gesture_model,
             hand_card_count,
         );
-        for (target, mut transform) in &mut card_query {
+        for (entity, target, mut transform) in &mut card_query {
+            if Some(entity) == modal_selected_entity {
+                continue;
+            }
             if gesture_model.is_active_for(target.hand_index) {
                 continue;
             }
@@ -86,7 +93,10 @@ pub fn card_gesture_animation_system(
         (gesture_model.drag_elapsed_seconds / CARD_GESTURE_DRAG_SCALE_SECONDS).clamp(0.0, 1.0),
     );
     let mut returned_to_source = false;
-    for (target, mut transform) in &mut card_query {
+    for (entity, target, mut transform) in &mut card_query {
+        if Some(entity) == modal_selected_entity {
+            continue;
+        }
         if target.hand_index != hand_index {
             continue;
         }
@@ -94,8 +104,7 @@ pub fn card_gesture_animation_system(
         if gesture_model.state == CardGestureState::Dragging {
             transform.translation = target_transform.translation;
             if let Some(source_transform) = gesture_model.source_transform {
-                transform.scale = source_transform
-                    .scale
+                transform.scale = drag_preview_source_scale(source_transform, &card_defaults)
                     .lerp(target_transform.scale, drag_scale_progress);
             }
         } else {
@@ -157,6 +166,19 @@ pub(super) fn drag_preview_transform(
         scale: Vec3::splat(scale),
         ..Default::default()
     }
+}
+
+fn drag_preview_source_scale(
+    source_transform: Transform,
+    card_defaults: &CardInspectionDefaults,
+) -> Vec3 {
+    let source_game_view_height = card_defaults.height * source_transform.scale.y
+        / game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
+    let source_world_height =
+        game_view_world_height_for_game_view_height(source_game_view_height, CARD_GESTURE_DRAG_Z);
+    let scale = source_world_height / card_defaults.height;
+
+    Vec3::splat(scale)
 }
 
 pub(super) fn slot_transform(

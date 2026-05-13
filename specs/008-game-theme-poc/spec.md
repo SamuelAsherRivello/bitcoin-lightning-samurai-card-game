@@ -26,8 +26,8 @@ A player enters the game scene and immediately sees a cohesive tactical card gam
 
 1. **Given** the game scene is opened for the first time, **When** the scene finishes loading, **Then** the player sees either Bamboo Forest or Coastal Harbor as the active world with matching background, lighting, and three centered locations.
 2. **Given** the game scene is visible, **When** the player looks at the lower screen area, **Then** four cards are displayed along the bottom and remain visually distinct from the active world.
-3. **Given** the active world is Bamboo Forest, **When** the player views the scene, **Then** the background and locations communicate moonlit bamboo, fog, stealth, traps, shadow, and motion.
-4. **Given** the active world is Coastal Harbor, **When** the player views the scene, **Then** the background and locations communicate docks, ships, stormy ocean, market energy, rain-soaked streets, banners, and maritime activity.
+3. **Given** the active world is Bamboo Forest, **When** the player views the scene, **Then** the background and locations communicate moonlit bamboo, fog, stealth, traps, shadow, motion, and subtle ground-clearing cues for the six card-slot areas.
+4. **Given** the active world is Coastal Harbor, **When** the player views the scene, **Then** the background and locations communicate docks, ships, stormy ocean, market energy, rain-soaked streets, banners, maritime activity, and subtle quay-surface cues for the six card-slot areas.
 
 ---
 
@@ -102,6 +102,7 @@ A player clicks or taps one of the four permanent game-scene cards to enter a fo
 - **FR-004**: The Bamboo Forest world MUST communicate a dense moonlit bamboo wilderness associated with ninjas, stealth, hidden movement, traps, shadows, wind, drifting fog, and mystery.
 - **FR-005**: The Coastal Harbor world MUST communicate wooden docks, merchant ships, stormy oceans, crowded marketplaces, banners, warehouses, taverns, rain-soaked streets, energy, and maritime activity.
 - **FR-006**: The game scene MUST display the active world background and atmospheric lighting using newly created art for this feature.
+- **FR-006a**: Each world background SHOULD make the six card-slot areas easier to perceive through grounded, diegetic surface treatment such as cleaner, dirtier, emptier, wetter, flatter, or mist-softened rounded patches; it MUST NOT use visible UI borders, labels, guide lines, or repeated identical marks baked into the art.
 - **FR-007**: The game scene MUST maintain a reusable pool of six tactical locations: Fortress Gate, Bamboo Crossing, Shrine Ruins, Battlefield, Spirit Well, and Market Square.
 - **FR-008**: Whenever the active world changes in the game scene, the scene MUST randomly render three of the six tactical locations across the center of the screen.
 - **FR-009**: Tactical locations MAY visually adapt to the active world while preserving their location identity.

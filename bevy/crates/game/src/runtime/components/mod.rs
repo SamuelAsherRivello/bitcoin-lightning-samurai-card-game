@@ -4,12 +4,14 @@ use crate::runtime::resources::CardFace;
 use crate::runtime::resources::{CardSlotSide, MatchPlayerSide};
 
 pub mod card_gesture_component;
+pub mod card_selection_component;
 pub mod card_ui_component;
 pub mod debug_drawing_component;
 pub mod game_control_component;
 pub mod point_view_visual_modifier_component;
 
 pub use card_gesture_component::*;
+pub use card_selection_component::*;
 pub use card_ui_component::*;
 pub use debug_drawing_component::*;
 pub use game_control_component::*;

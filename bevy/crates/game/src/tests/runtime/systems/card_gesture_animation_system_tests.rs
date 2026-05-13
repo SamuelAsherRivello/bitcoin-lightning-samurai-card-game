@@ -114,6 +114,22 @@ fn drag_preview_scales_to_one_hundred_fifty_percent_of_source_visual_height() {
 }
 
 #[test]
+fn drag_preview_source_scale_preserves_current_visual_height_at_drag_depth() {
+    let defaults = CardInspectionDefaults::default();
+    let source = hand_source_transform(0, 4, &defaults);
+    let lifted_source = Transform {
+        translation: Vec3::new(0.0, 0.0, CARD_GESTURE_DRAG_Z),
+        scale: drag_preview_source_scale(source, &defaults),
+        ..Default::default()
+    };
+
+    assert_close(
+        card_game_view_height(lifted_source, &defaults),
+        card_game_view_height(source, &defaults),
+    );
+}
+
+#[test]
 fn returning_card_settles_only_when_original_scale_is_restored() {
     let target =
         Transform::from_translation(Vec3::new(1.0, 2.0, 0.32)).with_scale(Vec3::splat(0.42));

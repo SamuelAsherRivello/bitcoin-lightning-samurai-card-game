@@ -75,6 +75,18 @@ This contract defines externally visible GameView behavior for the local near-pl
 | Undo with no current-round moves | Button is disabled or visually greyed out and performs no state change |
 | End Round | Current-round undo history clears; prior-round placed cards remain placed |
 
+## Final Winner Calculation
+
+| Rule | Expected Behavior |
+| ---- | ----------------- |
+| Location score | Each team's score at a location is the sum of that team's placed-card power at that location |
+| Location win | The team with the higher location score wins that location |
+| Tied location | Equal location scores award no location win to either team |
+| First comparison | The final winner is the team with more locations won |
+| First tie-breaker | If locations won are tied, the team with higher total power points across all locations wins |
+| Second tie-breaker | If locations won and total power points are tied, the team with more cards played during the game wins |
+| Full tie | If locations won, total power points, and cards played are all tied, the game result is a draw |
+
 ## Hand Layout And Dealing
 
 | Situation | Expected Behavior |

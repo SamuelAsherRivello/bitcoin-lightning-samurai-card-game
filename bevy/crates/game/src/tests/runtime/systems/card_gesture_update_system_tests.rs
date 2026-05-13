@@ -15,43 +15,45 @@ fn release_after_threshold_does_not_select_for_inspection() {
     }
 
     app.world_mut()
-            .run_system_once(
-                |defaults: Res<CardInspectionDefaults>,
-                 registry: Res<CardModelRegistry>,
-                 hand: Res<GameHandModel>,
-                 locations: Res<GameLocationModel>,
-                 mut round: ResMut<GameRoundModel>,
-                 mut gesture: ResMut<CardGestureModel>,
-                 mut slots: ResMut<CardSlotBoardModel>,
-                 mut states: ResMut<CardStateModel>,
-                 mut cards: Query<
-                    (&HandCardGestureTarget, &mut Visibility),
-                    With<CardGestureView>,
-                >| {
-                    handle_move(
-                        Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
-                        &defaults,
-                        Some(&registry),
-                        Some(&hand),
-                        Some(&round),
-                        &mut gesture,
-                        &mut states,
-                    );
-                    handle_release(
-                        None,
-                        &defaults,
-                        Some(&registry),
-                        Some(&hand),
-                        Some(&locations),
-                        Some(&mut round),
-                        &mut gesture,
-                        &mut slots,
-                        &mut states,
-                        &mut cards,
-                    );
-                },
-            )
-            .unwrap();
+        .run_system_once(
+            |defaults: Res<CardInspectionDefaults>,
+             registry: Res<CardModelRegistry>,
+             hand: Res<GameHandModel>,
+             locations: Res<GameLocationModel>,
+             mut round: ResMut<GameRoundModel>,
+             mut gesture: ResMut<CardGestureModel>,
+             mut selected_modal: ResMut<SelectedCardModalModel>,
+             mut slots: ResMut<CardSlotBoardModel>,
+             mut states: ResMut<CardStateModel>,
+             mut cards: Query<
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+                With<CardGestureView>,
+            >| {
+                handle_move(
+                    Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
+                    &defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&round),
+                    &mut gesture,
+                    &mut states,
+                );
+                handle_release(
+                    None,
+                    &defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&locations),
+                    Some(&mut round),
+                    &mut gesture,
+                    &mut selected_modal,
+                    &mut slots,
+                    &mut states,
+                    &mut cards,
+                );
+            },
+        )
+        .unwrap();
 
     assert_eq!(
         app.world().resource::<CardGestureModel>().state,
@@ -99,10 +101,11 @@ fn drag_release_places_into_empty_local_slot() {
                   locations: Res<GameLocationModel>,
                   mut round: ResMut<GameRoundModel>,
                   mut gesture: ResMut<CardGestureModel>,
+                  mut selected_modal: ResMut<SelectedCardModalModel>,
                   mut slots: ResMut<CardSlotBoardModel>,
                   mut states: ResMut<CardStateModel>,
                   mut cards: Query<
-                (&HandCardGestureTarget, &mut Visibility),
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
                 With<CardGestureView>,
             >| {
                 super::handle_release(
@@ -113,6 +116,7 @@ fn drag_release_places_into_empty_local_slot() {
                     Some(&locations),
                     Some(&mut round),
                     &mut gesture,
+                    &mut selected_modal,
                     &mut slots,
                     &mut states,
                     &mut cards,
@@ -168,10 +172,11 @@ fn drag_release_inside_full_location_returns_to_source() {
                   locations: Res<GameLocationModel>,
                   mut round: ResMut<GameRoundModel>,
                   mut gesture: ResMut<CardGestureModel>,
+                  mut selected_modal: ResMut<SelectedCardModalModel>,
                   mut slots: ResMut<CardSlotBoardModel>,
                   mut states: ResMut<CardStateModel>,
                   mut cards: Query<
-                (&HandCardGestureTarget, &mut Visibility),
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
                 With<CardGestureView>,
             >| {
                 let drop_position = slots
@@ -186,6 +191,7 @@ fn drag_release_inside_full_location_returns_to_source() {
                     Some(&locations),
                     Some(&mut round),
                     &mut gesture,
+                    &mut selected_modal,
                     &mut slots,
                     &mut states,
                     &mut cards,
@@ -217,6 +223,7 @@ fn drop_target_hints_show_only_available_locations_while_dragging() {
         .init_resource::<CardGestureModel>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardSlotBoardModel>()
+        .init_resource::<SelectedCardModalModel>()
         .add_systems(Update, drop_target_hint_update_system);
     for location_index in 0..3 {
         app.world_mut().spawn((
@@ -260,6 +267,7 @@ fn unaffordable_hand_card_can_drag_but_shows_no_drop_targets() {
         .init_resource::<CardGestureModel>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardSlotBoardModel>()
+        .init_resource::<SelectedCardModalModel>()
         .init_resource::<CardModelRegistry>()
         .insert_resource(GameHandModel::new(vec![
             crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
@@ -353,10 +361,11 @@ fn unaffordable_hand_card_release_over_slot_returns_to_hand() {
              locations: Res<GameLocationModel>,
              mut round: ResMut<GameRoundModel>,
              mut gesture: ResMut<CardGestureModel>,
+             mut selected_modal: ResMut<SelectedCardModalModel>,
              mut slots: ResMut<CardSlotBoardModel>,
              mut states: ResMut<CardStateModel>,
              mut cards: Query<
-                (&HandCardGestureTarget, &mut Visibility),
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
                 With<CardGestureView>,
             >| {
                 let drop_position = slots
@@ -371,6 +380,7 @@ fn unaffordable_hand_card_release_over_slot_returns_to_hand() {
                     Some(&locations),
                     Some(&mut round),
                     &mut gesture,
+                    &mut selected_modal,
                     &mut slots,
                     &mut states,
                     &mut cards,
@@ -427,10 +437,11 @@ fn release_uses_card_overlap_target_instead_of_pointer_position() {
                   locations: Res<GameLocationModel>,
                   mut round: ResMut<GameRoundModel>,
                   mut gesture: ResMut<CardGestureModel>,
+                  mut selected_modal: ResMut<SelectedCardModalModel>,
                   mut slots: ResMut<CardSlotBoardModel>,
                   mut states: ResMut<CardStateModel>,
                   mut cards: Query<
-                (&HandCardGestureTarget, &mut Visibility),
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
                 With<CardGestureView>,
             >| {
                 super::handle_release(
@@ -441,6 +452,7 @@ fn release_uses_card_overlap_target_instead_of_pointer_position() {
                     Some(&locations),
                     Some(&mut round),
                     &mut gesture,
+                    &mut selected_modal,
                     &mut slots,
                     &mut states,
                     &mut cards,
@@ -477,6 +489,7 @@ fn drop_target_hint_focus_style_follows_largest_card_overlap() {
         .init_resource::<CardGestureModel>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardSlotBoardModel>()
+        .init_resource::<SelectedCardModalModel>()
         .add_systems(Update, drop_target_hint_update_system);
     for location_index in 0..3 {
         app.world_mut().spawn((
@@ -544,6 +557,7 @@ fn full_hovered_drop_target_stays_hidden_without_close_style() {
         .init_resource::<CardGestureModel>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardSlotBoardModel>()
+        .init_resource::<SelectedCardModalModel>()
         .add_systems(Update, drop_target_hint_update_system);
     for location_index in 0..3 {
         app.world_mut().spawn((
@@ -606,34 +620,36 @@ fn release_while_returning_does_not_clear_until_animation_settles() {
     }
 
     app.world_mut()
-            .run_system_once(
-                |defaults: Res<CardInspectionDefaults>,
-                 registry: Res<CardModelRegistry>,
-                 hand: Res<GameHandModel>,
-                 locations: Res<GameLocationModel>,
-                 mut round: ResMut<GameRoundModel>,
-                 mut gesture: ResMut<CardGestureModel>,
-                 mut slots: ResMut<CardSlotBoardModel>,
-                 mut states: ResMut<CardStateModel>,
-                 mut cards: Query<
-                    (&HandCardGestureTarget, &mut Visibility),
-                    With<CardGestureView>,
-                >| {
-                    super::handle_release(
-                        Some(Vec2::ZERO),
-                        &defaults,
-                        Some(&registry),
-                        Some(&hand),
-                        Some(&locations),
-                        Some(&mut round),
-                        &mut gesture,
-                        &mut slots,
-                        &mut states,
-                        &mut cards,
-                    );
-                },
-            )
-            .unwrap();
+        .run_system_once(
+            |defaults: Res<CardInspectionDefaults>,
+             registry: Res<CardModelRegistry>,
+             hand: Res<GameHandModel>,
+             locations: Res<GameLocationModel>,
+             mut round: ResMut<GameRoundModel>,
+             mut gesture: ResMut<CardGestureModel>,
+             mut selected_modal: ResMut<SelectedCardModalModel>,
+             mut slots: ResMut<CardSlotBoardModel>,
+             mut states: ResMut<CardStateModel>,
+             mut cards: Query<
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+                With<CardGestureView>,
+            >| {
+                super::handle_release(
+                    Some(Vec2::ZERO),
+                    &defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&locations),
+                    Some(&mut round),
+                    &mut gesture,
+                    &mut selected_modal,
+                    &mut slots,
+                    &mut states,
+                    &mut cards,
+                );
+            },
+        )
+        .unwrap();
 
     assert_eq!(
         app.world().resource::<CardGestureModel>().state,
@@ -649,7 +665,7 @@ fn release_while_returning_does_not_clear_until_animation_settles() {
 }
 
 #[test]
-fn press_anywhere_dismisses_selected_card_before_safe_area_hit_testing() {
+fn press_does_not_dismiss_selected_card_before_modal_backdrop_hit_testing() {
     let defaults = CardInspectionDefaults::default();
     let mut gesture = CardGestureModel::default();
     let card_states = CardStateModel::default();
@@ -670,10 +686,10 @@ fn press_anywhere_dismisses_selected_card_before_safe_area_hit_testing() {
         &CardSlotBoardModel::default(),
     );
 
-    assert_eq!(gesture.state, CardGestureState::Returning);
+    assert_eq!(gesture.state, CardGestureState::SelectedInspecting);
     assert_eq!(
         gesture.target_transform.map(|transform| transform.scale),
-        Some(Vec3::splat(0.5))
+        Some(Vec3::splat(2.0))
     );
 }
 
@@ -785,11 +801,13 @@ fn test_app_with_gesture_card(hand_index: usize) -> App {
         .init_resource::<GameLocationModel>()
         .init_resource::<GameRoundModel>()
         .init_resource::<CardGestureModel>()
+        .init_resource::<SelectedCardModalModel>()
         .init_resource::<CardSlotBoardModel>()
         .init_resource::<CardStateModel>();
     app.world_mut().spawn((
         HandCardGestureTarget::new(hand_index),
         CardGestureView,
+        Transform::default(),
         Visibility::Visible,
     ));
     app

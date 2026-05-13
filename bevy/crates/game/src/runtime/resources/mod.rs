@@ -15,6 +15,7 @@ pub mod game_location_model;
 pub mod game_round_model;
 pub mod opponent_match_model;
 pub mod point_model;
+pub mod selected_card_modal_model;
 
 pub use card_gesture_model::*;
 pub use card_instance_state_model::*;
@@ -26,6 +27,7 @@ pub use game_location_model::*;
 pub use game_round_model::*;
 pub use opponent_match_model::*;
 pub use point_model::*;
+pub use selected_card_modal_model::*;
 
 const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
 #[cfg(feature = "desktop-hot-reload")]
@@ -42,8 +44,8 @@ pub const CARD_WIDTH_WORLD_UNITS: f32 =
 pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
-pub const CARD_MODEL_SLOT_COUNT: usize = 4;
-pub const STARTING_DECK_CARD_COUNT: usize = 12;
+pub const CARD_MODEL_SLOT_COUNT: usize = 5;
+pub const STARTING_DECK_CARD_COUNT: usize = 15;
 pub const STARTING_HAND_CARD_COUNT: usize = 5;
 pub const STARTING_HAND_REPEATS_PER_CARD: usize = 3;
 pub const DEFAULT_PLAYER_NAME: &str = "Player 01";
@@ -68,6 +70,8 @@ pub const SISTER_HOTARU_CARD_MODEL_ID: &str = "sister_hotaru";
 pub const SISTER_HOTARU_CARD_MODEL_NAME: &str = "SISTER HOTARU";
 pub const YOKAI_PLACEHOLDER_CARD_MODEL_ID: &str = "yokai_placeholder";
 pub const YOKAI_PLACEHOLDER_CARD_MODEL_NAME: &str = "YOKAI TEST";
+pub const GORO_TAKESHI_CARD_MODEL_ID: &str = "goro_takeshi";
+pub const GORO_TAKESHI_CARD_MODEL_NAME: &str = "GORO TAKESHI";
 pub const BAMBOO_FOREST_WORLD_ID: &str = "bamboo_forest";
 pub const COASTAL_HARBOR_WORLD_ID: &str = "coastal_harbor";
 
@@ -240,6 +244,25 @@ impl CardModel {
             title_y_ratio: -0.32,
         }
     }
+
+    pub fn goro_takeshi() -> Self {
+        Self {
+            id: GORO_TAKESHI_CARD_MODEL_ID,
+            display_name: GORO_TAKESHI_CARD_MODEL_NAME,
+            cost: CostPointModel::new(5),
+            base_power: PowerPointModel::new(5),
+            background_texture: "themes/theme_japan/cards/card_goro_takeshi/background.png",
+            frame_texture: "themes/theme_japan/cards/card_goro_takeshi/frame.png",
+            foreground_texture: "themes/theme_japan/cards/card_goro_takeshi/foreground_character.png",
+            title_texture: "themes/theme_japan/cards/card_goro_takeshi/title.png",
+            background_uses_frame_mask: false,
+            foreground_width_ratio: 1.0,
+            foreground_x_ratio: 0.0,
+            foreground_y_ratio: 0.0,
+            foreground_height_ratio: 1.0,
+            title_y_ratio: -0.32,
+        }
+    }
 }
 
 /// HUMAN: Registry of available card data models.
@@ -257,6 +280,7 @@ impl Default for CardModelRegistry {
                 Some(CardModel::lord_daichi()),
                 Some(CardModel::sister_hotaru()),
                 Some(CardModel::yokai_placeholder()),
+                Some(CardModel::goro_takeshi()),
             ],
         }
     }
@@ -452,6 +476,7 @@ pub fn random_shuffled_default_deck_cards() -> Vec<String> {
         LORD_DAICHI_CARD_MODEL_ID.to_string(),
         SISTER_HOTARU_CARD_MODEL_ID.to_string(),
         YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
+        GORO_TAKESHI_CARD_MODEL_ID.to_string(),
     ]
     .into_iter()
     .cycle()

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::runtime::components::CardView;
+use crate::runtime::components::{CardSelectionSource, CardView, SelectableCard};
 use crate::runtime::resources::CardModel;
 
 /// HUMAN: Bundle for the root visual entity of a rendered card.
@@ -9,6 +9,7 @@ use crate::runtime::resources::CardModel;
 pub struct CardViewBundle {
     name: Name,
     card_view: CardView,
+    selectable_card: SelectableCard,
     transform: Transform,
     global_transform: GlobalTransform,
     visibility: Visibility,
@@ -19,6 +20,7 @@ impl CardViewBundle {
         Self {
             name: Name::new(format!("CardView {}", card_model.display_name)),
             card_view: CardView,
+            selectable_card: SelectableCard::new(CardSelectionSource::CardViewBundle),
             transform,
             global_transform: GlobalTransform::default(),
             visibility: Visibility::Visible,

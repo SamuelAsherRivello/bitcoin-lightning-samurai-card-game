@@ -67,6 +67,27 @@ fn active_location_indices_choose_three_definitions_in_slot_order() {
 }
 
 #[test]
+fn market_square_doubles_side_power_only_at_four_cards_when_open() {
+    let mut model = GameLocationModel::default();
+
+    model.reset_with_active_location_indices(&[5, 0, 1]);
+
+    assert_eq!(
+        model.definition(0).unwrap().display_body(1),
+        "Double Power, if 4 cards here"
+    );
+    assert_eq!(model.power_multiplier_for_location_side(0, 3), 1);
+    assert_eq!(model.power_multiplier_for_location_side(0, 4), 2);
+    assert_eq!(model.power_multiplier_for_location_side(0, 5), 1);
+
+    model.reset_with_active_location_indices(&[0, 5, 1]);
+
+    assert_eq!(model.power_multiplier_for_location_side(1, 4), 1);
+    model.set_round(2);
+    assert_eq!(model.power_multiplier_for_location_side(1, 4), 2);
+}
+
+#[test]
 fn location_definition_pool_contains_all_six_locations() {
     let titles: Vec<&str> = location_definition_pool()
         .iter()

@@ -118,7 +118,6 @@ pub(crate) fn debug_draw_solo_update_system(
         ),
         Without<DebugHudText>,
     >,
-    mut debug_hud_query: Query<&mut Visibility, With<DebugHudText>>,
     mut camera_query: Query<(&mut Camera, Option<&IsDefaultUiCamera>), With<GameViewEntity>>,
 ) {
     let is_game_view = *active_view == ActiveView::GameView;
@@ -157,14 +156,6 @@ pub(crate) fn debug_draw_solo_update_system(
                 .entity(entity)
                 .remove::<DebugDrawSoloHiddenVisibility>();
         }
-    }
-
-    for mut visibility in &mut debug_hud_query {
-        *visibility = if is_solo {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
     }
 
     if !is_game_view {

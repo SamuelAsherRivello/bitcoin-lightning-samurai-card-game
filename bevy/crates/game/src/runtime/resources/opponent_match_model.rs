@@ -258,6 +258,17 @@ pub enum MatchResolutionPhase {
     CpuPlacementsRevealing,
 }
 
+/// HUMAN: Render source for a hidden CPU card that has just left hand.
+/// AI: Lets presentation tween from the real hand slot after gameplay removes the card.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CpuPlacementMotionSourceModel {
+    pub owner: MatchPlayerSide,
+    pub location_index: usize,
+    pub slot_index: usize,
+    pub hand_index: usize,
+    pub hand_count: usize,
+}
+
 impl Default for MatchRoundModel {
     fn default() -> Self {
         Self {
@@ -278,6 +289,7 @@ pub struct OpponentMatchModel {
     pub round: MatchRoundModel,
     pub placements: Vec<PlacementVisibilityModel>,
     pub pending_cpu_placements: Vec<CpuBrainMoveModel>,
+    pub cpu_placement_motion_sources: Vec<CpuPlacementMotionSourceModel>,
     pub resolution_phase: MatchResolutionPhase,
     pub next_reveal_delay_seconds: f32,
 }
@@ -306,6 +318,7 @@ impl OpponentMatchModel {
             round: MatchRoundModel::default(),
             placements: Vec::new(),
             pending_cpu_placements: Vec::new(),
+            cpu_placement_motion_sources: Vec::new(),
             resolution_phase: MatchResolutionPhase::Planning,
             next_reveal_delay_seconds: 0.0,
         }
@@ -365,6 +378,27 @@ impl OpponentMatchModel {
             placement_round: self.round.round,
             visibility: PlacementVisibility::CurrentRoundHidden,
         });
+    }
+
+    pub fn record_cpu_placement_motion_source(&mut self, source: CpuPlacementMotionSourceModel) {
+        self.cpu_placement_motion_sources.push(source);
+    }
+
+    pub fn take_cpu_placement_motion_source(
+        &mut self,
+        owner: MatchPlayerSide,
+        location_index: usize,
+        slot_index: usize,
+    ) -> Option<CpuPlacementMotionSourceModel> {
+        let source_index = self
+            .cpu_placement_motion_sources
+            .iter()
+            .position(|source| {
+                source.owner == owner
+                    && source.location_index == location_index
+                    && source.slot_index == slot_index
+            })?;
+        Some(self.cpu_placement_motion_sources.remove(source_index))
     }
 
     pub fn reveal_current_round_placements(&mut self) {
@@ -573,6 +607,7 @@ pub fn start_match_round(
     match_model.near.ready_for_next = false;
     match_model.far.ready_for_next = false;
     match_model.pending_cpu_placements.clear();
+    match_model.cpu_placement_motion_sources.clear();
     match_model.resolution_phase = MatchResolutionPhase::Planning;
     match_model.near.energy_available = game_round_model.energy_available;
     match_model.far.energy_available = game_round_model.energy_available;
@@ -648,6 +683,8 @@ pub fn final_winner_from_slots(
 ) -> MatchPlayerSide {
     let mut near_wins = 0;
     let mut far_wins = 0;
+    let mut near_total = 0;
+    let mut far_total = 0;
     for location_index in 0..CARD_SLOT_LOCATION_COUNT {
         let near = side_power_total(
             slot_board,
@@ -663,17 +700,23 @@ pub fn final_winner_from_slots(
             location_index,
             MatchPlayerSide::Far,
         );
-        if near.value >= far.value {
+        near_total += near.value;
+        far_total += far.value;
+        if near.value > far.value {
             near_wins += 1;
-        } else {
+        } else if far.value > near.value {
             far_wins += 1;
         }
     }
 
-    if near_wins >= far_wins {
+    if near_wins > far_wins {
         MatchPlayerSide::Near
-    } else {
+    } else if far_wins > near_wins {
         MatchPlayerSide::Far
+    } else if far_total > near_total {
+        MatchPlayerSide::Far
+    } else {
+        MatchPlayerSide::Near
     }
 }
 
@@ -684,13 +727,15 @@ fn side_power_total(
     location_index: usize,
     side: MatchPlayerSide,
 ) -> PowerPointModel {
-    let total = slot_board
+    let mut counted_card_count = 0;
+    let total: i32 = slot_board
         .slots()
         .filter(|slot| slot.location_index == location_index && slot.side == side.slot_side())
         .filter_map(|slot| match &slot.state {
             CardSlotState::Empty => None,
             CardSlotState::Populated { card_id, .. } => {
                 card_registry.card_model_for_id(card_id).map(|card_model| {
+                    counted_card_count += 1;
                     card_model.base_power.value
                         + game_location_model
                             .map(|locations| locations.ability_delta_for_location(location_index))
@@ -699,7 +744,12 @@ fn side_power_total(
             }
         })
         .sum();
-    PowerPointModel::new(total)
+    let multiplier = game_location_model
+        .map(|locations| {
+            locations.power_multiplier_for_location_side(location_index, counted_card_count)
+        })
+        .unwrap_or(1);
+    PowerPointModel::new(total * multiplier)
 }
 
 pub const fn minimum_cpu_decision_delay_seconds() -> f32 {

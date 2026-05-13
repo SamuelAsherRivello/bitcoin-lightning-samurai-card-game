@@ -3,7 +3,8 @@ use bevy::prelude::*;
 
 use crate::runtime::components::AppSceneRoot;
 use crate::runtime::resources::{
-    CardInspectionDefaults, CardModelRegistry, PlayerDeckCollectionModel, PrimaryCameraDefaults,
+    ActiveCardModel, CardInspectionDefaults, CardModelRegistry, PlayerDeckCollectionModel,
+    PrimaryCameraDefaults,
 };
 
 /// HUMAN: Spawns the deck builder sub-screen view.
@@ -14,6 +15,7 @@ pub fn setup_deck_builder_scene(
     camera_defaults: Res<PrimaryCameraDefaults>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
+    active_card_model: Res<ActiveCardModel>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     meshes: ResMut<Assets<Mesh>>,
@@ -26,6 +28,7 @@ pub fn setup_deck_builder_scene(
         camera_defaults,
         card_defaults,
         card_model_registry,
+        active_card_model,
         player_deck_collection,
         app_scene_query,
         meshes,

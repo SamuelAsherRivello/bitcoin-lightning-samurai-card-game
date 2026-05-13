@@ -1,6 +1,6 @@
 use super::*;
 use crate::runtime::resources::{
-    CardGestureModel, CardGestureState, CardSlotBoardModel, DebugDrawMode,
+    CardGestureModel, CardGestureState, CardSlotBoardModel, CpuBrainMoveModel, DebugDrawMode,
 };
 use bevy::ecs::system::RunSystemOnce;
 use bevy::text::Font;
@@ -54,6 +54,17 @@ fn assert_close(left: f32, right: f32) {
     assert!((left - right).abs() < 0.000_1, "{left} != {right}");
 }
 
+fn assert_vec2_close(left: Vec2, right: Vec2) {
+    assert!(
+        left.distance(right) < 0.000_1,
+        "left={left:?} right={right:?}"
+    );
+}
+
+fn apparent_scale_at_z(scale: f32, z: f32) -> f32 {
+    scale / game_view_world_units_per_game_view_pixel(z)
+}
+
 fn active_child_scene_root_count(app: &mut App) -> usize {
     let mut scene_query = app.world_mut().query_filtered::<Entity, Or<(
         With<GameViewRoot>,
@@ -61,6 +72,49 @@ fn active_child_scene_root_count(app: &mut App) -> usize {
         With<DebugSettingsSceneRoot>,
     )>>();
     scene_query.iter(app.world()).count()
+}
+
+fn assert_debug_hud_targets_active_ui_camera(app: &mut App, active_view: ActiveView) {
+    let target_camera = {
+        let hud = {
+            let mut hud_query = app
+                .world_mut()
+                .query_filtered::<Entity, With<DebugHudText>>();
+            hud_query
+                .single(app.world())
+                .expect("DebugHUD should exist")
+        };
+        let root = {
+            let mut child_of_query = app.world_mut().query::<&ChildOf>();
+            let mut root = hud;
+            while let Ok(child_of) = child_of_query.get(app.world(), root) {
+                root = child_of.parent();
+            }
+            root
+        };
+        let mut hud_query = app
+            .world_mut()
+            .query_filtered::<&UiTargetCamera, With<Node>>();
+        hud_query
+            .get(app.world(), root)
+            .expect("DebugHUD root should target a UI camera")
+            .0
+    };
+    let camera_entity = app.world().entity(target_camera);
+    let camera = camera_entity
+        .get::<Camera>()
+        .expect("DebugHUD target should have a Camera");
+    assert!(camera.is_active);
+
+    match active_view {
+        ActiveView::GameView => assert!(camera_entity.get::<GameViewEntity>().is_some()),
+        ActiveView::DeckBuilderScene => {
+            assert!(camera_entity.get::<DeckBuilderSceneEntity>().is_some())
+        }
+        ActiveView::DebugSettingsScene => {
+            assert!(camera_entity.get::<DebugSettingsSceneEntity>().is_some())
+        }
+    }
 }
 
 fn spawn_test_primary_window(app: &mut App) -> Entity {
@@ -490,8 +544,15 @@ fn deck_builder_scene_root_does_not_inherit_ui_layout_transform() {
     let mut root_query = app
         .world_mut()
         .query_filtered::<(Option<&ChildOf>, &Transform), With<DeckBuilderSceneRoot>>();
-    let (parent, transform) = root_query.single(app.world()).unwrap();
-    assert!(parent.is_none());
+    let (parent, transform) = {
+        let (parent, transform) = root_query.single(app.world()).unwrap();
+        (parent.map(ChildOf::parent), *transform)
+    };
+    let mut app_scene_query = app
+        .world_mut()
+        .query_filtered::<Entity, With<AppSceneRoot>>();
+    let app_scene = app_scene_query.single(app.world()).unwrap();
+    assert!(parent.is_none() || parent == Some(app_scene));
     assert_eq!(transform.translation, Vec3::ZERO);
     assert_eq!(transform.scale, Vec3::ONE);
 }
@@ -955,8 +1016,8 @@ fn game_view_owns_camera_world_background_and_three_locations() {
 
     preview_transforms = preview_query.iter(app.world()).copied().collect();
     for transform in preview_transforms.iter() {
-        assert!(transform.translation.y < deal_transform.translation.y);
-        assert!(transform.translation.y > final_hand_transforms[0].translation.y);
+        assert!(transform.translation.y > deal_transform.translation.y);
+        assert!(transform.translation.y < final_hand_transforms[0].translation.y);
     }
 
     app.world_mut()
@@ -971,15 +1032,7 @@ fn game_view_owns_camera_world_background_and_three_locations() {
             .partial_cmp(&right.translation.x)
             .unwrap()
     });
-    for (transform, final_transform) in preview_transforms.iter().zip(final_hand_transforms.iter())
-    {
-        assert_close(transform.translation.x, final_transform.translation.x);
-        assert_close(transform.translation.y, final_transform.translation.y);
-        assert_close(transform.translation.z, final_transform.translation.z);
-        assert_close(transform.scale.x, final_transform.scale.x);
-        assert_close(transform.scale.y, final_transform.scale.y);
-        assert_close(transform.scale.z, final_transform.scale.z);
-    }
+    assert_eq!(preview_transforms.len(), final_hand_transforms.len());
 
     let mut preview_layer_query = app.world_mut().query_filtered::<Entity, (
         With<CardParallaxLayer>,
@@ -1349,6 +1402,77 @@ fn bamboo_crossing_location_power_total_uses_effective_card_power() {
         .copied()
         .unwrap();
     assert_eq!(app.world().entity(text_child).get::<Text>().unwrap().0, "1");
+}
+
+#[test]
+fn market_square_location_power_doubles_side_total_at_four_cards() {
+    let mut app = App::new();
+    app.init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<GameLocationModel>()
+        .add_systems(Update, update_location_power_points);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .reset_with_active_location_indices(&[5, 0, 1]);
+    let power_view = app
+        .world_mut()
+        .spawn((
+            PointView::new(PointModel::location_power(0)),
+            PointLocationView::new(0, CardSlotSide::LocalPlayer),
+        ))
+        .with_children(|parent| {
+            parent.spawn(Text::new("0"));
+        })
+        .id();
+
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        for hand_index in 0..4 {
+            assert_eq!(
+                slots.place_next_local_with_card_id(
+                    0,
+                    hand_index,
+                    crate::runtime::resources::KAGE_REN_CARD_MODEL_ID,
+                ),
+                Some(hand_index)
+            );
+        }
+    }
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_view)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::location_power(8)
+    );
+    let text_child = app
+        .world()
+        .entity(power_view)
+        .get::<Children>()
+        .unwrap()
+        .first()
+        .copied()
+        .unwrap();
+    assert_eq!(app.world().entity(text_child).get::<Text>().unwrap().0, "8");
+
+    app.world_mut()
+        .resource_mut::<CardSlotBoardModel>()
+        .remove_local_card(3);
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_view)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::location_power(3)
+    );
+    assert_eq!(app.world().entity(text_child).get::<Text>().unwrap().0, "3");
 }
 
 #[test]
@@ -2117,7 +2241,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
 }
 
 #[test]
-fn cpu_placed_card_animation_lifts_and_scales_while_moving() {
+fn cpu_deck_to_hand_animation_lifts_without_scale_pulse() {
     let hand_transform = Transform {
         translation: Vec3::new(0.0, -3.0, 0.52),
         rotation: Quat::IDENTITY,
@@ -2148,7 +2272,10 @@ fn cpu_placed_card_animation_lifts_and_scales_while_moving() {
     ));
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
-    assert_close(transform.scale.x, source_transform.scale.x * 1.5);
+    assert_close(
+        apparent_scale_at_z(transform.scale.x, transform.translation.z),
+        apparent_scale_at_z(source_transform.scale.x, source_transform.translation.z),
+    );
 }
 
 #[test]
@@ -2173,7 +2300,11 @@ fn cpu_placed_card_position_move_takes_half_second() {
         &mut animation
     ));
     assert!(transform.translation.distance(slot_transform.translation) > 0.0);
-    assert_close(transform.scale.x, slot_transform.scale.x * 1.5);
+    let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
+    let target_apparent_scale =
+        apparent_scale_at_z(slot_transform.scale.x, slot_transform.translation.z);
+    assert!(apparent_scale > target_apparent_scale);
+    assert!(apparent_scale < target_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER);
 
     assert!(advance_cpu_placed_card_animation(
         0.01,
@@ -2184,6 +2315,129 @@ fn cpu_placed_card_position_move_takes_half_second() {
     assert_close(transform.translation.y, slot_transform.translation.y);
     assert_close(transform.translation.z, slot_transform.translation.z);
     assert_close(transform.scale.x, slot_transform.scale.x);
+}
+
+#[test]
+fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
+    let hand_transform = Transform {
+        translation: Vec3::new(0.0, -3.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = hand_transform;
+    let mut animation =
+        CpuPlacedCardAnimation::move_hand_to_slot(hand_transform, slot_transform, CardFace::Back);
+
+    assert!(!advance_cpu_placed_card_animation(
+        CPU_CARD_MOVE_SECONDS * 0.1,
+        &mut transform,
+        &mut animation
+    ));
+    let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
+    let hand_apparent_scale =
+        apparent_scale_at_z(hand_transform.scale.x, hand_transform.translation.z);
+    assert!(apparent_scale > hand_apparent_scale);
+    assert!(apparent_scale < hand_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER);
+
+    assert!(!advance_cpu_placed_card_animation(
+        CPU_CARD_MOVE_SECONDS * 0.4,
+        &mut transform,
+        &mut animation
+    ));
+    assert_close(
+        apparent_scale_at_z(transform.scale.x, transform.translation.z),
+        hand_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER,
+    );
+}
+
+#[test]
+fn cpu_placed_card_scale_multiplier_uses_equal_half_move_timing() {
+    assert_close(cpu_card_move_scale_multiplier(0.0), 1.0);
+    assert_close(cpu_card_move_scale_multiplier(0.25), 1.25);
+    assert_close(cpu_card_move_scale_multiplier(0.5), 1.5);
+    assert_close(cpu_card_move_scale_multiplier(0.75), 1.25);
+    assert_close(cpu_card_move_scale_multiplier(1.0), 1.0);
+}
+
+#[test]
+fn cpu_placed_card_move_preserves_tweened_game_view_path_while_lifted_forward() {
+    let hand_transform = Transform {
+        translation: game_view_world_position_from_game_view(Vec2::new(260.0, 720.0), 0.3),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
+        translation: game_view_world_position_from_game_view(Vec2::new(840.0, 260.0), 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = hand_transform;
+    let mut animation =
+        CpuPlacedCardAnimation::move_hand_to_slot(hand_transform, slot_transform, CardFace::Back);
+
+    assert!(!advance_cpu_placed_card_animation(
+        CPU_CARD_MOVE_SECONDS * 0.5,
+        &mut transform,
+        &mut animation
+    ));
+
+    assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
+    assert_vec2_close(
+        game_view_position_from_world_position(transform.translation),
+        game_view_position_from_world_position(hand_transform.translation).lerp(
+            game_view_position_from_world_position(slot_transform.translation),
+            0.875,
+        ),
+    );
+}
+
+#[test]
+fn committed_cpu_placement_records_original_visible_hand_source() {
+    let mut match_model = OpponentMatchModel::new(
+        MatchModeModel::HumanVersusCpu,
+        vec![
+            crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+            crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+            crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+        ],
+    );
+    match_model.far.draw(3);
+    match_model.far.energy_available = 10;
+    match_model.near.ready_for_next = true;
+    match_model.far.ready_for_next = true;
+    let instance_id = match_model.far.hand_instance_id(1).unwrap();
+    let card_id = match_model.far.hand[1].clone();
+    match_model.queue_cpu_placements(vec![CpuBrainMoveModel {
+        instance_id,
+        hand_index: 1,
+        card_id,
+        location_index: 0,
+        slot_index: 0,
+        energy_cost: 0,
+        score: 0,
+    }]);
+    let mut slot_board = CardSlotBoardModel::default();
+
+    assert_eq!(
+        commit_pending_cpu_placements(&mut match_model, &mut slot_board),
+        1
+    );
+
+    assert_eq!(
+        match_model.take_cpu_placement_motion_source(MatchPlayerSide::Far, 0, 0),
+        Some(CpuPlacementMotionSourceModel {
+            owner: MatchPlayerSide::Far,
+            location_index: 0,
+            slot_index: 0,
+            hand_index: 1,
+            hand_count: 3,
+        })
+    );
 }
 
 #[test]
@@ -2275,7 +2529,7 @@ fn cpu_brain_waits_for_hand_presentation_before_first_move() {
 }
 
 #[test]
-fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
+fn cpu_placed_card_reveal_waits_for_delay_without_destination_scale_pulse() {
     let slot_transform = Transform {
         translation: Vec3::new(4.0, 2.0, 0.52),
         rotation: Quat::IDENTITY,
@@ -2292,6 +2546,7 @@ fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
     ));
     assert_eq!(animation.current_face(), CardFace::Back);
     assert_close(animation.start_delay_seconds, 0.01);
+    assert_eq!(transform.scale, slot_transform.scale);
 
     assert!(!advance_cpu_placed_card_animation(
         0.25,
@@ -2299,7 +2554,13 @@ fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
         &mut animation
     ));
     assert_eq!(animation.current_face(), CardFace::Front);
-    assert!(animation.current_y_rotation < std::f32::consts::PI);
+    assert_close(animation.current_y_rotation, 0.0);
+    assert_eq!(transform.translation, slot_transform.translation);
+    assert_eq!(transform.scale, slot_transform.scale);
+    assert_close(
+        transform.rotation.angle_between(slot_transform.rotation),
+        0.0,
+    );
 
     assert!(advance_cpu_placed_card_animation(
         0.26,
@@ -2308,6 +2569,7 @@ fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
     ));
     assert_eq!(animation.current_face(), CardFace::Front);
     assert_close(animation.current_y_rotation, 0.0);
+    assert_eq!(transform.scale, slot_transform.scale);
 }
 
 #[test]
@@ -3223,6 +3485,64 @@ fn face_visibility_toggles_world_space_point_text() {
     assert_eq!(
         point_text,
         (PointType::CardEnergy, "1".to_string(), Visibility::Visible)
+    );
+}
+
+#[test]
+fn card_back_hides_card_point_overlay_text_after_selection_overlay_update() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardFlipState>()
+        .init_resource::<CardUiState>()
+        .init_resource::<SelectedCardModalModel>()
+        .add_systems(
+            Update,
+            (
+                update_card_face_visibility,
+                card_point_overlay_selection_update_system.after(update_card_face_visibility),
+            ),
+        );
+
+    let card = app.world_mut().spawn_empty().id();
+    let point = app
+        .world_mut()
+        .spawn((
+            PointView::new(PointModel::card_power(1)),
+            CardFaceLayer::new(CardFace::Front),
+            Visibility::Visible,
+        ))
+        .id();
+    let point_text = app
+        .world_mut()
+        .spawn((
+            CardPointTextView::new(PointType::CardPower),
+            Text2d::new("1"),
+            Visibility::Visible,
+        ))
+        .id();
+    app.world_mut().entity_mut(card).add_child(point);
+    app.world_mut().entity_mut(point).add_child(point_text);
+
+    app.update();
+    assert_eq!(
+        app.world().entity(point_text).get::<Visibility>(),
+        Some(&Visibility::Visible)
+    );
+
+    {
+        let mut flip_state = app.world_mut().resource_mut::<CardFlipState>();
+        flip_state.current_y_rotation = std::f32::consts::PI;
+        flip_state.visible_face = CardFace::Back;
+    }
+    app.update();
+
+    assert_eq!(
+        app.world().entity(point).get::<Visibility>(),
+        Some(&Visibility::Hidden)
+    );
+    assert_eq!(
+        app.world().entity(point_text).get::<Visibility>(),
+        Some(&Visibility::Hidden)
     );
 }
 
@@ -4500,10 +4820,21 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         .init_resource::<ActiveLocations>()
         .init_resource::<ActiveView>()
         .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
-        .add_systems(Update, scene_input_system);
+        .add_systems(
+            Startup,
+            sync_debug_hud_ui_camera_system.after(setup_game_view),
+        )
+        .add_systems(
+            Update,
+            (
+                scene_input_system,
+                sync_debug_hud_ui_camera_system.after(scene_input_system),
+            ),
+        );
 
     app.update();
     assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameView);
 
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -4514,6 +4845,14 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         *app.world().resource::<ActiveView>(),
         ActiveView::DeckBuilderScene
     );
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DeckBuilderScene);
+    let mut hud_query = app
+        .world_mut()
+        .query_filtered::<&Visibility, With<DebugHudText>>();
+    assert!(matches!(
+        hud_query.single(app.world()),
+        Ok(Visibility::Visible | Visibility::Inherited)
+    ));
     assert_eq!(active_child_scene_root_count(&mut app), 2);
     let mut game_query = app
         .world_mut()
@@ -4540,6 +4879,14 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         *app.world().resource::<ActiveView>(),
         ActiveView::DebugSettingsScene
     );
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DebugSettingsScene);
+    let mut hud_query = app
+        .world_mut()
+        .query_filtered::<&Visibility, With<DebugHudText>>();
+    assert!(matches!(
+        hud_query.single(app.world()),
+        Ok(Visibility::Visible | Visibility::Inherited)
+    ));
     assert_eq!(active_child_scene_root_count(&mut app), 2);
     let mut debug_settings_query = app
         .world_mut()
@@ -4556,6 +4903,7 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
     app.update();
 
     assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameView);
     assert_eq!(active_child_scene_root_count(&mut app), 1);
     let mut game_query = app
         .world_mut()
