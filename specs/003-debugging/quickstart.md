@@ -39,13 +39,13 @@
 | unlabeled | Bottom location card slot | `left=732 top=432 width=184 height=180` | UI order 1, below 3D card overlay order 2 |
 | `hand area` | Hand area | `left=364 top=612 width=552 height=188` | UI order 1, below 3D card overlay order 2 |
 
-The default `DebugDrawingModel` requests this full reference layout, but the lines render only when the persisted DebugHUD `D` toggle is on and the active view is `GameView`. Use `remove(target)` to clear a mark, `replace(target, label, rect)` to move or relabel one mark, and `request_reference_layout()` to restore the six inspiration-layout annotations.
+The default `DebugDrawingModel` requests this full reference layout, but the lines render only when the persisted DebugHUD `D` toggle is on and the active view is `GameScene`. Use `remove(target)` to clear a mark, `replace(target, label, rect)` to move or relabel one mark, and `request_reference_layout()` to restore the six inspiration-layout annotations.
 
 ## Hot Reload
 
 | Control Or Script | Purpose | Expected Behavior |
 | ----------------- | ------- | ----------------- |
-| `H` DebugHUD toggle | Enables automatic runtime rebuild after hot patches | When `H` is on and any desktop hot-patch event arrives, the app rebuilds the persistent `AppScene`, respawns the DebugHUD, and rebuilds the current sub-screen view such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` |
+| `H` DebugHUD toggle | Enables automatic runtime rebuild after hot patches | When `H` is on and any desktop hot-patch event arrives, the app rebuilds the persistent `AppScene`, respawns the DebugHUD, and rebuilds the current sub-screen view such as `GameScene`, `DeckScene`, or `DebugScene` |
 | `R` DebugHUD key | Manual runtime rebuild | Rebuilds the `AppScene` and current sub-screen without waiting for a hot-patch event |
 | `scripts/main/RunAppDesktopHotReload.ps1` | Desktop Rust hot-patch workflow | Runs `dx serve --hot-patch --windows` with `desktop-hot-reload` and `asset-hot-reload`; edit hot-enabled Rust systems and save |
 | `scripts/main/RunAppDesktop.ps1` | Standard desktop workflow | Builds/runs without Rust hot patching, but includes asset hot reload in non-release mode |
@@ -59,7 +59,7 @@ Hot reload uses the included third-party `bevy_hotpatching_experiments` integrat
 | ----- | --------------- |
 | Launch desktop app | A translucent DebugHUD panel appears near the top-left |
 | Read HUD contents | The panel shows title/status text and labels for active debug actions including `D`, `F`, `P`, `I`, and `H` |
-| Press `D` repeatedly | Debug drawing visibility toggles on each press, persists to disk, and only draws in `GameView` |
+| Press `D` repeatedly | Debug drawing visibility toggles on each press, persists to disk, and only draws in `GameScene` |
 | Press `F` repeatedly | Desktop toggles Bevy fullscreen; browser toggles the browser Fullscreen API; inspector visibility does not change |
 | Press `I` repeatedly | Inspector visibility toggles on each press; FPS visibility does not change |
 | Inspect Card UI if present | Card UI appears only as temporary developer/prototype UI and remains separate from DebugHUD |

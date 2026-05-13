@@ -37,35 +37,35 @@ pub struct AppSceneRoot;
 #[derive(Component, Debug, Default)]
 pub struct AppSceneEntity;
 
-/// HUMAN: Root marker for the deck builder sub-screen view.
-/// AI: DeckBuilderScene is loaded on top of AppScene and may be despawned/reloaded.
+/// HUMAN: Root marker for the deck sub-screen view.
+/// AI: DeckScene is loaded on top of AppScene and may be despawned/reloaded.
 #[derive(Component, Debug, Default)]
-pub struct DeckBuilderSceneRoot;
+pub struct DeckSceneRoot;
 
-/// HUMAN: Marker for entities owned by DeckBuilderScene.
-/// AI: Keep deck builder rendering/query filters on this marker.
+/// HUMAN: Marker for entities owned by DeckScene.
+/// AI: Keep deck rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct DeckBuilderSceneEntity;
+pub struct DeckSceneEntity;
 
-/// HUMAN: Root marker for the debug settings sub-screen scene.
-/// AI: DebugSettingsScene is a duplicated DeckBuilderScene-style scene for diagnostics.
+/// HUMAN: Root marker for the debug sub-screen scene.
+/// AI: DebugScene is a duplicated DeckScene-style scene for diagnostics.
 #[derive(Component, Debug, Default)]
-pub struct DebugSettingsSceneRoot;
+pub struct DebugSceneRoot;
 
-/// HUMAN: Marker for entities owned by DebugSettingsScene.
-/// AI: Keep debug settings rendering/query filters on this marker.
+/// HUMAN: Marker for entities owned by DebugScene.
+/// AI: Keep debug rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct DebugSettingsSceneEntity;
+pub struct DebugSceneEntity;
 
 /// HUMAN: Root marker for the gameplay sub-screen view.
-/// AI: GameView is loaded on top of AppScene and may be despawned/reloaded.
+/// AI: GameScene is loaded on top of AppScene and may be despawned/reloaded.
 #[derive(Component, Debug, Default)]
-pub struct GameViewRoot;
+pub struct GameSceneRoot;
 
-/// HUMAN: Marker for entities owned by GameView.
+/// HUMAN: Marker for entities owned by GameScene.
 /// AI: Keep gameplay rendering/query filters on this marker.
 #[derive(Component, Debug, Default)]
-pub struct GameViewEntity;
+pub struct GameSceneEntity;
 
 #[derive(Component, Debug, Default)]
 pub struct WorldBackground;
@@ -271,7 +271,7 @@ impl GameLocation {
     }
 }
 
-/// HUMAN: Centered title text for a GameView location.
+/// HUMAN: Centered title text for a GameScene location.
 /// AI: Sync this from GameLocationModel when round reveal state changes.
 #[derive(Component, Debug)]
 pub struct GameLocationTitleText {
@@ -284,7 +284,7 @@ impl GameLocationTitleText {
     }
 }
 
-/// HUMAN: Centered ability body text for a GameView location.
+/// HUMAN: Centered ability body text for a GameScene location.
 /// AI: Keep the entity alive while closed so later rounds can reveal text in place.
 #[derive(Component, Debug)]
 pub struct GameLocationBodyText {
@@ -297,7 +297,7 @@ impl GameLocationBodyText {
     }
 }
 
-/// HUMAN: Border view for a GameView location card.
+/// HUMAN: Border view for a GameScene location card.
 /// AI: Sync color from open/closed state without respawning the location.
 #[derive(Component, Debug)]
 pub struct GameLocationBorder {

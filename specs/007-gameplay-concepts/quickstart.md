@@ -27,11 +27,11 @@ scripts/other/RunTests.ps1
 scripts/main/RunAppDesktop.ps1
 ```
 
-4. Verify GameView startup:
+4. Verify GameScene startup:
 
 | Check | Expected Result |
 | ----- | --------------- |
-| Active view | GameView is active under persistent AppScene |
+| Active view | GameScene is active under persistent AppScene |
 | Lower right | End Round remains visible |
 | Lower left | Restart appears above Undo |
 | Undo label | Shows `Energy 1/1` and `Undo` on separate lines |
@@ -69,7 +69,7 @@ scripts/main/RunAppDesktop.ps1
 
 | Action | Expected Result |
 | ------ | --------------- |
-| Press Restart at any time | GameView returns to round `1/6`, new 12-card deck, empty current-round history, and clean hand/location state |
+| Press Restart at any time | GameScene returns to round `1/6`, new 12-card deck, empty current-round history, and clean hand/location state |
 | Press Restart during animation | Final state is a clean fresh game |
 
 ## Browser WebGPU Verification

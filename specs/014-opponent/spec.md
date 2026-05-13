@@ -13,18 +13,18 @@ A player can see and change the active match mode from the lower-left game contr
 
 **Why this priority**: The feature must expose opponent behavior clearly before two-player round flow can be understood or tested.
 
-**Independent Test**: Launch GameView and verify a mode button appears above Restart, shows `Mode:` on the first line, defaults to `Human versus CPU` when no saved mode exists, loads the last saved mode when one exists, cycles between the two supported labels on activation, saves the selected mode, and never presents any other mode.
+**Independent Test**: Launch GameScene and verify a mode button appears above Restart, shows `Mode:` on the first line, defaults to `Human versus CPU` when no saved mode exists, loads the last saved mode when one exists, cycles between the two supported labels on activation, saves the selected mode, and never presents any other mode.
 
 **Acceptance Scenarios**:
 
-1. **Given** GameView is visible, **When** the lower-left controls render, **Then** the mode button appears above the Restart button and uses the same visual style family as Restart.
+1. **Given** GameScene is visible, **When** the lower-left controls render, **Then** the mode button appears above the Restart button and uses the same visual style family as Restart.
 2. **Given** the mode button is visible, **When** it is inspected, **Then** it displays `Mode:` on the first line and the current mode label on the next line.
 3. **Given** the current mode is `Human versus CPU`, **When** the player activates the mode button, **Then** the mode changes to `CPU versus CPU`.
 4. **Given** the current mode is `CPU versus CPU`, **When** the player activates the mode button, **Then** the mode changes to `Human versus CPU`.
 5. **Given** the mode button is activated repeatedly, **When** modes cycle, **Then** only `Human versus CPU` and `CPU versus CPU` are available.
-6. **Given** no saved mode preference exists, **When** GameView starts, **Then** the active mode defaults to `Human versus CPU`.
+6. **Given** no saved mode preference exists, **When** GameScene starts, **Then** the active mode defaults to `Human versus CPU`.
 7. **Given** the player changes the mode, **When** the selected mode changes, **Then** the game saves the selected mode to disk.
-8. **Given** a saved mode preference exists, **When** the game starts later, **Then** GameView loads and uses that saved mode.
+8. **Given** a saved mode preference exists, **When** the game starts later, **Then** GameScene loads and uses that saved mode.
 
 ---
 
@@ -152,7 +152,7 @@ In `Human versus CPU`, each player can see their own hand and own current-round 
 
 ### Functional Requirements
 
-- **FR-001**: GameView MUST include a mode button positioned above Restart in the lower-left control group.
+- **FR-001**: GameScene MUST include a mode button positioned above Restart in the lower-left control group.
 - **FR-002**: The mode button MUST visually match the Restart button style family closely enough that users understand both are game controls.
 - **FR-003**: The mode button MUST render `Mode:` on its first line and the current mode label on its second line.
 - **FR-004**: The only supported modes MUST be `Human versus CPU` and `CPU versus CPU`.
@@ -198,7 +198,7 @@ In `Human versus CPU`, each player can see their own hand and own current-round 
 - **FR-038**: The match winner MUST be the player who wins at least two of the three locations.
 - **FR-039**: Final match results MUST never present a tied match.
 - **FR-040**: Winner presentation MUST identify whether the near player or far player won.
-- **FR-040A**: GameView MUST show a `Status:` text above the mode button after final winner evaluation in any mode.
+- **FR-040A**: GameScene MUST show a `Status:` text above the mode button after final winner evaluation in any mode.
 - **FR-040B**: Final winner status text MUST identify the winning player number and controller type, for example `Status: Winner is Player 1 (CPU)`.
 - **FR-041**: Existing near-player card placement, energy, undo, lock, location ability, and deck-deal rules from Spec 007 MUST continue to apply to human near-player play unless explicitly changed by this spec.
 - **FR-042**: CPU card placement MUST respect the same legal-placement constraints as a human-controlled player for deck ownership, hand ownership, location slots, available card movement, and round readiness.
@@ -237,8 +237,8 @@ In `Human versus CPU`, each player can see their own hand and own current-round 
 | ------ | ----------- |
 | **Match Mode** | The selected control mode for a game, limited to `Human versus CPU` and `CPU versus CPU`. |
 | **Mode Preference** | The saved user preference for the last selected Match Mode, loaded at game startup and updated when mode changes. |
-| **Mode Button** | A lower-left GameView control above Restart that shows and cycles the active Match Mode. |
-| **Status Text** | A lower-left GameView text area above the Mode button that reports final match status such as the winning player and controller type. |
+| **Mode Button** | A lower-left GameScene control above Restart that shows and cycles the active Match Mode. |
+| **Status Text** | A lower-left GameScene text area above the Mode button that reports final match status such as the winning player and controller type. |
 | **Near Player** | The bottom player, using bottom hand presentation and bottom location slots; human-controlled in `Human versus CPU` and CPU-controlled in `CPU versus CPU`. |
 | **Far Player** | The top opponent, using off-screen hand representation and top location slots; CPU-controlled in both supported modes. |
 | **PlayerController** | The human controller for a player; dispatches mouse, keyboard, and tap choices to shared game logic. |
@@ -264,9 +264,9 @@ In `Human versus CPU`, each player can see their own hand and own current-round 
 
 ### Measurable Outcomes
 
-- **SC-001**: In 100% of GameView inspections, the mode button appears above Restart and displays the active mode in a two-line `Mode:` format.
+- **SC-001**: In 100% of GameScene inspections, the mode button appears above Restart and displays the active mode in a two-line `Mode:` format.
 - **SC-002**: In 100% of mode cycling tests, only `Human versus CPU` and `CPU versus CPU` are reachable.
-- **SC-002A**: In 100% of startup tests without a saved mode preference, GameView starts in `Human versus CPU`.
+- **SC-002A**: In 100% of startup tests without a saved mode preference, GameScene starts in `Human versus CPU`.
 - **SC-002B**: In 100% of save/load tests, changing mode persists that mode and the next game startup loads the same selected mode.
 - **SC-003**: In 100% of fresh games, exactly two players are present and each player has a separate deck, hand, readiness state, and location slot side.
 - **SC-004**: In `Human versus CPU`, a tester can play at least one full six-round game where the near player uses bottom slots and the far CPU uses top slots.

@@ -16,7 +16,7 @@ Create the first Visual Modifier System pass for point views using a reusable vi
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime under `bevy/crates/game`  
 **Performance Goals**: O(point views + occupied slots) synchronization per update; avoid expensive hierarchy scans beyond point view children  
-**Constraints**: Preserve point value text behavior, 015 card face/reveal visibility behavior, aspect-ratio-safe GameView layout, and existing point view ownership; rule Treatments must attach to explicit rule Targets rather than ad hoc child/name matches.
+**Constraints**: Preserve point value text behavior, 015 card face/reveal visibility behavior, aspect-ratio-safe GameScene layout, and existing point view ownership; rule Treatments must attach to explicit rule Targets rather than ad hoc child/name matches.
 **Scale/Scope**: First pass supports `abilityoutline` for card power point views and second pass supports `leadingscoreoutline` for location total point views
 
 ## Constitution Check
@@ -36,8 +36,8 @@ Create the first Visual Modifier System pass for point views using a reusable vi
 | Theme asset organization | ✅ | No theme assets are introduced. |
 | Visible feedback | ✅ | The feature is visible feedback for ability-modified points and leading scores. |
 | Browser/native storage constraints | ✅ | No storage, database, localStorage, SQLite, or OPFS change. |
-| Browser-visible verification path | ✅ | Verify through the GameView desktop run and, when practical, browser WebGPU render path. |
-| Aspect-ratio-safe layout | ✅ | Outlines are children of existing point views, whose positions already derive from GameView layout. |
+| Browser-visible verification path | ✅ | Verify through the GameScene desktop run and, when practical, browser WebGPU render path. |
+| Aspect-ratio-safe layout | ✅ | Outlines are children of existing point views, whose positions already derive from GameScene layout. |
 | Framework constraints documented | ✅ | Bevy UI borders and world-space mesh outline differences are captured below. |
 
 ## Project Structure

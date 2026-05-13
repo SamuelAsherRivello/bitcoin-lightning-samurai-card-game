@@ -13,9 +13,9 @@ use crate::runtime::resources::{
 
 use super::{
     CARD_GESTURE_DRAG_SCALE_MULTIPLIER, active_pointer_position, drag_preview_transform,
-    game_view_card_index_at_for_count, hand_insertion_index, hand_source_transform,
+    game_scene_card_index_at_for_count, hand_insertion_index, hand_source_transform,
     just_pressed_pointer_position, selected_inspection_transform, slot_transform,
-    window_pointer_to_game_view,
+    window_pointer_to_game_scene,
 };
 
 const DROP_TARGET_GENERAL_BORDER_COLOR: Color = Color::srgb(0.48, 0.82, 1.0);
@@ -24,8 +24,8 @@ const DROP_TARGET_CLOSE_BORDER_COLOR: Color = Color::srgb(0.72, 0.94, 1.0);
 const DROP_TARGET_CLOSE_BACKGROUND_COLOR: Color = Color::srgba(0.36, 0.86, 1.0, 0.24);
 const DROP_TARGET_MIN_CARD_OVERLAP_RATIO: f32 = 0.25;
 
-/// HUMAN: Updates card gesture state from unified pointer input in GameView.
-/// AI: This replaces GameView click-to-DeckBuilderScene navigation without touching DeckBuilderScene behavior.
+/// HUMAN: Updates card gesture state from unified pointer input in GameScene.
+/// AI: This replaces GameScene click-to-DeckScene navigation without touching DeckScene behavior.
 pub fn card_gesture_update_system(
     primary_window_query: Query<&Window, With<PrimaryWindow>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
@@ -46,7 +46,7 @@ pub fn card_gesture_update_system(
         With<CardGestureView>,
     >,
 ) {
-    if *active_view != ActiveView::GameView {
+    if *active_view != ActiveView::GameScene {
         return;
     }
     if selected_modal
@@ -84,10 +84,10 @@ pub fn card_gesture_update_system(
     }
 
     if let Some(pointer_position) = active_pointer_position(primary_window, &touches)
-        && let Some(game_view_position) = window_pointer_to_game_view(pointer_position, window_size)
+        && let Some(game_scene_position) = window_pointer_to_game_scene(pointer_position, window_size)
     {
         handle_move(
-            game_view_position,
+            game_scene_position,
             &card_defaults,
             card_model_registry.as_deref(),
             game_hand_model.as_deref(),
@@ -98,8 +98,8 @@ pub fn card_gesture_update_system(
     }
 
     if pointer_just_released(&mouse_buttons, &touches) {
-        let game_view_position = active_pointer_position(primary_window, &touches)
-            .and_then(|pointer_position| window_pointer_to_game_view(pointer_position, window_size))
+        let game_scene_position = active_pointer_position(primary_window, &touches)
+            .and_then(|pointer_position| window_pointer_to_game_scene(pointer_position, window_size))
             .or_else(|| {
                 gesture_model
                     .pointer
@@ -114,7 +114,7 @@ pub fn card_gesture_update_system(
             &mut fallback_selected_modal
         };
         handle_release(
-            game_view_position,
+            game_scene_position,
             &card_defaults,
             card_model_registry.as_deref(),
             game_hand_model.as_deref(),
@@ -155,7 +155,7 @@ pub fn drop_target_hint_update_system(
         game_hand_model.as_deref(),
         game_round_model.as_deref(),
     );
-    let should_show = *active_view == ActiveView::GameView
+    let should_show = *active_view == ActiveView::GameScene
         && gesture_model.state == CardGestureState::Dragging
         && !selected_modal.blocks_lower_interactions()
         && can_pay_for_dragged_card;
@@ -196,19 +196,19 @@ fn handle_press(
         return;
     }
 
-    let Some(game_view_position) = window_pointer_to_game_view(pointer_position, window_size)
+    let Some(game_scene_position) = window_pointer_to_game_scene(pointer_position, window_size)
     else {
         return;
     };
 
     let hand_visual_count = card_states.indices_with_state(CardState::Hand).len();
     let Some(hand_index) =
-        game_view_card_index_at_for_count(pointer_position, window_size, hand_visual_count)
+        game_scene_card_index_at_for_count(pointer_position, window_size, hand_visual_count)
             .and_then(|order_index| card_states.hand_index_at_order(order_index))
             .or_else(|| {
                 slot_board.slots().find_map(|slot| {
                     if slot.side != CardSlotSide::LocalPlayer
-                        || !slot.rect.contains(game_view_position)
+                        || !slot.rect.contains(game_scene_position)
                     {
                         return None;
                     }
@@ -238,7 +238,7 @@ fn handle_press(
                 slot_board,
                 card_defaults,
             );
-            (source_transform, game_view_position)
+            (source_transform, game_scene_position)
         } else {
             return;
         }
@@ -253,7 +253,7 @@ fn handle_press(
         let source_transform =
             hand_source_transform(order_index, hand_indices.len(), card_defaults);
         let Some((card_min, card_max)) =
-            super::game_view_card_hitboxes_for_count(hand_indices.len())
+            super::game_scene_card_hitboxes_for_count(hand_indices.len())
                 .get(order_index)
                 .copied()
         else {
@@ -263,14 +263,14 @@ fn handle_press(
     };
     gesture_model.press(
         hand_index,
-        game_view_position,
+        game_scene_position,
         card_center,
         source_transform,
     );
 }
 
 fn handle_move(
-    game_view_position: Vec2,
+    game_scene_position: Vec2,
     card_defaults: &CardInspectionDefaults,
     _card_model_registry: Option<&CardModelRegistry>,
     _game_hand_model: Option<&GameHandModel>,
@@ -279,7 +279,7 @@ fn handle_move(
     card_states: &mut CardStateModel,
 ) {
     let started_drag =
-        gesture_model.update_pointer(game_view_position, CARD_GESTURE_DRAG_THRESHOLD);
+        gesture_model.update_pointer(game_scene_position, CARD_GESTURE_DRAG_THRESHOLD);
     if started_drag && let Some(hand_index) = gesture_model.active_hand_index {
         if !card_states.is_draggable(hand_index) {
             gesture_model.return_to_source();
@@ -360,7 +360,7 @@ fn dragged_card_drop_location_index(
     card_defaults: &CardInspectionDefaults,
     slot_board: &CardSlotBoardModel,
 ) -> Option<usize> {
-    let card_rect = dragged_card_game_view_rect(gesture_model, card_defaults)?;
+    let card_rect = dragged_card_game_scene_rect(gesture_model, card_defaults)?;
     let card_area = card_rect.width * card_rect.height;
     if card_area <= 0.0 {
         return None;
@@ -384,15 +384,15 @@ fn dragged_card_drop_location_index(
         .map(|(location_index, _)| location_index)
 }
 
-fn dragged_card_game_view_rect(
+fn dragged_card_game_scene_rect(
     gesture_model: &CardGestureModel,
     card_defaults: &CardInspectionDefaults,
 ) -> Option<CardSlotRect> {
     let pointer = gesture_model.pointer?;
     let source_transform = gesture_model.source_transform?;
-    let source_game_view_height = card_defaults.height * source_transform.scale.y
-        / super::game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
-    let height = source_game_view_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER;
+    let source_game_scene_height = card_defaults.height * source_transform.scale.y
+        / super::game_scene_world_height_for_game_scene_height(1.0, source_transform.translation.z);
+    let height = source_game_scene_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER;
     let width = height * (card_defaults.width / card_defaults.height);
     let center = pointer.current_card_center();
 
@@ -416,7 +416,7 @@ fn rect_overlap_area(left: CardSlotRect, right: CardSlotRect) -> f32 {
 }
 
 fn handle_release(
-    game_view_position: Option<Vec2>,
+    game_scene_position: Option<Vec2>,
     card_defaults: &CardInspectionDefaults,
     card_model_registry: Option<&CardModelRegistry>,
     game_hand_model: Option<&GameHandModel>,
@@ -447,16 +447,16 @@ fn handle_release(
                 gesture_model.return_to_source();
                 return;
             };
-            let Some(game_view_position) = game_view_position else {
+            let Some(game_scene_position) = game_scene_position else {
                 gesture_model.return_to_source();
                 card_states.return_to_hand(hand_index);
                 return;
             };
             if card_states.state(hand_index) == Some(CardState::Location)
-                && hand_area_contains(game_view_position)
+                && hand_area_contains(game_scene_position)
             {
                 let hand_count = card_states.indices_with_state(CardState::Hand).len();
-                let insertion_index = hand_insertion_index(game_view_position, hand_count);
+                let insertion_index = hand_insertion_index(game_scene_position, hand_count);
                 if let Some(game_round_model) = game_round_model.as_deref_mut()
                     && let Some(record) = game_round_model.remove_move_for_hand_index(hand_index)
                 {
@@ -471,10 +471,10 @@ fn handle_release(
                 return;
             }
             if card_states.state(hand_index) == Some(CardState::Dragging)
-                && hand_area_contains(game_view_position)
+                && hand_area_contains(game_scene_position)
             {
                 let hand_count = card_states.indices_with_state(CardState::Hand).len();
-                let insertion_index = hand_insertion_index(game_view_position, hand_count);
+                let insertion_index = hand_insertion_index(game_scene_position, hand_count);
                 card_states.return_to_hand_at_order(hand_index, insertion_index);
                 gesture_model.return_to_hand_transform(
                     hand_index,
@@ -584,13 +584,13 @@ fn card_entity_and_current_transform_for_hand_index(
         })
 }
 
-fn hand_area_contains(game_view_position: Vec2) -> bool {
-    let min = super::game_view_hand_area_min();
-    let max = min + super::game_view_hand_area_size();
-    game_view_position.x >= min.x
-        && game_view_position.x <= max.x
-        && game_view_position.y >= min.y
-        && game_view_position.y <= max.y
+fn hand_area_contains(game_scene_position: Vec2) -> bool {
+    let min = super::game_scene_hand_area_min();
+    let max = min + super::game_scene_hand_area_size();
+    game_scene_position.x >= min.x
+        && game_scene_position.x <= max.x
+        && game_scene_position.y >= min.y
+        && game_scene_position.y <= max.y
 }
 
 fn pointer_just_released(mouse_buttons: &ButtonInput<MouseButton>, touches: &Touches) -> bool {

@@ -52,4 +52,4 @@
 | Asset audit | CardFront assets resolve through CardType/CardDefinition paths and CardBack resolves through shared CardStructure/card-series ownership |
 | Art-direction audit | CardBack is abstract superhero-pattern card back art and not words, logos, characters, or future box/menu art |
 | Scope audit | No gameplay, tabletop placement, final menus, collection UI, deck browsing, or multi-card layout introduced |
-| UI audit | Card UI remains temporary and separate from DebugHUD; DeckBuilder remains prototype entry point only |
+| UI audit | Card UI remains temporary and separate from DebugHUD; Deck remains prototype entry point only |

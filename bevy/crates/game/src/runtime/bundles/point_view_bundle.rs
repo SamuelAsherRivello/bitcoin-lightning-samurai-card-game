@@ -7,7 +7,7 @@ use crate::runtime::resources::{CostPointModel, PowerPointModel};
 pub const POINT_VIEW_BASE_TEXT_FONT_SIZE: f32 = 168.0;
 pub const POINT_VIEW_BUNDLE_FONT: GameFont = POINT_VIEW_FONT;
 
-/// HUMAN: Shared semantic type for point badges rendered in GameView and deck cards.
+/// HUMAN: Shared semantic type for point badges rendered in GameScene and deck cards.
 /// AI: Every badge value and color decision now routes through this type family.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PointType {

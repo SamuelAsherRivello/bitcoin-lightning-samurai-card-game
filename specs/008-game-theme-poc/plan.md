@@ -7,7 +7,7 @@
 
 ## Summary
 
-Permanently replace the existing game-scene card lineup and world background with a Japan Realism tactical theme proof-of-concept. The implementation will extend the existing Bevy ECS runtime rather than adding a parallel UI stack: new card/world/location assets live under `bevy/crates/game/assets`, card identities replace the current SkyBolt/Tar registry entries, the game scene displays all four POC cards along the bottom, `T` cycles Bamboo Forest and Coastal Harbor worlds in the game scene, card clicks open the existing Deck Builder focused on the clicked card, and CardUI settings remain global while flip state stays temporary.
+Permanently replace the existing game-scene card lineup and world background with a Japan Realism tactical theme proof-of-concept. The implementation will extend the existing Bevy ECS runtime rather than adding a parallel UI stack: new card/world/location assets live under `bevy/crates/game/assets`, card identities replace the current SkyBolt/Tar registry entries, the game scene displays all four POC cards along the bottom, `T` cycles Bamboo Forest and Coastal Harbor worlds in the game scene, card clicks open the existing Deck focused on the clicked card, and CardUI settings remain global while flip state stays temporary.
 
 ## Technical Context
 
@@ -17,9 +17,9 @@ Permanently replace the existing game-scene card lineup and world background wit
 **Testing**: `scripts/other/RunTests.ps1`, plus `scripts/other/RunAppDesktop.ps1 -CheckOnly` and `scripts/other/RunAppWeb.ps1 -CheckOnly` for target checks  
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime in the existing Cargo workspace  
-**Performance Goals**: Game scene and Deck Builder remain responsive during card tilt, flip animation, world swaps, and card navigation; asset count remains bounded to the four cards, two worlds, and six reusable tactical locations  
+**Performance Goals**: Game scene and Deck remain responsive during card tilt, flip animation, world swaps, and card navigation; asset count remains bounded to the four cards, two worlds, and six reusable tactical locations  
 **Constraints**: Use lowercase `snake_case` paths under `bevy/`; keep runtime assets under `bevy/crates/game/assets`; preserve the existing scene and ECS role boundaries; create new art for the 008 theme; permanently replace pre-008 card/world visuals; keep CardUI settings separate from world theme; do not persist card flip state  
-**Scale/Scope**: Four bottom cards, two world backgrounds, six reusable location identities, three visible locations per world swap, one focused Deck Builder card at a time
+**Scale/Scope**: Four bottom cards, two world backgrounds, six reusable location identities, three visible locations per world swap, one focused Deck card at a time
 
 ## Constitution Check
 
@@ -30,7 +30,7 @@ Permanently replace the existing game-scene card lineup and world background wit
 | Active spec, constitution, and repo-local guidance followed | PASS | Plan uses `specs/008-game-theme-poc/spec.md`, AGENTS guidance, and `.codex/rules/bevy-runtime-structure.md`. |
 | Source, assets, scripts, docs, and tests stay in defined locations | PASS | Runtime changes stay under `bevy/crates/game`; assets stay under `bevy/crates/game/assets`; verification uses `scripts/`. |
 | Rust workspace paths use lowercase conventions | PASS | New asset directories use lowercase names such as `card_type_kage_ren` and `worlds/bamboo_forest`. |
-| Visible feedback preserved | PASS | Feature does not change template loading/database workflows; Deck Builder scene transitions remain visibly immediate. |
+| Visible feedback preserved | PASS | Feature does not change template loading/database workflows; Deck scene transitions remain visibly immediate. |
 | Browser build constraints preserved | PASS | No browser SQLite, OPFS worker, or unrelated storage changes are introduced. |
 | Native database setup preserved | PASS | Feature does not touch database setup. |
 | Browser-visible verification path exists | PASS | Use `scripts/other/RunAppWeb.ps1 -CheckOnly`; full browser smoke remains a Phase 2 verification task. |

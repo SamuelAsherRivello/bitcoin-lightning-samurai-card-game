@@ -5,7 +5,7 @@
 
 ## Summary
 
-Introduce two-player GameView state with a user-facing mode button, final `Status:` text above that mode button, per-player controllers, independent 12-card copies of the same master deck, per-player hands/readiness, hidden CPU Brain controllers for CPU players, hidden current-round placements, end-of-round reveal, top and bottom location slots, CPU-vs-CPU autoplay from round `1/6` through final winner status, and final three-location winner resolution after round `6/6`. The implementation should extend the current Bevy ECS runtime models (`GameRoundModel`, `GameDeckModel`, `GameHandModel`, `CardSlotBoardModel`, `PointModel`) rather than create a parallel gameplay stack.
+Introduce two-player GameScene state with a user-facing mode button, final `Status:` text above that mode button, per-player controllers, independent 12-card copies of the same master deck, per-player hands/readiness, hidden CPU Brain controllers for CPU players, hidden current-round placements, end-of-round reveal, top and bottom location slots, CPU-vs-CPU autoplay from round `1/6` through final winner status, and final three-location winner resolution after round `6/6`. The implementation should extend the current Bevy ECS runtime models (`GameRoundModel`, `GameDeckModel`, `GameHandModel`, `CardSlotBoardModel`, `PointModel`) rather than create a parallel gameplay stack.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@ Introduce two-player GameView state with a user-facing mode button, final `Statu
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime within `bevy/crates/game`  
 **Performance Goals**: CPU Brain moves and readiness decisions are paced by 0.5 to 1 second delays; seeded CPU Brain tests are deterministic; human rounds have no timer  
-**Constraints**: Keep CPU Brain hidden from user-facing labels; use existing labels `Human versus CPU` and `CPU versus CPU`; keep GameView controls and card slots inside the aspect-ratio-safe HUD/game view; keep CPU-owned cards passive to mouse hover, drag affordance, and cursor-facing rotation effects  
+**Constraints**: Keep CPU Brain hidden from user-facing labels; use existing labels `Human versus CPU` and `CPU versus CPU`; keep GameScene controls and card slots inside the aspect-ratio-safe HUD/game view; keep CPU-owned cards passive to mouse hover, drag affordance, and cursor-facing rotation effects  
 **Scale/Scope**: Exactly two players, exactly two modes, exactly one controller per player (`PlayerController` or `CpuController`), exactly one CPU Brain level (`CpuBrainLevel = 1`), three shared locations, six-round match flow, current-round placement reveal at end of round
 
 ## Constitution Check
@@ -32,12 +32,12 @@ Introduce two-player GameView state with a user-facing mode button, final `Statu
 | One primary runtime concept per changed file | ✅ | New model files should separate match mode, player match state, CPU Brain, and winner state if added. |
 | HUMAN/AI purpose comments | ✅ | Required for all new or changed primary runtime items. |
 | Runtime system function names | ✅ | Planned systems use names such as `cpu_brain_update_system`, `game_control_update_system`, and `match_resolution_update_system`. |
-| Scene/Model/View naming | ✅ | This feature extends GameView and runtime models; no new Scene is planned. |
+| Scene/Model/View naming | ✅ | This feature extends GameScene and runtime models; no new Scene is planned. |
 | Theme asset organization | ✅ | No theme-owned assets are introduced. |
-| Visible feedback | ✅ | Mode, readiness, and winner states are visible through GameView controls/result presentation, including final `Status:` text above Mode; CPU Brain internals remain hidden. |
+| Visible feedback | ✅ | Mode, readiness, and winner states are visible through GameScene controls/result presentation, including final `Status:` text above Mode; CPU Brain internals remain hidden. |
 | Browser localStorage / native DB constraints | ✅ | No schema, database, browser SQLite, or OPFS change. |
 | Browser-visible verification path | ✅ | Use project scripts after implementation; document any browser verification blocker. |
-| Aspect-ratio-safe layout | ✅ | Mode button, Restart, Undo, and top/bottom slots must derive from the safe GameView/HUD layout. |
+| Aspect-ratio-safe layout | ✅ | Mode button, Restart, Undo, and top/bottom slots must derive from the safe GameScene/HUD layout. |
 | Framework constraints documented | ✅ | Bevy ECS state and system ordering risks are captured below. |
 
 ## Project Structure
@@ -108,14 +108,14 @@ Design artifacts are complete:
 | Artifact | Purpose |
 | -------- | ------- |
 | [data-model.md](./data-model.md) | Defines match mode, player controllers, CPU Brain knowledge, placement visibility, readiness, slots, scoring, and transitions. |
-| [contracts/gameview-opponent-ui.md](./contracts/gameview-opponent-ui.md) | Defines user-facing GameView mode/readiness/winner UI contract. |
+| [contracts/gameview-opponent-ui.md](./contracts/gameview-opponent-ui.md) | Defines user-facing GameScene mode/readiness/winner UI contract. |
 | [quickstart.md](./quickstart.md) | Defines verification workflow and expected behavior. |
 
 ## Implementation Approach
 
 | Area | Plan |
 | ---- | ---- |
-| Mode control | Add `GameControlAction::Mode` and update GameView control spawning so Mode appears above Restart with `Mode:` plus the active label, with final `Status:` text above Mode. |
+| Mode control | Add `GameControlAction::Mode` and update GameScene control spawning so Mode appears above Restart with `Mode:` plus the active label, with final `Status:` text above Mode. |
 | Mode persistence | Load the saved selected mode at startup, default to `Human versus CPU` when absent, and save the selected mode to disk whenever the player changes it. |
 | Player state | Replace or wrap single near-player deck/hand/readiness state with a two-player transient match model where each player starts from an independent copy of the same 12-card master deck. |
 | Controllers | Route human input and CPU choices through `PlayerController` and `CpuController` into shared game logic rather than separate rule paths. |
@@ -133,7 +133,7 @@ Design artifacts are complete:
 | ----- | ------ | ----- |
 | Source remains scoped | ✅ | Planned files are all under `bevy/crates/game/src/runtime` and tests under `bevy/crates/game/src/tests/runtime`. |
 | Desktop/browser parity addressed | ✅ | No platform-specific runtime dependency; browser verification remains required after implementation. |
-| Aspect-ratio-safe layout addressed | ✅ | Mode button and top/bottom slots must use existing safe-area GameView layout constants/models. |
+| Aspect-ratio-safe layout addressed | ✅ | Mode button and top/bottom slots must use existing safe-area GameScene layout constants/models. |
 | Data changes explicit | ✅ | Selected mode persistence is explicit; no destructive data changes are planned. |
 | Framework constraints recorded | ✅ | Bevy ECS scheduling/order risks documented in research and implementation approach. |
 

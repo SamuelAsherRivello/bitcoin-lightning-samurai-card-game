@@ -2,7 +2,7 @@
 
 ## Decision: Use an explicit selectable affordance
 
-**Rationale**: Existing `CardStateModel::is_selectable()` covers only local hand and local placed cards by `hand_index`. Feature 017 needs the concept to apply to CPU, near/far player, hand/location cards, and screens beyond the current local `GameView` gesture path. An explicit affordance such as `CardInputAffordance::Selectable` or a `SelectableCard` component makes eligibility clear at the rendered-card boundary.
+**Rationale**: Existing `CardStateModel::is_selectable()` covers only local hand and local placed cards by `hand_index`. Feature 017 needs the concept to apply to CPU, near/far player, hand/location cards, and screens beyond the current local `GameScene` gesture path. An explicit affordance such as `CardInputAffordance::Selectable` or a `SelectableCard` component makes eligibility clear at the rendered-card boundary.
 
 **Alternatives considered**: Reuse `CardStateModel::is_selectable()` only. Rejected because it does not identify CPU/far-player cards or screen-wide rendered card entities.
 

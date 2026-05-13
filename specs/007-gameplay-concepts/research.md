@@ -2,7 +2,7 @@
 
 ## Decision: Model Round State As Runtime Resources
 
-**Rationale**: The feature is a local gameplay prototype with restart semantics, no persistence, and state that must be shared by GameView UI, card gestures, deal animation, and tests. Bevy resources are the project-local pattern for runtime models such as card gesture and slot state.
+**Rationale**: The feature is a local gameplay prototype with restart semantics, no persistence, and state that must be shared by GameScene UI, card gestures, deal animation, and tests. Bevy resources are the project-local pattern for runtime models such as card gesture and slot state.
 
 **Alternatives considered**: Components on a singleton entity would work but add lookup overhead and less direct test setup. Persistent storage was rejected because the spec requires Restart to clear state and does not define save/resume behavior.
 
@@ -20,7 +20,7 @@
 
 ## Decision: Deal, Hand, Undo, And Restart Share One Hand Layout Rule
 
-**Rationale**: The spec requires dealt cards to line up to the right of existing cards while the group remains centered, and also requires recentering after undo. A single hand layout helper should calculate positions from active hand-card count and the aspect-ratio-safe GameView.
+**Rationale**: The spec requires dealt cards to line up to the right of existing cards while the group remains centered, and also requires recentering after undo. A single hand layout helper should calculate positions from active hand-card count and the aspect-ratio-safe GameScene.
 
 **Alternatives considered**: Separate layout paths for deal and undo would risk drift. Raw window pixel placement conflicts with the constitution's aspect-ratio-safe layout requirement.
 

@@ -5,7 +5,7 @@
 
 ## Summary
 
-Extend the current `GameView` from a static gameplay-facing scene into a local six-round play loop. The implementation should preserve the persistent `AppScene` and current `GameView` layout, keep the lower-right End Round button, add lower-left Restart and energy-aware Undo controls, introduce runtime models for the near player's 12-card deck, start-of-round deck-to-hand dealing on every round, hand, round energy, current-round move history, restart state, same-round placed-card mobility, locked prior-round placed cards, and three open/closed locations with text and effective-energy abilities, and integrate those models with existing card gesture placement so energy, undo, manual return-to-hand, location effects, and hand recentering stay deterministic.
+Extend the current `GameScene` from a static gameplay-facing scene into a local six-round play loop. The implementation should preserve the persistent `AppScene` and current `GameScene` layout, keep the lower-right End Round button, add lower-left Restart and energy-aware Undo controls, introduce runtime models for the near player's 12-card deck, start-of-round deck-to-hand dealing on every round, hand, round energy, current-round move history, restart state, same-round placed-card mobility, locked prior-round placed cards, and three open/closed locations with text and effective-energy abilities, and integrate those models with existing card gesture placement so energy, undo, manual return-to-hand, location effects, and hand recentering stay deterministic.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Extend the current `GameView` from a static gameplay-facing scene into a local s
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Frame-cheap over a fixed local loop: 12 deck cards, ordered deck-to-hand deal selection over remaining cards, 9 dealt cards with the initial deck across rounds 1 through 6, 3 locations, and 12 local placement slots |
-| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; use `bevy/crates/template-crate` as the local reference; derive visible 2D and 3D positions from the aspect-ratio-safe `GameView`; keep `AppScene` persistent; preserve `DeckBuilderScene`; do not implement CPU rounds, scoring, card abilities, full location ownership, or additional location ability types beyond the defined effective-energy modifiers |
+| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; use `bevy/crates/template-crate` as the local reference; derive visible 2D and 3D positions from the aspect-ratio-safe `GameScene`; keep `AppScene` persistent; preserve `DeckScene`; do not implement CPU rounds, scoring, card abilities, full location ownership, or additional location ability types beyond the defined effective-energy modifiers |
 | Scale/Scope | One near human player, one randomized 12-card deck, six rounds, fixed requested deal and energy schedules, deck-to-hand dealing at the start of every round 1 through 6 without energy-match gating, current-round undo, manual return-to-hand for cards placed this round, prior-round placed-card lock, restart, three open/closed locations, Fortress Gate and Bamboo Crossing effective-energy modifiers, and existing local hand-to-location gesture path |
 
 ## Constitution Check
@@ -32,11 +32,11 @@ Extend the current `GameView` from a static gameplay-facing scene into a local s
 | One primary runtime concept per file | ✅ | Planned files separate round/deck/hand models, UI controls, and round update systems |
 | Required `HUMAN:` and `AI:` comments | ✅ | Any changed or new primary runtime item must include the two-line purpose comment immediately above the item |
 | Runtime system naming | ✅ | New systems should use names such as `game_round_update_system`, `game_deck_deal_system`, `game_undo_update_system`, and `game_restart_update_system` |
-| Scene/Model/View naming | ✅ | Runtime state uses `Model`; presentation and control surfaces use `View`; `GameView` remains the active gameplay presentation under `AppScene` |
+| Scene/Model/View naming | ✅ | Runtime state uses `Model`; presentation and control surfaces use `View`; `GameScene` remains the active gameplay presentation under `AppScene` |
 | Theme asset organization | ✅ | No new theme-owned assets are required; existing world/location/card assets stay where already defined |
 | Visible user feedback | ✅ | Card deal animation at the start of every round, energy text, disabled Undo state, hand recentering, hand insertion gap shifts, location open/closed text, location ability text, locked placed-card behavior, and restart state provide visible feedback |
 | Desktop and browser WebGPU parity | ✅ | Quickstart includes desktop and browser verification paths; unsupported target blockers must be documented if encountered |
-| Aspect-ratio-safe layout | ✅ | Lower-left controls, lower-right End Round, hand cards, and deal origins derive from the aspect-ratio-safe `GameView` |
+| Aspect-ratio-safe layout | ✅ | Lower-left controls, lower-right End Round, hand cards, and deal origins derive from the aspect-ratio-safe `GameScene` |
 | Framework-specific constraints documented | ✅ | Bevy UI, pointer gestures, resource-driven runtime state, and animation ownership are documented in research |
 
 ## Project Structure
@@ -63,7 +63,7 @@ bevy/crates/game/src/runtime/
 │   └── game_round_model.rs
 ├── scenes/
 │   ├── mod.rs
-│   └── game_view_scene.rs
+│   └── game_scene_scene.rs
 ├── systems/
 │   ├── mod.rs
 │   ├── game_deck_deal_system.rs
@@ -81,7 +81,7 @@ scripts/
     └── RunTests.ps1
 ```
 
-**Structure Decision**: Keep the work inside the existing game crate because the feature depends on `GameView`, runtime resources, Bevy UI controls, hand card transforms, location presentation, and existing gesture placement. Add focused runtime models for deck/hand/round/location state and focused systems for ordered deck-to-hand deal selection, round advancement, open-location effective-energy effects, undo, manual current-round return-to-hand, placed-card locking, and restart. Extend the existing `game_view_scene.rs` setup path instead of creating a new scene.
+**Structure Decision**: Keep the work inside the existing game crate because the feature depends on `GameScene`, runtime resources, Bevy UI controls, hand card transforms, location presentation, and existing gesture placement. Add focused runtime models for deck/hand/round/location state and focused systems for ordered deck-to-hand deal selection, round advancement, open-location effective-energy effects, undo, manual current-round return-to-hand, placed-card locking, and restart. Extend the existing `game_scene_scene.rs` setup path instead of creating a new scene.
 
 ## Complexity Tracking
 

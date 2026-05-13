@@ -9,7 +9,7 @@
 | Card is dragged, returning, moving, dealing, revealing, or flipping | ❌ |
 | Card belongs to human/local player | Optional |
 | Card belongs to CPU/far/near player | Optional |
-| Card is on GameView only | ❌ |
+| Card is on GameScene only | ❌ |
 
 ## Pointer Contract
 
@@ -25,7 +25,7 @@
 
 | Element | Render Rule |
 | --- | --- |
-| Selected card | Centered in aspect-ratio-safe GameView and rendered above modal backdrop and lower point overlays. |
+| Selected card | Centered in aspect-ratio-safe GameScene and rendered above modal backdrop and lower point overlays. |
 | Modal background | Fullscreen black, opacity animates 0.0 to 0.5 over 0.5 seconds. |
 | Non-selected scene/cards/UI behind modal | Darkened and blocked while modal is active. |
 | Non-selected card point text | Hidden, depth-ordered behind, or otherwise prevented from rendering on top of selected card. |

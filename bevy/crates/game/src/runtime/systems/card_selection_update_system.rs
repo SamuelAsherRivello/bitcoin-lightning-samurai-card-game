@@ -5,7 +5,7 @@ use bevy::{
 
 use crate::runtime::components::{
     CardSelectionSource, CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardView,
-    DebugSettingsSceneEntity, DeckBuilderSceneEntity, GameViewEntity, HandCardGestureTarget,
+    DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget,
     SelectableCard,
 };
 use crate::runtime::resources::{
@@ -14,23 +14,23 @@ use crate::runtime::resources::{
 };
 
 use super::{
-    active_pointer_position, is_deck_builder_card_hit, just_pressed_pointer_position,
+    active_pointer_position, is_deck_card_hit, just_pressed_pointer_position,
     selected_inspection_transform,
 };
 
 type GameCardCameraFilter = (
     With<crate::runtime::components::PrimaryViewCamera>,
-    With<crate::runtime::components::GameViewEntity>,
+    With<crate::runtime::components::GameSceneEntity>,
     With<Camera3d>,
 );
 type DeckCardCameraFilter = (
     With<crate::runtime::components::PrimaryViewCamera>,
-    With<DeckBuilderSceneEntity>,
+    With<DeckSceneEntity>,
     With<Camera3d>,
 );
 type DebugCardCameraFilter = (
     With<crate::runtime::components::PrimaryViewCamera>,
-    With<DebugSettingsSceneEntity>,
+    With<DebugSceneEntity>,
     With<Camera3d>,
 );
 
@@ -61,9 +61,9 @@ pub fn card_selection_update_system(
             Option<&CpuPlacedCardView>,
             Option<&CpuPlacedCardAnimation>,
             Option<&HandCardGestureTarget>,
-            Option<&GameViewEntity>,
-            Option<&DeckBuilderSceneEntity>,
-            Option<&DebugSettingsSceneEntity>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
             Option<&ChildOf>,
         ),
         With<CardView>,
@@ -138,9 +138,9 @@ fn top_selectable_card_at_pointer(
             Option<&CpuPlacedCardView>,
             Option<&CpuPlacedCardAnimation>,
             Option<&HandCardGestureTarget>,
-            Option<&GameViewEntity>,
-            Option<&DeckBuilderSceneEntity>,
-            Option<&DebugSettingsSceneEntity>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
             Option<&ChildOf>,
         ),
         With<CardView>,
@@ -158,17 +158,17 @@ fn top_selectable_card_at_pointer(
                 cpu_placed,
                 animation,
                 _local_target,
-                game_view,
-                deck_builder,
-                debug_settings,
+                game_scene,
+                deck,
+                debug,
                 _child_of,
             )| {
                 selection_source_matches_view(
                     selectable.source,
                     active_view,
-                    *game_view,
-                    *deck_builder,
-                    *debug_settings,
+                    *game_scene,
+                    *deck,
+                    *debug,
                 ) && selectable.is_stationary()
                     && selectable_card_motion_allows_selection(selectable.source, *animation)
                     && selectable_card_front_is_visible(
@@ -216,9 +216,9 @@ fn selectable_card_selection_transforms(
             Option<&CpuPlacedCardView>,
             Option<&CpuPlacedCardAnimation>,
             Option<&HandCardGestureTarget>,
-            Option<&GameViewEntity>,
-            Option<&DeckBuilderSceneEntity>,
-            Option<&DebugSettingsSceneEntity>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
             Option<&ChildOf>,
         ),
         With<CardView>,
@@ -261,27 +261,27 @@ fn selectable_card_contains_pointer(
     card_defaults: &CardInspectionDefaults,
 ) -> bool {
     match active_view {
-        ActiveView::GameView => {
+        ActiveView::GameScene => {
             let camera_query = camera_queries.p0();
-            is_deck_builder_card_hit(
+            is_deck_card_hit(
                 pointer_position,
                 camera_query.iter().next(),
                 Some(global_transform),
                 card_defaults,
             )
         }
-        ActiveView::DeckBuilderScene => {
+        ActiveView::DeckScene => {
             let camera_query = camera_queries.p1();
-            is_deck_builder_card_hit(
+            is_deck_card_hit(
                 pointer_position,
                 camera_query.iter().next(),
                 Some(global_transform),
                 card_defaults,
             )
         }
-        ActiveView::DebugSettingsScene => {
+        ActiveView::DebugScene => {
             let camera_query = camera_queries.p2();
-            is_deck_builder_card_hit(
+            is_deck_card_hit(
                 pointer_position,
                 camera_query.iter().next(),
                 Some(global_transform),
@@ -294,20 +294,20 @@ fn selectable_card_contains_pointer(
 fn selection_source_matches_view(
     source: CardSelectionSource,
     active_view: ActiveView,
-    game_view: Option<&GameViewEntity>,
-    deck_builder: Option<&DeckBuilderSceneEntity>,
-    debug_settings: Option<&DebugSettingsSceneEntity>,
+    game_scene: Option<&GameSceneEntity>,
+    deck: Option<&DeckSceneEntity>,
+    debug: Option<&DebugSceneEntity>,
 ) -> bool {
     match source {
         CardSelectionSource::CardViewBundle => match active_view {
-            ActiveView::GameView => game_view.is_some(),
-            ActiveView::DeckBuilderScene => deck_builder.is_some(),
-            ActiveView::DebugSettingsScene => debug_settings.is_some(),
+            ActiveView::GameScene => game_scene.is_some(),
+            ActiveView::DeckScene => deck.is_some(),
+            ActiveView::DebugScene => debug.is_some(),
         },
         CardSelectionSource::LocalHand { .. }
         | CardSelectionSource::LocalLocation { .. }
         | CardSelectionSource::OpponentHand { .. }
-        | CardSelectionSource::OpponentLocation { .. } => active_view == ActiveView::GameView,
+        | CardSelectionSource::OpponentLocation { .. } => active_view == ActiveView::GameScene,
         CardSelectionSource::ScreenCard { view } => active_view == view,
     }
 }

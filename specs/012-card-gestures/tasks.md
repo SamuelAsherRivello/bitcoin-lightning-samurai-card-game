@@ -48,21 +48,21 @@
 
 ## Phase 3: User Story 1 - Inspect a Hand Card In Place (Priority: P1) MVP
 
-**Goal**: Clicking or tapping a local hand card selects it for in-game inspection instead of opening `DeckBuilderScene`, while the existing Deck Builder view implementation remains unchanged.
+**Goal**: Clicking or tapping a local hand card selects it for in-game inspection instead of opening `DeckScene`, while the existing Deck view implementation remains unchanged.
 
-**Independent Test**: Click or tap a hand card in `GameView`; verify `GameView` remains active, the card animates to center inspection at approximately 90% safe visible height, clicking the selected card returns it to hand position, and no user-facing GameView gesture reaches the Deck Builder view.
+**Independent Test**: Click or tap a hand card in `GameScene`; verify `GameScene` remains active, the card animates to center inspection at approximately 90% safe visible height, clicking the selected card returns it to hand position, and no user-facing GameScene gesture reaches the Deck view.
 
 ### Tests for User Story 1
 
-- [X] T014 [P] [US1] Replace the `clicking_game_card_selects_in_game_without_opening_deck_builder` regression test with GameView in-place inspection and no DeckBuilderScene reachability expectations in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T014 [P] [US1] Replace the `clicking_game_card_selects_in_game_without_opening_deck` regression test with GameScene in-place inspection and no DeckScene reachability expectations in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T015 [P] [US1] Add selected-card source/return transition tests in `bevy/crates/game/src/runtime/resources/card_gesture_model.rs`
 - [X] T016 [P] [US1] Add selected-inspection transform target tests for safe-height sizing in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 
 ### Implementation for User Story 1
 
-- [X] T017 [US1] Change GameView hand-card click handling so it selects `CardGestureModel` instead of setting `ActiveView::DeckBuilderScene` in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [X] T018 [US1] Remove GameView hand-to-DeckBuilderScene navigation without modifying DeckBuilderScene scene setup or behavior in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [X] T019 [US1] Implement selected-inspection tween target calculation matching DeckBuilderScene center pose in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
+- [X] T017 [US1] Change GameScene hand-card click handling so it selects `CardGestureModel` instead of setting `ActiveView::DeckScene` in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T018 [US1] Remove GameScene hand-to-DeckScene navigation without modifying DeckScene scene setup or behavior in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T019 [US1] Implement selected-inspection tween target calculation matching DeckScene center pose in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T020 [US1] Apply selected-card and return tweens to `CardGestureView` entities in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T021 [US1] Mark spawned local hand card previews with `HandCardGestureTarget` and `CardGestureView` in `bevy/crates/game/src/runtime/systems/mod.rs`
 
@@ -84,7 +84,7 @@
 ### Implementation for User Story 2
 
 - [X] T024 [US2] Implement pointer press, move, release, and cancel handling in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
-- [X] T025 [US2] Calculate drag threshold from aspect-ratio-safe GameView units in `bevy/crates/game/src/runtime/resources/card_gesture_model.rs`
+- [X] T025 [US2] Calculate drag threshold from aspect-ratio-safe GameScene units in `bevy/crates/game/src/runtime/resources/card_gesture_model.rs`
 - [X] T026 [US2] Update drag preview transform while preserving card aspect ratio in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T027 [US2] Ensure pointer/touch-compatible gesture inputs use the same model path in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 
@@ -106,7 +106,7 @@
 
 ### Implementation for User Story 3
 
-- [X] T031 [US3] Spawn or mark four local-player slot targets below each GameView location in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T031 [US3] Spawn or mark four local-player slot targets below each GameScene location in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T032 [US3] Implement empty local-slot hit-target resolution in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [X] T033 [US3] Implement card snap-to-slot tween target and slot-fit sizing in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T034 [US3] Mark a local-player slot populated after successful placement in `bevy/crates/game/src/runtime/resources/card_slot_model.rs`
@@ -130,7 +130,7 @@
 
 ### Implementation for User Story 4
 
-- [X] T039 [US4] Spawn or mark opponent-side slot targets above each GameView location as non-local targets in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T039 [US4] Spawn or mark opponent-side slot targets above each GameScene location as non-local targets in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T040 [US4] Reject opponent-side, populated-slot, and no-slot drop targets in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [X] T041 [US4] Animate invalid-drop return to source position and source size in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T042 [US4] Preserve slot occupancy and hand source state after invalid drops in `bevy/crates/game/src/runtime/resources/card_slot_model.rs`
@@ -147,7 +147,7 @@
 - [X] T044 Run desktop gesture verification from `specs/012-card-gestures/quickstart.md`
 - [X] T045 Run browser WebGPU gesture verification from `specs/012-card-gestures/quickstart.md` or document the exact blocker in `specs/012-card-gestures/quickstart.md`
 - [X] T046 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` purpose comment standards in `bevy/crates/game/src/runtime/`
-- [X] T047 Update `specs/012-card-gestures/quickstart.md` with final verification notes, blocked target details, and confirmation that DeckBuilderScene remains unchanged
+- [X] T047 Update `specs/012-card-gestures/quickstart.md` with final verification notes, blocked target details, and confirmation that DeckScene remains unchanged
 
 ---
 
@@ -185,7 +185,7 @@
 
 | User Story | Dependency | Notes |
 | ---------- | ---------- | ----- |
-| US1 Inspect in place | Foundational only | MVP; removes current DeckBuilderScene navigation from GameView hand cards without editing the Deck Builder view |
+| US1 Inspect in place | Foundational only | MVP; removes current DeckScene navigation from GameScene hand cards without editing the Deck view |
 | US2 Click versus drag | Foundational only; must not regress US1 | Can be implemented after or alongside US1 once gesture model exists |
 | US3 Valid local placement | US2 drag path | Needs drag state and slot model |
 | US3 Same-round return exception | US3 placement plus gameplay round state | Allows only current-round placed cards to return to hand |
@@ -209,7 +209,7 @@
 ## Parallel Example: User Story 1
 
 ```text
-Task: "T014 [P] [US1] Replace the clicking_game_card_selects_in_game_without_opening_deck_builder regression test with GameView in-place inspection expectations in bevy/crates/game/src/runtime/systems/mod.rs"
+Task: "T014 [P] [US1] Replace the clicking_game_card_selects_in_game_without_opening_deck regression test with GameScene in-place inspection expectations in bevy/crates/game/src/runtime/systems/mod.rs"
 Task: "T015 [P] [US1] Add selected-card source/return transition tests in bevy/crates/game/src/runtime/resources/card_gesture_model.rs"
 Task: "T016 [P] [US1] Add selected-inspection transform target tests for safe-height sizing in bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs"
 ```
@@ -235,7 +235,7 @@ Task: "T030 [P] [US3] Add slot-fit aspect ratio tests in bevy/crates/game/src/ru
 
 ### Incremental Delivery
 
-1. Add US1 to remove disruptive GameView-to-DeckBuilderScene hand-card clicks while leaving the Deck Builder view implementation unchanged.
+1. Add US1 to remove disruptive GameScene-to-DeckScene hand-card clicks while leaving the Deck view implementation unchanged.
 2. Add US2 to reliably separate click/tap from drag.
 3. Add US3 to place cards into empty local slots.
 4. Add US4 to reject invalid targets.
@@ -254,7 +254,7 @@ Task: "T030 [P] [US3] Add slot-fit aspect ratio tests in bevy/crates/game/src/ru
 
 - `[P]` tasks use different files or independent test scopes.
 - `[US#]` labels map tasks to user stories for traceability.
-- Keep all visible layout derived from the aspect-ratio-safe `GameView`.
-- Do not modify the existing DeckBuilderScene implementation; after this feature, users simply have no GameView gesture path to reach it.
+- Keep all visible layout derived from the aspect-ratio-safe `GameScene`.
+- Do not modify the existing DeckScene implementation; after this feature, users simply have no GameScene gesture path to reach it.
 - Avoid adding energy, CPU placement, reveal rules, scoring resolution, or production mobile packaging in this feature; same-round placed-card mobility is the only round-aware exception in this gesture spec.
 

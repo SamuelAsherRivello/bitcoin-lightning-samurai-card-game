@@ -10,7 +10,7 @@ use bevy::ecs::system::RunSystemOnce;
 
 fn app_with_vms_resources() -> App {
     let mut app = App::new();
-    app.insert_resource(ActiveView::GameView)
+    app.insert_resource(ActiveView::GameScene)
         .insert_resource(CardSlotBoardModel::default())
         .insert_resource(GameLocationModel::default());
     app

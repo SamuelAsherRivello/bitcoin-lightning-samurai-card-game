@@ -42,7 +42,7 @@ When the user says "peek" at the app, running app, game, or desktop runtime, Cod
 | Discover BRP | POST `rpc.discover` to `http://localhost:15702` | Runtime methods are listed, including `bevy_debugger/screenshot`. |
 | Query available state | Use observational methods such as `world.list_resources`, `world.query`, or `registry.schema` | Codex reports only reflected runtime facts and clearly labels visual inferences. |
 | Capture screenshot | Call `bevy_debugger/screenshot` with a path under `target/ai-runtime-screenshots/` | A transient screenshot is saved for inspection. |
-| Inspect scene/view | Read DebugHUD text and visible layout from the screenshot | Report `AppScene` as always-present and the active view, such as `GameView`, separately. |
+| Inspect scene/view | Read DebugHUD text and visible layout from the screenshot | Report `AppScene` as always-present and the active view, such as `GameScene`, separately. |
 | Handle missing endpoint | If `localhost:15702` refuses connection | Report that `ai-runtime` is unavailable and ask the user to start an AI-enabled desktop run. |
 
 ## 4. Verify Browser QA Separately

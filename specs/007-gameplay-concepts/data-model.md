@@ -27,7 +27,7 @@ Represents one runtime copy of a card definition in the near player's deck, hand
 
 ## LocationDefinitionModel
 
-Represents static location text, open timing, and ability metadata for the three GameView locations.
+Represents static location text, open timing, and ability metadata for the three GameScene locations.
 
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
@@ -39,7 +39,7 @@ Represents static location text, open timing, and ability metadata for the three
 
 ## LocationModel
 
-Represents runtime state for one shared location in GameView.
+Represents runtime state for one shared location in GameScene.
 
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
@@ -96,7 +96,7 @@ Runtime hand state and layout source for visible local cards.
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
 | `cards` | ordered list of `CardInstanceModel` ids | Contains only cards whose zone is `Hand` |
-| `layout_center` | safe-view coordinate | Derived from aspect-ratio-safe GameView |
+| `layout_center` | safe-view coordinate | Derived from aspect-ratio-safe GameScene |
 | `layout_spacing` | safe-view distance | May allow more than four or five cards to exceed the hand area's width |
 
 ## GameRoundModel
@@ -131,7 +131,7 @@ Presentation state for lower-left and lower-right controls.
 
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
-| `restart_enabled` | boolean | Always true during GameView play |
+| `restart_enabled` | boolean | Always true during GameScene play |
 | `undo_enabled` | boolean | True only when current-round move history is non-empty |
 | `undo_label` | string | `Energy current/max` newline `Undo` |
 | `end_round_label` | string | Shows `End Round` and current round fraction |

@@ -13,7 +13,7 @@ Consolidate the already implemented one-card inspection, card polish, and card f
 | ---- | -------- |
 | Runtime | Bevy ECS card game under `bevy/crates/game` |
 | Shared systems | Window, camera, DebugHUD, inspector, and diagnostics stay under shared runtime ownership |
-| Primary scene language | `AppScene` persists; active presentations use views/scenes such as `GameView`, `DeckBuilderScene`, and `DebugSettingsScene` |
+| Primary scene language | `AppScene` persists; active presentations use views/scenes such as `GameScene`, `DeckScene`, and `DebugScene` |
 | Card presentation | CardStructure owns layer order, aperture, parallax, shine, shared back, and flip composition |
 | Artwork | CardType/CardDefinition entries provide replaceable front art |
 | Prototype UI | Card UI remains temporary and separate from DebugHUD |

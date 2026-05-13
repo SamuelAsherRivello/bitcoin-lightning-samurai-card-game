@@ -10,7 +10,7 @@ pub struct CurrentRoundMoveRecord {
     pub location_energy_delta: i32,
 }
 
-/// HUMAN: Runtime round and energy model for the active GameView loop.
+/// HUMAN: Runtime round and energy model for the active GameScene loop.
 /// AI: This is reset-only local state, not persisted deck data.
 #[derive(bevy::prelude::Resource, Clone, Debug, PartialEq)]
 pub struct GameRoundModel {

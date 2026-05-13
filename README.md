@@ -33,8 +33,8 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | --- | -------- |
 | `W` / `A` / `D` | DebugHUD hold indicators for directional input state. |
 | `R` | Reloads the active AppScene child view without restarting the app. |
-| `S` | Debug shortcut that cycles to the next scene: `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, then wraps back to `GameView`. |
-| `T` | In `GameView`, cycles the active world; in `DeckBuilderScene` or `DebugSettingsScene`, cycles global CardUI presentation settings. |
+| `S` | Debug shortcut that cycles to the next scene: `GameScene`, `DeckScene`, `DebugScene`, then wraps back to `GameScene`. |
+| `T` | In `GameScene`, cycles the active world; in `DeckScene` or `DebugScene`, cycles global CardUI presentation settings. |
 | `F` | Toggles fullscreen: Bevy fullscreen on desktop, browser Fullscreen API on web. |
 | `I` | Toggles the Bevy inspector window. |
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
@@ -117,9 +117,9 @@ Keep gameplay changes small and spec-driven. Reusable system-level behavior belo
 | Concept | Purpose |
 | ------- | ------- |
 | `AppScene` | Always-present app-level scene that owns persistent overlays such as DebugHUD. |
-| `GameView` | Gameplay sub-screen view loaded on top of `AppScene`. |
-| `DeckBuilderScene` | Focused Deck Builder sub-screen view loaded on top of `AppScene`. |
-| `DebugSettingsScene` | Debug settings sub-screen scene duplicated from `DeckBuilderScene`. |
+| `GameScene` | Gameplay sub-screen view loaded on top of `AppScene`. |
+| `DeckScene` | Focused Deck sub-screen view loaded on top of `AppScene`. |
+| `DebugScene` | Debug settings sub-screen scene duplicated from `DeckScene`. |
 | `CardModel` | Card data model containing identity, display text, presentation paths, and tuning data. |
 | `CardView` | Rendered card presentation created from one `CardModel`. |
 | `CardViewBundle` | Bevy bundle for the root visual entity of a rendered card view. |

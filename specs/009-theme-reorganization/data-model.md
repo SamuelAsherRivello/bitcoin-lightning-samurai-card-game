@@ -3,9 +3,9 @@
 | Entity | Fields | Relationships | Validation Rules |
 | ------ | ------ | ------------- | ---------------- |
 | `ThemeModel` | `id`, `root_path`, `display_name` | Owns card models, location models, and world models. | Current value is `theme_japan`; root path is `bevy/crates/game/assets/themes/theme_japan`; folder name uses lowercase `snake_case`. |
-| `AppScene` | `root_entity`, `active_view`, `persistent_ui_roots` | Always-present app-level scene that hosts one active sub-screen view. | Remains present while `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` is loaded on top. |
-| `GameView` | `world_view`, `location_views`, `card_views`, `hud_state` | Gameplay sub-screen presentation loaded on top of `AppScene`. | Renames the active gameplay sub-screen from `GameScene`; behavior remains unchanged. |
-| `DeckBuilderScene` | `active_card_model_id`, `card_view`, `card_ui_state`, `flip_state` | Deck Builder sub-screen presentation loaded on top of `AppScene`. | Renames the active deck builder sub-screen from `DeckBuilderScene`; behavior remains unchanged. |
+| `AppScene` | `root_entity`, `active_view`, `persistent_ui_roots` | Always-present app-level scene that hosts one active sub-screen view. | Remains present while `GameScene`, `DeckScene`, or `DebugScene` is loaded on top. |
+| `GameScene` | `world_view`, `location_views`, `card_views`, `hud_state` | Gameplay sub-screen presentation loaded on top of `AppScene`. | Renames the active gameplay sub-screen from `GameScene`; behavior remains unchanged. |
+| `DeckScene` | `active_card_model_id`, `card_view`, `card_ui_state`, `flip_state` | Deck sub-screen presentation loaded on top of `AppScene`. | Renames the active deck sub-screen from `DeckScene`; behavior remains unchanged. |
 | `CardModel` | `id`, `display_name`, `root_path`, `front_layers`, `back_texture`, `view_behavior` | Belongs to one theme card category; provides the data used to create a `CardViewBundle`. | Root folder starts with `card_`; folder name does not include `japan`; front layers include background, frame, foreground, and title; back presentation is present; behavior remains existing card selection, browsing, flipping, and layer controls. |
 | `CardView` | `card_model_id`, `visible_face`, `layer_state`, `interaction_state` | Rendered presentation created from one `CardModel` through a `CardViewBundle`. | Does not own durable card data; visual state such as flip face remains temporary unless another spec makes it persistent. |
 | `CardViewBundle` | `root_entity`, `front_layers`, `back_layer`, `view_components`, `view_behavior` | Bevy bundle that creates the visual card view from a `CardModel`. | Contains front presentation, back presentation, all visual layers, and view behavior required for loading and play presentation. |
@@ -24,8 +24,8 @@
 | `CardTypeRegistry` | `CardModelRegistry` | Registry owns card data models, not rendered views. |
 | `ActiveCardType` | `ActiveCardModel` | Active selection points at data used to create a rendered card. |
 | `ActiveScene` | `ActiveView` | Active selection points at the sub-screen view loaded on top of `AppScene`. |
-| `GameSceneRoot` / `GameSceneEntity` | `GameViewRoot` / `GameViewEntity` | Names gameplay presentation as a view because `AppScene` is the persistent scene. |
-| `DeckBuilderSceneRoot` / `DeckBuilderSceneEntity` | `DeckBuilderSceneRoot` / `DeckBuilderSceneEntity` | Names Deck Builder presentation as a view because it is loaded on top of `AppScene`. |
+| `GameSceneRoot` / `GameSceneEntity` | `GameSceneRoot` / `GameSceneEntity` | Names gameplay presentation as a view because `AppScene` is the persistent scene. |
+| `DeckSceneRoot` / `DeckSceneEntity` | `DeckSceneRoot` / `DeckSceneEntity` | Names Deck presentation as a view because it is loaded on top of `AppScene`. |
 | Card visual spawn result | `CardView` | Names the rendered presentation separately from card data. |
 | Card visual Bevy bundle | `CardViewBundle` | Bundle creates card visuals: front layers, back layer, view components, and view behavior. |
 | `WorldTheme` | `WorldModel` | Existing struct stores world identity and background asset data. |
@@ -56,7 +56,7 @@
 | State | Before 009 | After 009 |
 | ----- | ---------- | --------- |
 | Active card selection | Index into explicit card registry | Same behavior; registry points at `CardModel` data with card asset paths. |
-| Deck Builder flip state | Temporary `DeckBuilderScene` session state | Unchanged. |
+| Deck flip state | Temporary `DeckScene` session state | Unchanged. |
 | CardUI settings | Global persisted settings | Unchanged. |
 | Active world | Runtime world registry index | Same behavior; registry points at theme world asset paths. |
 | Active locations | Three selected tactical location indices | Same behavior; registry points at theme location asset paths. |

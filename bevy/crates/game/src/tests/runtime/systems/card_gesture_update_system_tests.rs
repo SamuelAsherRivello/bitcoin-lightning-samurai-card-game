@@ -702,9 +702,9 @@ fn press_ignores_card_that_is_not_in_hand_state() {
         assert!(card_states.place_in_location(hand_index));
     }
     let window_size = Vec2::new(1280.0, 800.0);
-    let pointer_position = super::super::game_view_pointer_to_window(
-        (super::super::game_view_card_hitboxes()[2].0
-            + super::super::game_view_card_hitboxes()[2].1)
+    let pointer_position = super::super::game_scene_pointer_to_window(
+        (super::super::game_scene_card_hitboxes()[2].0
+            + super::super::game_scene_card_hitboxes()[2].1)
             * 0.5,
         window_size,
     );
@@ -732,12 +732,12 @@ fn press_selects_locked_location_card_for_inspection() {
     assert!(card_states.place_in_location(0));
     card_states.lock_location_cards();
     let window_size = Vec2::new(1280.0, 800.0);
-    let game_view_position = slot_board
+    let game_scene_position = slot_board
         .slot_rect(1, CardSlotSide::LocalPlayer, 2)
         .map(|rect| rect.center())
         .unwrap();
     let pointer_position =
-        super::super::game_view_pointer_to_window(game_view_position, window_size);
+        super::super::game_scene_pointer_to_window(game_scene_position, window_size);
 
     handle_press(
         pointer_position,

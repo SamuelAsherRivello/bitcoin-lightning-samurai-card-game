@@ -4,7 +4,7 @@
 
 | Surface | Contract |
 | ------- | -------- |
-| Prototype entry | The current app entry may use DeckBuilder as a prototype surface, but this spec does not promote it to final game UI |
+| Prototype entry | The current app entry may use Deck as a prototype surface, but this spec does not promote it to final game UI |
 | Card count | The card presentation bundle exposes one focused inspectable card in the current prototype surface |
 | DebugHUD | DebugHUD remains visible by default, owns diagnostics and `T`/`R`/`H`, and stays separate from Card UI |
 | Card UI | Temporary prototype control surface that owns the `Flip` button |
@@ -62,4 +62,4 @@
 | Front-specific backs | CardBack does not vary by active CardFront in this feature phase |
 | CardBack content | CardBack contains no words, readable letters, characters, logos, or clear icon-like symbols |
 | Future brand surfaces | Game box cover art and main menu art are not designed by this feature |
-| Final game UI | DeckBuilder and Card UI are not final user-facing game UI |
+| Final game UI | Deck and Card UI are not final user-facing game UI |

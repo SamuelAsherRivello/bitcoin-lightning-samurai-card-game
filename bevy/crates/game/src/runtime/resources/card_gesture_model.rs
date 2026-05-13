@@ -5,7 +5,7 @@ use crate::runtime::resources::CardSlotSide;
 pub const CARD_GESTURE_DRAG_THRESHOLD: f32 = 8.0;
 
 /// HUMAN: Low-level pointer data used to classify card gestures.
-/// AI: Positions are in aspect-ratio-safe GameView coordinates, not raw window pixels.
+/// AI: Positions are in aspect-ratio-safe GameScene coordinates, not raw window pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerGestureModel {
     pub start_position: Vec2,
@@ -80,7 +80,7 @@ pub enum CardGestureDestination {
     },
 }
 
-/// HUMAN: Single active card gesture focus for GameView hand-card interactions.
+/// HUMAN: Single active card gesture focus for GameScene hand-card interactions.
 /// AI: Store source and target transforms so selection, drag, placement, and return do not conflict.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CardGestureModel {

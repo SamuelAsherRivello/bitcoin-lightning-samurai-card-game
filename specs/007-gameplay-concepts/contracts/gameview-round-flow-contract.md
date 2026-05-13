@@ -1,13 +1,13 @@
-# Contract: GameView Round Flow
+# Contract: GameScene Round Flow
 
-This contract defines externally visible GameView behavior for the local near-player loop. It is a UI/runtime contract, not a network API.
+This contract defines externally visible GameScene behavior for the local near-player loop. It is a UI/runtime contract, not a network API.
 
 ## Startup And Restart
 
 | Event | Expected Behavior |
 | ----- | ----------------- |
-| GameView opens fresh | Round displays `1/6`; lower-right End Round is visible; lower-left Restart and Undo are visible; left location is open; middle and right locations are closed; Undo is disabled until a current-round placement exists |
-| Restart pressed | Active GameView play state is cleared; a new randomized 12-card deck is created; round returns to `1/6`; energy returns to `1/1`; location open/closed state resets to round 1; current-round history is empty |
+| GameScene opens fresh | Round displays `1/6`; lower-right End Round is visible; lower-left Restart and Undo are visible; left location is open; middle and right locations are closed; Undo is disabled until a current-round placement exists |
+| Restart pressed | Active GameScene play state is cleared; a new randomized 12-card deck is created; round returns to `1/6`; energy returns to `1/1`; location open/closed state resets to round 1; current-round history is empty |
 | Restart during animation | Final visible and model state is a clean fresh game with no old cards, energy, or move history mixed in |
 
 ## Round Schedule
@@ -62,7 +62,7 @@ This contract defines externally visible GameView behavior for the local near-pl
 | Control | Position | Enabled Rule | Label Rule |
 | ------- | -------- | ------------ | ---------- |
 | End Round | Lower right safe-area HUD | Enabled through round 6 | Shows `End Round` and the current round fraction |
-| Restart | Lower left safe-area HUD, above Undo | Always enabled during GameView play | Shows `Restart` |
+| Restart | Lower left safe-area HUD, above Undo | Always enabled during GameScene play | Shows `Restart` |
 | Undo | Lower left safe-area HUD, below Restart | Enabled only when current-round move history is non-empty | Shows `Energy current/max` newline `Undo` |
 
 ## Placement And Undo

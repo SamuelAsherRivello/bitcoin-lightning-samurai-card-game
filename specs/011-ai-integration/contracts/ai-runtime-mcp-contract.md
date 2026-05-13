@@ -54,7 +54,7 @@ Future screenshot work may add a custom BRP method if the selected MCP requires 
 | Source of truth | Codex does not infer runtime state when the MCP query fails. |
 | Secret safety | Codex must not request or print secrets, credentials, cookies, or tokens. |
 | Mutation discipline | Codex prefers observation and screenshots; mutation requires reason plus reset/rollback. |
-| Scene reporting | Codex reports `AppScene` as always-present and distinguishes the active view, such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene`, when describing scene state. |
+| Scene reporting | Codex reports `AppScene` as always-present and distinguishes the active view, such as `GameScene`, `DeckScene`, or `DebugScene`, when describing scene state. |
 
 ## Minimum Smoke Test
 

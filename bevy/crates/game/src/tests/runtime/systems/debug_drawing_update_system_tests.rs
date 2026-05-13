@@ -2,7 +2,7 @@ use super::*;
 use crate::runtime::resources::{DebugDrawMode, DebugDrawingTarget};
 
 #[test]
-fn reference_debug_drawings_spawn_under_game_view() {
+fn reference_debug_drawings_spawn_under_game_scene() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<DebugDrawingModel>()
@@ -10,7 +10,7 @@ fn reference_debug_drawings_spawn_under_game_view() {
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_drawing_update_system);
-    let game_view = app.world_mut().spawn(GameViewRoot).id();
+    let game_scene = app.world_mut().spawn(GameSceneRoot).id();
     app.world_mut()
         .resource_mut::<DebugHudState>()
         .debug_draw_mode = DebugDrawMode::On;
@@ -25,7 +25,7 @@ fn reference_debug_drawings_spawn_under_game_view() {
     assert_eq!(drawings.len(), 11);
     assert!(
         app.world()
-            .entity(game_view)
+            .entity(game_scene)
             .get::<Children>()
             .unwrap()
             .contains(&drawings[0])
@@ -41,7 +41,7 @@ fn removing_all_requests_removes_debug_drawings() {
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_drawing_update_system);
-    app.world_mut().spawn(GameViewRoot);
+    app.world_mut().spawn(GameSceneRoot);
     app.world_mut()
         .resource_mut::<DebugHudState>()
         .debug_draw_mode = DebugDrawMode::On;
@@ -79,7 +79,7 @@ fn hidden_debug_drawing_state_despawns_drawings() {
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_drawing_update_system);
-    app.world_mut().spawn(GameViewRoot);
+    app.world_mut().spawn(GameSceneRoot);
     app.world_mut()
         .resource_mut::<DebugHudState>()
         .debug_draw_mode = DebugDrawMode::On;
@@ -108,7 +108,7 @@ fn hidden_debug_drawing_state_despawns_label_children() {
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_drawing_update_system);
-    app.world_mut().spawn(GameViewRoot);
+    app.world_mut().spawn(GameSceneRoot);
     app.world_mut()
         .resource_mut::<DebugHudState>()
         .debug_draw_mode = DebugDrawMode::On;
@@ -133,7 +133,7 @@ fn hidden_debug_drawing_state_despawns_label_children() {
 }
 
 #[test]
-fn deck_builder_scene_hides_game_scene_debug_drawings() {
+fn deck_scene_hides_game_scene_debug_drawings() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<DebugDrawingModel>()
@@ -141,13 +141,13 @@ fn deck_builder_scene_hides_game_scene_debug_drawings() {
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_drawing_update_system);
-    app.world_mut().spawn(GameViewRoot);
+    app.world_mut().spawn(GameSceneRoot);
     app.world_mut()
         .resource_mut::<DebugHudState>()
         .debug_draw_mode = DebugDrawMode::On;
     app.update();
 
-    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckBuilderScene;
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
     app.update();
 
     assert_eq!(
@@ -160,18 +160,18 @@ fn deck_builder_scene_hides_game_scene_debug_drawings() {
 }
 
 #[test]
-fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
+fn solo_debug_drawing_hides_game_scene_content_but_keeps_ui_camera_active() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<ActiveView>()
         .init_resource::<DebugHudState>()
         .add_systems(Update, debug_draw_solo_update_system);
     let app_scene = app.world_mut().spawn(AppSceneRoot).id();
-    let game_view = app.world_mut().spawn(GameViewRoot).id();
-    app.world_mut().entity_mut(app_scene).add_child(game_view);
-    let game_view_ui = app
+    let game_scene = app.world_mut().spawn(GameSceneRoot).id();
+    app.world_mut().entity_mut(app_scene).add_child(game_scene);
+    let game_scene_ui = app
         .world_mut()
-        .spawn((GameViewEntity, Node::default(), Visibility::Visible))
+        .spawn((GameSceneEntity, Node::default(), Visibility::Visible))
         .id();
     let untagged_render_child = app.world_mut().spawn(Visibility::Visible).id();
     let card_render_root = app
@@ -183,13 +183,13 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
         .spawn((Name::new("Solo Test Card Mesh"), Visibility::Visible))
         .id();
     app.world_mut()
-        .entity_mut(game_view)
-        .add_child(game_view_ui);
+        .entity_mut(game_scene)
+        .add_child(game_scene_ui);
     app.world_mut()
-        .entity_mut(game_view)
+        .entity_mut(game_scene)
         .add_child(card_render_root);
     app.world_mut()
-        .entity_mut(game_view_ui)
+        .entity_mut(game_scene_ui)
         .add_child(untagged_render_child);
     app.world_mut()
         .entity_mut(card_render_root)
@@ -204,7 +204,7 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
         .id();
     let debug_drawing_label = app.world_mut().spawn(Visibility::Visible).id();
     app.world_mut()
-        .entity_mut(game_view)
+        .entity_mut(game_scene)
         .add_child(debug_drawing);
     app.world_mut()
         .entity_mut(debug_drawing)
@@ -219,11 +219,11 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
         .id();
     let scene_camera = app
         .world_mut()
-        .spawn((GameViewEntity, Camera::default()))
+        .spawn((GameSceneEntity, Camera::default()))
         .id();
     let ui_camera = app
         .world_mut()
-        .spawn((GameViewEntity, Camera::default(), IsDefaultUiCamera))
+        .spawn((GameSceneEntity, Camera::default(), IsDefaultUiCamera))
         .id();
 
     app.world_mut()
@@ -232,7 +232,7 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
     app.update();
 
     assert_eq!(
-        app.world().get::<Visibility>(game_view_ui),
+        app.world().get::<Visibility>(game_scene_ui),
         Some(&Visibility::Hidden)
     );
     assert_eq!(
@@ -296,7 +296,7 @@ fn solo_debug_drawing_hides_game_view_content_but_keeps_ui_camera_active() {
     app.update();
 
     assert_eq!(
-        app.world().get::<Visibility>(game_view_ui),
+        app.world().get::<Visibility>(game_scene_ui),
         Some(&Visibility::Visible)
     );
     assert_eq!(

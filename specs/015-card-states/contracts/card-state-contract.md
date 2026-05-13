@@ -38,7 +38,7 @@
 | Derived Output | Inputs | Rule |
 | -------------- | ------ | ---- |
 | `visible_face` | `CardRevealPolicy`, viewer side, flip/animation state | Owner and revealed cards may show front; hidden current-round opposing cards show back. |
-| `pose` | `CardZoneModel`, `CardInteractionModel`, safe GameView layout | Interaction pose wins while active; otherwise zone pose wins. |
+| `pose` | `CardZoneModel`, `CardInteractionModel`, safe GameScene layout | Interaction pose wins while active; otherwise zone pose wins. |
 | `is_draggable` | Owner/controller, zone, lock state, interaction | Local human hand and current-round movable location cards are draggable when no other interaction blocks them. |
 | `is_selectable` | Owner/controller, zone, reveal policy | Local hand and location cards are selectable when visible to the local player. |
 | Slot occupancy | `CardPlacementModel` and `CardZoneModel::Location` | Occupancy and card zone must agree on location, side, and slot. |
@@ -47,7 +47,7 @@
 
 | Existing Behavior | Required Preservation |
 | ----------------- | --------------------- |
-| Hand click selects inside `GameView` | ✅ |
+| Hand click selects inside `GameScene` | ✅ |
 | Drag threshold suppresses click inspection | ✅ |
 | Drag from hand to first empty local slot | ✅ |
 | Same-round placed card can return to hand | ✅ |

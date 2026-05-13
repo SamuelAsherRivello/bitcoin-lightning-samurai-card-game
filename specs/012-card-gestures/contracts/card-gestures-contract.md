@@ -8,7 +8,7 @@
 | Press locked location card | Pointer press on a card in `LocationLocked` state | No drag gesture starts | Cards from prior rounds are locked after End Round |
 | Press current-round location card | Pointer press on a card in `LocationCurrentRound` state | Active `Pressed` gesture | Records pointer start, card identity, and source location slot transform |
 | Press second hand card during active pointer gesture | Pointer press while another card is `Pressed` or `Dragging` | Existing active gesture unchanged | Guards against concurrent drags; only zero or one card can be pressed for drag or actively dragged at a time |
-| Release as click/tap | Active `Pressed` gesture, pointer release within threshold | Selected inspected card | Keeps `GameView` active and animates the card to center inspection presentation |
+| Release as click/tap | Active `Pressed` gesture, pointer release within threshold | Selected inspected card | Keeps `GameScene` active and animates the card to center inspection presentation |
 | Click selected card | Pointer click/tap on selected inspected card | Returning card | Animates the selected card back to source hand position and source size |
 | Cross drag threshold | Active `Pressed` gesture, pointer movement beyond threshold | Active `Dragging` gesture | Suppresses click inspection for that pointer sequence |
 | Drag hold | Active `Dragging` gesture, pointer movement | Drag preview target | Keeps the original pointer-to-card-center offset and animates to 150% of hand size over 0.25 seconds with ease-out motion |
@@ -59,16 +59,16 @@
 
 | State | Required Behavior |
 | ----- | ----------------- |
-| Dragging over GameView with available locations | Show one light blue DropTargetHint rectangle over the full local-player slots area for each location with at least one empty local-player slot |
-| Dragging over GameView with full locations | Hide DropTargetHint for full locations and reject drops there |
-| Not dragging or not in GameView | Hide all DropTargetHint rectangles |
+| Dragging over GameScene with available locations | Show one light blue DropTargetHint rectangle over the full local-player slots area for each location with at least one empty local-player slot |
+| Dragging over GameScene with full locations | Hide DropTargetHint for full locations and reject drops there |
+| Not dragging or not in GameScene | Hide all DropTargetHint rectangles |
 
 ## View Contract
 
 | View State | Required Presentation |
 | ---------- | --------------------- |
 | Hand | Card appears in the local hand area as a hand-sized card preview |
-| Selected inspection | Card appears in the center `GameView` inspection position, matching Deck Builder inspection as closely as safe-area layout allows, at approximately 90% safe visible height |
+| Selected inspection | Card appears in the center `GameScene` inspection position, matching Deck inspection as closely as safe-area layout allows, at approximately 90% safe visible height |
 | Dragging | Card follows pointer movement inside the game view with aspect ratio preserved |
 | Placed | Card snaps into the selected local-player slot and fits within the slot while preserving aspect ratio |
 | Hand insertion preview | Existing hand cards shift on the x axis to expose the candidate insertion gap |
@@ -78,7 +78,7 @@
 
 | Scenario | Input | Expected |
 | -------- | ----- | -------- |
-| Inspect hand card | Press and release within threshold on local hand card | GameView remains active; selected card enlarges at center |
+| Inspect hand card | Press and release within threshold on local hand card | GameScene remains active; selected card enlarges at center |
 | Dismiss inspected card | Press and release selected card | Card returns to hand source |
 | Drag from hand | Press hand card and move beyond threshold | Gesture becomes drag and does not inspect |
 | Valid placement | Release dragged card over empty bottom/local slot | Card snaps into slot and slot becomes populated |
@@ -90,13 +90,13 @@
 | Populated-slot drop | Release dragged card over occupied local slot | Drop rejected and card returns |
 | Off-board drop | Release dragged card outside valid slots | Drop rejected and card returns to its original hand card slot |
 
-## Deck Builder Boundary
+## Deck Boundary
 
 | Boundary | Required Behavior |
 | -------- | ----------------- |
-| GameView hand-card click/tap | Does not open or activate the Deck Builder view |
-| Other GameView card gestures | Do not create a user-facing route to the Deck Builder view |
-| Existing Deck Builder implementation | Remains unchanged by this feature |
+| GameScene hand-card click/tap | Does not open or activate the Deck view |
+| Other GameScene card gestures | Do not create a user-facing route to the Deck view |
+| Existing Deck implementation | Remains unchanged by this feature |
 
 ## Out Of Scope
 
@@ -107,4 +107,4 @@
 | Card reveal timing | Excluded |
 | Scoring resolution | Excluded |
 | Full mobile packaging/release | Excluded, though pointer semantics must be touch-compatible |
-| Deck Builder view changes | Excluded; the view remains in the game but unreachable through GameView user gestures after this feature |
+| Deck view changes | Excluded; the view remains in the game but unreachable through GameScene user gestures after this feature |

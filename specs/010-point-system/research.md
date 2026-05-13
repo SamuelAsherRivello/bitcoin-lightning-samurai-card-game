@@ -32,12 +32,12 @@
 | Rationale | The spec requires ties and empty equal-zero locations to have no controller, then final outcome to compare controlled-location counts before total power. |
 | Alternatives considered | Boolean control flags were rejected because they cannot represent no-controller ties cleanly. |
 
-## Decision: Render point views through existing Bevy UI/GameView patterns
+## Decision: Render point views through existing Bevy UI/GameScene patterns
 
 | Field | Decision |
 | ----- | -------- |
 | Choice | Implement `CostPointView` and `PowerPointView` as focused Bevy presentation concepts with dynamic foreground text and an artful background, positioned from existing card and location layouts. |
-| Rationale | The repo already uses Bevy ECS and UI concepts for GameView, card presentation, and location overlays. This keeps desktop/browser behavior aligned and avoids introducing a new UI framework. |
+| Rationale | The repo already uses Bevy ECS and UI concepts for GameScene, card presentation, and location overlays. This keeps desktop/browser behavior aligned and avoids introducing a new UI framework. |
 | Alternatives considered | Texture-only baked numbers were rejected because the spec requires dynamic foreground text for `-99` through `99`. |
 
 ## Decision: Defer full gameplay systems outside point scoring

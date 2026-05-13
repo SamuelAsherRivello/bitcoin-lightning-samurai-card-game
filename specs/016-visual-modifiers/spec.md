@@ -68,7 +68,7 @@ As a developer, I need every visual modification to be represented as a clear ru
 | FR-009 | The system MUST work with existing `PointView`, `PointLocationView`, `CardSlotBoardModel`, `GameLocationModel`, and card power update behavior. |
 | FR-010 | The system MUST keep outlines attached to the circle/background element rather than the text element or entire card/location. |
 | FR-011 | The system MUST preserve Windows desktop and browser WebGPU parity without introducing target-specific rendering dependencies. |
-| FR-012 | The system MUST keep all point view outline positions derived from the existing point view layout inside the aspect-ratio-safe GameView. |
+| FR-012 | The system MUST keep all point view outline positions derived from the existing point view layout inside the aspect-ratio-safe GameScene. |
 | FR-013 | The system MUST use `CardInstanceId`/`CardInstanceStateModel` zone identity from `015-card-states` as the preferred card-state source when available, with adapters allowed only while older hand-index slot state remains authoritative. |
 
 ## Key Entities

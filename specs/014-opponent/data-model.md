@@ -197,7 +197,7 @@
 | `winner_controller_type` | enum | `Human` or `CPU` based on the winning player's active controller. |
 | `visible_after_final_result` | boolean | True after final winner evaluation; hidden or neutral before a final result exists. |
 
-**Presentation rule**: After round 6 final scoring in any mode, GameView shows status text above the Mode button, for example `Status: Winner is Player 1 (CPU)`.
+**Presentation rule**: After round 6 final scoring in any mode, GameScene shows status text above the Mode button, for example `Status: Winner is Player 1 (CPU)`.
 
 **Winner rules**:
 

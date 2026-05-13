@@ -8,7 +8,7 @@
 | Preserve phase boundaries inside the merged spec | Inspection, polish, and flip each carry distinct acceptance criteria that are still useful for QA | Flattening into one generic card spec would make regressions harder to diagnose |
 | Use `006-card-bundle` as the target path | The user requested this exact consolidated spec name | Renumbering every later spec would create unnecessary churn |
 | Keep `007-gameplay-concepts` separate | Gameplay concepts intentionally describe future model language and should not become card presentation implementation scope | Pulling gameplay concepts into the bundle would blur prototype and future gameplay boundaries |
-| Keep DeckBuilder and Card UI marked temporary | Existing behavior uses them as prototype surfaces, but multiple specs state they are not final game UI | Treating them as player-facing would create false requirements for later app flow |
+| Keep Deck and Card UI marked temporary | Existing behavior uses them as prototype surfaces, but multiple specs state they are not final game UI | Treating them as player-facing would create false requirements for later app flow |
 
 ## Runtime Design Notes
 

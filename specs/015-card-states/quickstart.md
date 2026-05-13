@@ -17,7 +17,7 @@
 | Check | Command Or Workflow | Expected Result |
 | ----- | ------------------- | --------------- |
 | Model tests | `scripts/other/RunTests.ps1` | Card instance transition tests pass. |
-| Hand selection | Run GameView and click a local hand card | Card enlarges at selected inspection pose without changing durable zone. |
+| Hand selection | Run GameScene and click a local hand card | Card enlarges at selected inspection pose without changing durable zone. |
 | Drag to location | Drag local hand card to local location slot area | Card occupies first empty local slot and durable zone becomes current-round location. |
 | Return same-round card | Drag same-round placed card back to hand area | Slot frees and card returns to chosen hand order. |
 | Lock behavior | End round, then try dragging prior placed card | Drag is rejected; card remains placed. |
@@ -36,6 +36,6 @@
 | System | Migration Note |
 | ------ | -------------- |
 | `card_gesture_update_system` | Replace `active_hand_index` lookup with `CardInteractionModel.active_instance_id`; use `CardInstanceStateModel.zone` to decide whether the source is hand or current-round location. |
-| `card_gesture_animation_system` | Derive hand, selected, drag, return, and slot poses from `CardViewStateModel.pose` while continuing to calculate transforms from the aspect-ratio-safe GameView helpers. |
+| `card_gesture_animation_system` | Derive hand, selected, drag, return, and slot poses from `CardViewStateModel.pose` while continuing to calculate transforms from the aspect-ratio-safe GameScene helpers. |
 | `CardSlotBoardModel` consumers | Keep slot rect geometry in `CardSlotBoardModel`; migrate occupancy checks to `CardPlacementModel` or instance-id slot occupants after adapter parity is proven. |
 | CPU reveal rendering | Use `CardRevealPolicy` to derive `visible_face`; keep `CpuPlacedCardFaceLayer` as the render-layer control mechanism until the CPU and local card view paths are unified. |

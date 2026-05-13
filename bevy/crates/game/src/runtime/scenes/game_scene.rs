@@ -8,11 +8,11 @@ use crate::runtime::resources::{
     OpponentMatchModel, PrimaryCameraDefaults, WorldModelRegistry,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
-use crate::runtime::systems::SetupGameViewParams;
+use crate::runtime::systems::SetupGameSceneParams;
 
 /// HUMAN: Spawns the gameplay sub-screen view.
-/// AI: GameView is a view, not the persistent scene; keep AppScene parenting intact.
-pub fn setup_game_view(
+/// AI: GameScene is a view, not the persistent scene; keep AppScene parenting intact.
+pub fn setup_game_scene(
     commands: Commands,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     hud: Option<Res<Hud>>,
@@ -33,7 +33,7 @@ pub fn setup_game_view(
     materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
 ) {
-    crate::runtime::systems::setup_game_view(SetupGameViewParams {
+    crate::runtime::systems::setup_game_scene(SetupGameSceneParams {
         commands,
         app_scene_query,
         hud,

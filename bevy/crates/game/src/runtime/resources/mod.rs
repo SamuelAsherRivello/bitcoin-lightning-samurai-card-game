@@ -85,9 +85,9 @@ pub struct GameTicks(pub u64);
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Resource)]
 pub enum ActiveView {
     #[default]
-    GameView,
-    DeckBuilderScene,
-    DebugSettingsScene,
+    GameScene,
+    DeckScene,
+    DebugScene,
 }
 
 #[derive(Clone, Debug, Resource)]
@@ -511,7 +511,7 @@ pub fn ensure_player_deck_collection_model(
     model
 }
 
-/// HUMAN: World data model used by GameView background rendering.
+/// HUMAN: World data model used by GameScene background rendering.
 /// AI: Keep the model separate from spawned world background entities.
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorldModel {
@@ -593,7 +593,7 @@ impl ActiveWorldModel {
     }
 }
 
-/// HUMAN: Location data model used by GameView location cards.
+/// HUMAN: Location data model used by GameScene location cards.
 /// AI: Keep location texture paths model-owned and theme-rooted.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocationModel {

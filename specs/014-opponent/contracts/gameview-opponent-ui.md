@@ -1,4 +1,4 @@
-# Contract: GameView Opponent UI
+# Contract: GameScene Opponent UI
 
 ## Status Text
 

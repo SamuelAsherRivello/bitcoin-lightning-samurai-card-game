@@ -53,7 +53,7 @@
 | What does `T` change? | The active CardFront definition. If CardBack is visible, the change stays hidden until the card flips face up. |
 | Who owns CardBack? | The card series/CardStructure, not an individual CardDefinition. |
 | What is CardBack art direction? | One shared abstract superhero-pattern back matching the current fronts, with no words, readable letters, characters, logos, or clear symbols. |
-| What is DeckBuilder here? | The current prototype entry point, not final user-facing game UI. |
+| What is Deck here? | The current prototype entry point, not final user-facing game UI. |
 | What is Card UI here? | A temporary prototype control surface separate from DebugHUD. |
 
 ## User Scenarios & Testing
@@ -119,7 +119,7 @@ A reviewer can press DebugHUD `R` to rebuild reloadable AppScene card content, a
 
 ### User Story 5 - Flip Between CardFront And CardBack (Priority: P1)
 
-A reviewer opens the current DeckBuilder prototype entry point, uses the temporary Card UI `Flip` button, and sees the card animate between the active CardFront and the shared CardBack.
+A reviewer opens the current Deck prototype entry point, uses the temporary Card UI `Flip` button, and sees the card animate between the active CardFront and the shared CardBack.
 
 **Why this priority**: A card presentation bundle needs both sides of a card while preserving the inspection feel.
 
@@ -189,7 +189,7 @@ A reviewer sees one card-series back design that belongs with the current superh
 | FR-018 | DebugHUD `H` MUST toggle persisted hot-reload auto-restart state, default to disabled, and invoke the same AppScene reload path as `R` only when enabled and a desktop hot-reload patch is reported. |
 | FR-019 | DebugHUD key labels MUST classify `F`, `I`, `H`, and `T` as toggles and `W`, `A`, `S`, `D`, and `R` as non-toggle hold or operation indicators. |
 | FR-020 | The temporary Card UI MUST include a `Flip` button and remain separate from DebugHUD. |
-| FR-021 | `DeckBuilder` MAY remain the current prototype entry point but MUST NOT be promoted into final user-facing game UI by this feature. |
+| FR-021 | `Deck` MAY remain the current prototype entry point but MUST NOT be promoted into final user-facing game UI by this feature. |
 | FR-022 | Activating `Flip` from CardFront MUST animate toward CardBack; activating it from CardBack MUST animate toward CardFront. |
 | FR-023 | Each flip activation MUST rotate side-selection by 180 degrees around the y-axis from current flip state, while preserving pointer-driven non-flip inspection behavior. |
 | FR-024 | The visible side MUST switch at the edge-on midpoint of the flip. |
@@ -215,7 +215,7 @@ A reviewer sees one card-series back design that belongs with the current superh
 | CardBack | The shared card-series backface, independent of active CardFront. |
 | Card UI | Temporary prototype control surface that includes `Flip`; separate from DebugHUD. |
 | DebugHUD | Developer overlay/control surface for diagnostics, `T`, `R`, `H`, and other debug labels. |
-| DeckBuilder | Current prototype entry point for reviewing the card, not final game UI. |
+| Deck | Current prototype entry point for reviewing the card, not final game UI. |
 | Flip Orientation | Side-selection y-axis animation state layered onto pointer-driven inspection. |
 | Face Swap Midpoint | Edge-on point where visible graphics switch between CardFront and CardBack. |
 

@@ -3,7 +3,7 @@
 **Input**: Design documents from `specs/014-opponent/`  
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/gameview-opponent-ui.md](./contracts/gameview-opponent-ui.md), [quickstart.md](./quickstart.md)
 
-**Tests**: Included because quickstart defines expected unit/system coverage for mode cycling, Status text, CPU Brain Level 1, readiness, slot ownership, winner resolution, CPU-vs-CPU autoplay, CPU-owned passive card rendering, and GameView controls.
+**Tests**: Included because quickstart defines expected unit/system coverage for mode cycling, Status text, CPU Brain Level 1, readiness, slot ownership, winner resolution, CPU-vs-CPU autoplay, CPU-owned passive card rendering, and GameScene controls.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing.
 
@@ -19,7 +19,7 @@
 **Purpose**: Confirm local references and prepare the planned runtime/test files before feature implementation.
 
 - [X] T001 Inspect `bevy/crates/template-crate/src/runtime/resources/template_resource.rs`, `bevy/crates/template-crate/src/runtime/systems/template_system.rs`, and `bevy/crates/template-crate/src/tests/runtime/resources/template_resource_tests.rs` for naming, comments, and test module patterns before editing Bevy runtime files
-- [X] T002 Inspect existing GameView control, round, deck, slot, and scoring code in `bevy/crates/game/src/runtime/components/game_control_component.rs`, `bevy/crates/game/src/runtime/resources/game_round_model.rs`, `bevy/crates/game/src/runtime/resources/card_slot_model.rs`, `bevy/crates/game/src/runtime/resources/point_model.rs`, and `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T002 Inspect existing GameScene control, round, deck, slot, and scoring code in `bevy/crates/game/src/runtime/components/game_control_component.rs`, `bevy/crates/game/src/runtime/resources/game_round_model.rs`, `bevy/crates/game/src/runtime/resources/card_slot_model.rs`, `bevy/crates/game/src/runtime/resources/point_model.rs`, and `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T003 [P] Inspect existing runtime tests in `bevy/crates/game/src/tests/runtime/resources/game_round_model_tests.rs`, `bevy/crates/game/src/tests/runtime/resources/card_slot_model_tests.rs`, `bevy/crates/game/src/tests/runtime/resources/point_model_tests.rs`, and `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
 - [X] T004 [P] Review `specs/014-opponent/contracts/gameview-opponent-ui.md` and `specs/014-opponent/quickstart.md` to keep task implementation aligned with visible UI and verification expectations
 
@@ -50,22 +50,22 @@
 
 **Goal**: The player can see the lower-left Status/Mode/Restart control stack, use a two-line Mode button above Restart, and cycle only between `Human versus CPU` and `CPU versus CPU`.
 
-**Independent Test**: Launch or inspect GameView and verify the Mode button is above Restart, displays `Mode:` plus the active label, defaults to `Human versus CPU` without a saved preference, loads the last saved mode when available, cycles between exactly two labels, saves changes, and starts a fresh game on mode change.
+**Independent Test**: Launch or inspect GameScene and verify the Mode button is above Restart, displays `Mode:` plus the active label, defaults to `Human versus CPU` without a saved preference, loads the last saved mode when available, cycles between exactly two labels, saves changes, and starts a fresh game on mode change.
 
 ### Tests for User Story 1
 
 - [ ] T015 [P] [US1] Add failing unit tests for match mode label text, `Human versus CPU` default mode, saved mode load, saved mode write, and two-mode cycling in `bevy/crates/game/src/tests/runtime/resources/opponent_match_model_tests.rs`
-- [ ] T016 [P] [US1] Add failing GameView control tests for Status text reservation above Mode, Mode button label, ordering above Restart, and hidden CPU Brain terminology in `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
+- [ ] T016 [P] [US1] Add failing GameScene control tests for Status text reservation above Mode, Mode button label, ordering above Restart, and hidden CPU Brain terminology in `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
 
 ### Implementation for User Story 1
 
 - [X] T017 [US1] Add `Mode` to `GameControlAction`, `GameControlButton`, and `GameControlLabel` handling in `bevy/crates/game/src/runtime/components/game_control_component.rs`
 - [X] T018 [US1] Add mode preference persistence model and disk store helpers in `bevy/crates/game/src/runtime/resources/opponent_match_model.rs`
-- [X] T019 [US1] Update GameView lower-left control spawning in `bevy/crates/game/src/runtime/systems/mod.rs` so Status appears above Mode, Mode appears above Restart, and Mode uses the Restart visual style family
+- [X] T019 [US1] Update GameScene lower-left control spawning in `bevy/crates/game/src/runtime/systems/mod.rs` so Status appears above Mode, Mode appears above Restart, and Mode uses the Restart visual style family
 - [X] T020 [US1] Update `update_game_control_ui_system` in `bevy/crates/game/src/runtime/systems/mod.rs` so Mode renders `Mode:` plus `Human versus CPU` or `CPU versus CPU` and never renders CPU Brain details
 - [X] T021 [US1] Update startup loading in `bevy/crates/game/src/runtime/systems/mod.rs` and `bevy/crates/game/src/runtime/plugins/mod.rs` so saved mode loads at startup and missing preference defaults to `Human versus CPU`
 - [X] T022 [US1] Update game control interaction handling in `bevy/crates/game/src/runtime/systems/mod.rs` so pressing Mode cycles mode, saves the selected mode to disk, and triggers a clean fresh game reset at round `1/6`
-- [ ] T023 [US1] Run targeted tests for mode model, mode persistence, and GameView controls with `scripts/other/RunTests.ps1`
+- [ ] T023 [US1] Run targeted tests for mode model, mode persistence, and GameScene controls with `scripts/other/RunTests.ps1`
 
 **Checkpoint**: User Story 1 is functional and testable independently.
 
@@ -115,7 +115,7 @@
 - [X] T038 [US5] Add winner state and completed-match transition helpers to `bevy/crates/game/src/runtime/resources/opponent_match_model.rs`
 - [ ] T039 [US5] Update `bevy/crates/game/src/runtime/resources/point_model.rs` to expose a completed-match outcome helper that maps location ties through deterministic tiebreaking and never returns draw
 - [X] T040 [US5] Add final winner resolution after both players are ready on round `6/6` in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [X] T041 [US5] Add or update GameView Status winner text in `bevy/crates/game/src/runtime/systems/mod.rs` so it appears above Mode, identifies the winning player number and controller type, and does not expose CPU Brain wording
+- [X] T041 [US5] Add or update GameScene Status winner text in `bevy/crates/game/src/runtime/systems/mod.rs` so it appears above Mode, identifies the winning player number and controller type, and does not expose CPU Brain wording
 - [ ] T042 [US5] Run targeted winner and round-six tests with `scripts/other/RunTests.ps1`
 
 **Checkpoint**: User Story 5 is functional and testable independently.

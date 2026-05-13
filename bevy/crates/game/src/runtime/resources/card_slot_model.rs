@@ -5,8 +5,8 @@ pub const CARD_SLOT_ROW_COUNT: usize = 4;
 pub const CARD_SLOT_TOTAL_COUNT: usize = CARD_SLOT_LOCATION_COUNT * CARD_SLOT_ROW_COUNT * 2;
 pub const CARD_SLOT_LOCAL_DIRECT_PLACEMENT_COUNT: usize =
     CARD_SLOT_LOCATION_COUNT * CARD_SLOT_ROW_COUNT;
-pub const CARD_SLOT_GAME_VIEW_WIDTH: f32 = 92.0;
-pub const CARD_SLOT_GAME_VIEW_HEIGHT: f32 = 90.0;
+pub const CARD_SLOT_GAME_SCENE_WIDTH: f32 = 92.0;
+pub const CARD_SLOT_GAME_SCENE_HEIGHT: f32 = 90.0;
 pub const CARD_SLOT_LOCATION_AREA_WIDTH: f32 = 184.0;
 pub const CARD_SLOT_LOCATION_AREA_HEIGHT: f32 = 208.0;
 const CARD_SLOT_LOCATION_LEFTS: [f32; CARD_SLOT_LOCATION_COUNT] = [364.0, 548.0, 732.0];
@@ -35,7 +35,7 @@ pub enum CardState {
     LocationLocked,
 }
 
-/// HUMAN: Aspect-ratio-safe GameView rectangle for a location card slot.
+/// HUMAN: Aspect-ratio-safe GameScene rectangle for a location card slot.
 /// AI: This is shared by debug drawing, drop hit testing, and placement transforms.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardSlotRect {
@@ -206,10 +206,10 @@ impl CardSlotBoardModel {
         ))
     }
 
-    pub fn local_slots_area_hit_target(&self, game_view_position: Vec2) -> Option<usize> {
+    pub fn local_slots_area_hit_target(&self, game_scene_position: Vec2) -> Option<usize> {
         (0..CARD_SLOT_LOCATION_COUNT).find(|location_index| {
             self.local_slots_area_rect(*location_index)
-                .is_some_and(|rect| rect.contains(game_view_position))
+                .is_some_and(|rect| rect.contains(game_scene_position))
         })
     }
 
@@ -531,8 +531,8 @@ pub fn card_slot_rect(
     CardSlotRect::new(
         location_left + column as f32 * CARD_SLOT_COLUMN_OFFSET,
         top + row as f32 * CARD_SLOT_ROW_OFFSET,
-        CARD_SLOT_GAME_VIEW_WIDTH,
-        CARD_SLOT_GAME_VIEW_HEIGHT,
+        CARD_SLOT_GAME_SCENE_WIDTH,
+        CARD_SLOT_GAME_SCENE_HEIGHT,
     )
 }
 

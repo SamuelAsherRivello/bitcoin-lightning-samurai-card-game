@@ -16,7 +16,7 @@ Analyze the current `CardViewBundle` state surface and propose a clearer model t
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime under `bevy/crates/game`  
 **Performance Goals**: Keep state lookup O(1) or linear only over current small hand/slot/card vectors; avoid repeated cross-resource searches for card identity where practical  
-**Constraints**: Preserve aspect-ratio-safe GameView transforms, current card face visibility behavior, local drag semantics, current-turn hidden CPU/opponent placements, and existing Scene/Model/View naming  
+**Constraints**: Preserve aspect-ratio-safe GameScene transforms, current card face visibility behavior, local drag semantics, current-turn hidden CPU/opponent placements, and existing Scene/Model/View naming  
 **Scale/Scope**: Planning and data model for deck, hand, selected, dragging, local/opponent location slots, current-turn hidden/revealed face policy, and current same-turn/locked placement rules
 
 ## Constitution Check
@@ -36,8 +36,8 @@ Analyze the current `CardViewBundle` state surface and propose a clearer model t
 | Theme asset organization | ✅ | No runtime assets are introduced. |
 | Visible feedback | ✅ | Existing selected, dragging, returning, drop hint, and reveal feedback are preserved by contract. |
 | Browser/native storage constraints | ✅ | No storage, database, localStorage, SQLite, or OPFS change. |
-| Browser-visible verification path | ✅ | If implemented, verify with the same GameView gesture and opponent reveal workflows. |
-| Aspect-ratio-safe layout | ✅ | Proposed view state derives poses from existing safe GameView layout helpers. |
+| Browser-visible verification path | ✅ | If implemented, verify with the same GameScene gesture and opponent reveal workflows. |
+| Aspect-ratio-safe layout | ✅ | Proposed view state derives poses from existing safe GameScene layout helpers. |
 | Framework constraints documented | ✅ | Bevy ECS ownership and cross-resource derivation risks are captured below. |
 
 ## Project Structure
@@ -119,7 +119,7 @@ Research is complete in [research.md](./research.md). Key decisions:
 | ----- | ------ | ----- |
 | Source remains scoped | ✅ | Proposed future changes stay in `bevy/crates/game/src/runtime` and tests under `bevy/crates/game/src/tests/runtime`. |
 | Desktop/browser parity addressed | ✅ | No platform-specific dependency is proposed. |
-| Aspect-ratio-safe layout addressed | ✅ | Pose derivation continues to use existing GameView helpers and slot rects. |
+| Aspect-ratio-safe layout addressed | ✅ | Pose derivation continues to use existing GameScene helpers and slot rects. |
 | Data changes explicit | ✅ | State changes are transient runtime model changes only. |
 | Framework constraints recorded | ✅ | Bevy ECS resource/component ownership is part of the proposed hierarchy. |
 

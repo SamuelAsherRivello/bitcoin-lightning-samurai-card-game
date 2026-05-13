@@ -11,7 +11,7 @@ use crate::runtime::resources::{
 
 use super::{
     CARD_GESTURE_SELECTED_Z, CARD_RENDER_LAYER, active_pointer_position,
-    game_view_perspective_view_size_at_z,
+    game_scene_perspective_view_size_at_z,
 };
 
 const SELECTED_MODAL_BACKDROP_Z: f32 = 0.86;
@@ -127,7 +127,7 @@ fn sync_backdrop(
     >,
 ) {
     let opacity = selected_modal.opacity();
-    let view_size = game_view_perspective_view_size_at_z(SELECTED_MODAL_BACKDROP_Z);
+    let view_size = game_scene_perspective_view_size_at_z(SELECTED_MODAL_BACKDROP_Z);
     let transform = Transform::from_translation(Vec3::new(0.0, 0.0, SELECTED_MODAL_BACKDROP_Z));
 
     if backdrop_query.is_empty() {

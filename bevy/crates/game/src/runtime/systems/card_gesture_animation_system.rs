@@ -10,10 +10,10 @@ use crate::runtime::resources::{
 };
 
 use super::{
-    DECK_BUILDER_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_VIEW_HEIGHT,
-    GAME_VIEW_WIDTH, active_pointer_position, game_view_card_index_at_for_count,
-    game_view_hand_card_z, game_view_world_height_for_game_view_height,
-    game_view_world_position_from_game_view, window_pointer_to_game_view,
+    DECK_SCENE_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_SCENE_HEIGHT,
+    GAME_SCENE_WIDTH, active_pointer_position, game_scene_card_index_at_for_count,
+    game_scene_hand_card_z, game_scene_world_height_for_game_scene_height,
+    game_scene_world_position_from_game_scene, window_pointer_to_game_scene,
 };
 
 const CARD_GESTURE_ANIMATION_RATE: f32 = 14.0;
@@ -131,13 +131,13 @@ pub fn card_gesture_animation_system(
 }
 
 pub(super) fn selected_inspection_transform(card_defaults: &CardInspectionDefaults) -> Transform {
-    let height = GAME_VIEW_HEIGHT * DECK_BUILDER_CARD_HEIGHT_FRACTION;
-    let scale = game_view_world_height_for_game_view_height(height, CARD_GESTURE_SELECTED_Z)
+    let height = GAME_SCENE_HEIGHT * DECK_SCENE_CARD_HEIGHT_FRACTION;
+    let scale = game_scene_world_height_for_game_scene_height(height, CARD_GESTURE_SELECTED_Z)
         / card_defaults.height;
 
     Transform {
-        translation: game_view_world_position_from_game_view(
-            Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT * 0.5),
+        translation: game_scene_world_position_from_game_scene(
+            Vec2::new(GAME_SCENE_WIDTH * 0.5, GAME_SCENE_HEIGHT * 0.5),
             CARD_GESTURE_SELECTED_Z,
         ),
         scale: Vec3::splat(scale),
@@ -146,21 +146,21 @@ pub(super) fn selected_inspection_transform(card_defaults: &CardInspectionDefaul
 }
 
 pub(super) fn drag_preview_transform(
-    game_view_center_position: Vec2,
+    game_scene_center_position: Vec2,
     source_transform: Transform,
     card_defaults: &CardInspectionDefaults,
 ) -> Transform {
-    let source_game_view_height = card_defaults.height * source_transform.scale.y
-        / game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
-    let drag_world_height = game_view_world_height_for_game_view_height(
-        source_game_view_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER,
+    let source_game_scene_height = card_defaults.height * source_transform.scale.y
+        / game_scene_world_height_for_game_scene_height(1.0, source_transform.translation.z);
+    let drag_world_height = game_scene_world_height_for_game_scene_height(
+        source_game_scene_height * CARD_GESTURE_DRAG_SCALE_MULTIPLIER,
         CARD_GESTURE_DRAG_Z,
     );
     let scale = drag_world_height / card_defaults.height;
 
     Transform {
-        translation: game_view_world_position_from_game_view(
-            game_view_center_position,
+        translation: game_scene_world_position_from_game_scene(
+            game_scene_center_position,
             CARD_GESTURE_DRAG_Z,
         ),
         scale: Vec3::splat(scale),
@@ -172,10 +172,10 @@ fn drag_preview_source_scale(
     source_transform: Transform,
     card_defaults: &CardInspectionDefaults,
 ) -> Vec3 {
-    let source_game_view_height = card_defaults.height * source_transform.scale.y
-        / game_view_world_height_for_game_view_height(1.0, source_transform.translation.z);
+    let source_game_scene_height = card_defaults.height * source_transform.scale.y
+        / game_scene_world_height_for_game_scene_height(1.0, source_transform.translation.z);
     let source_world_height =
-        game_view_world_height_for_game_view_height(source_game_view_height, CARD_GESTURE_DRAG_Z);
+        game_scene_world_height_for_game_scene_height(source_game_scene_height, CARD_GESTURE_DRAG_Z);
     let scale = source_world_height / card_defaults.height;
 
     Vec3::splat(scale)
@@ -191,11 +191,11 @@ pub(super) fn slot_transform(
     let Some(rect) = slot_board.slot_rect(location_index, side, slot_index) else {
         return Transform::default();
     };
-    let scale = game_view_world_height_for_game_view_height(rect.height, CARD_GESTURE_SLOT_Z)
+    let scale = game_scene_world_height_for_game_scene_height(rect.height, CARD_GESTURE_SLOT_Z)
         / card_defaults.height;
 
     Transform {
-        translation: game_view_world_position_from_game_view(rect.center(), CARD_GESTURE_SLOT_Z),
+        translation: game_scene_world_position_from_game_scene(rect.center(), CARD_GESTURE_SLOT_Z),
         scale: Vec3::splat(scale),
         ..Default::default()
     }
@@ -216,21 +216,21 @@ pub(super) fn hand_source_transform_for_layout(
     card_defaults: &CardInspectionDefaults,
 ) -> Transform {
     let Some((min, max)) =
-        super::game_view_card_hitboxes_for_count_with_hover(hand_card_count, hovered_hand_index)
+        super::game_scene_card_hitboxes_for_count_with_hover(hand_card_count, hovered_hand_index)
             .get(hand_index)
             .copied()
     else {
         return Transform::default();
     };
-    let scale = game_view_world_height_for_game_view_height(
+    let scale = game_scene_world_height_for_game_scene_height(
         GAME_SCENE_HAND_CARD_HEIGHT,
-        game_view_hand_card_z(hand_index, hovered_hand_index),
+        game_scene_hand_card_z(hand_index, hovered_hand_index),
     ) / card_defaults.height;
 
     Transform {
-        translation: game_view_world_position_from_game_view(
+        translation: game_scene_world_position_from_game_scene(
             (min + max) * 0.5,
-            game_view_hand_card_z(hand_index, hovered_hand_index),
+            game_scene_hand_card_z(hand_index, hovered_hand_index),
         ),
         scale: Vec3::splat(scale),
         ..Default::default()
@@ -272,21 +272,21 @@ fn hand_layout_hovered_order_index(
         primary_window.resolution.height(),
     );
     let pointer_position = active_pointer_position(primary_window, touches)?;
-    let game_view_position = window_pointer_to_game_view(pointer_position, window_size)?;
-    if !hand_area_contains(game_view_position) {
+    let game_scene_position = window_pointer_to_game_scene(pointer_position, window_size)?;
+    if !hand_area_contains(game_scene_position) {
         return None;
     }
 
-    game_view_card_index_at_for_count(pointer_position, window_size, hand_card_count)
+    game_scene_card_index_at_for_count(pointer_position, window_size, hand_card_count)
 }
 
-fn hand_area_contains(game_view_position: Vec2) -> bool {
-    let min = super::game_view_hand_area_min();
-    let max = min + super::game_view_hand_area_size();
-    game_view_position.x >= min.x
-        && game_view_position.x <= max.x
-        && game_view_position.y >= min.y
-        && game_view_position.y <= max.y
+fn hand_area_contains(game_scene_position: Vec2) -> bool {
+    let min = super::game_scene_hand_area_min();
+    let max = min + super::game_scene_hand_area_size();
+    game_scene_position.x >= min.x
+        && game_scene_position.x <= max.x
+        && game_scene_position.y >= min.y
+        && game_scene_position.y <= max.y
 }
 
 fn tween_transform(transform: &mut Transform, target: Transform, interpolation: f32) {
@@ -297,14 +297,14 @@ fn tween_transform(transform: &mut Transform, target: Transform, interpolation: 
     transform.rotation = transform.rotation.slerp(target.rotation, interpolation);
 }
 
-pub(super) fn hand_insertion_index(game_view_position: Vec2, hand_card_count: usize) -> usize {
-    let hitboxes = super::game_view_card_hitboxes_for_count(hand_card_count);
+pub(super) fn hand_insertion_index(game_scene_position: Vec2, hand_card_count: usize) -> usize {
+    let hitboxes = super::game_scene_card_hitboxes_for_count(hand_card_count);
     if hitboxes.is_empty() {
         return 0;
     }
 
     for (index, (min, max)) in hitboxes.iter().enumerate() {
-        if game_view_position.x < (min.x + max.x) * 0.5 {
+        if game_scene_position.x < (min.x + max.x) * 0.5 {
             return index;
         }
     }
@@ -312,10 +312,10 @@ pub(super) fn hand_insertion_index(game_view_position: Vec2, hand_card_count: us
 }
 
 pub(super) fn local_slots_area_hit_target(
-    game_view_position: Vec2,
+    game_scene_position: Vec2,
     slot_board: &CardSlotBoardModel,
 ) -> Option<usize> {
-    slot_board.local_slots_area_hit_target(game_view_position)
+    slot_board.local_slots_area_hit_target(game_scene_position)
 }
 
 pub(super) fn local_slots_area_rect(

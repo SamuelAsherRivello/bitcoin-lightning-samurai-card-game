@@ -20,7 +20,7 @@
 | `LocalLocation { location_index, slot_index, hand_index }` | Existing local placed card source. |
 | `OpponentHand { owner, hand_index }` | CPU/far/near hand source when front-facing. |
 | `OpponentLocation { owner, location_index, slot_index }` | CPU/far/near placed source when front-facing. |
-| `ScreenCard { view, entity }` | Non-GameView card displayed on another screen. |
+| `ScreenCard { view, entity }` | Non-GameScene card displayed on another screen. |
 
 ## CardMovementState
 
@@ -53,7 +53,7 @@
 | --- | --- | --- |
 | `opacity` | `f32` | `0.0..=0.5`, derived from selected modal progress. |
 | `input_blocks_lower_layers` | `bool` | ✅ while selected. |
-| `covers_fullscreen` | `bool` | ✅ including letterboxed areas if lower UI exists there; visual placement must still respect GameView composition. |
+| `covers_fullscreen` | `bool` | ✅ including letterboxed areas if lower UI exists there; visual placement must still respect GameScene composition. |
 | `render_order` | `ModalRenderOrder` | Behind selected card, above non-selected scene/card/UI content. |
 
 ## State Transitions

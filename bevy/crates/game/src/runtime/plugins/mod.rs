@@ -25,20 +25,20 @@ use crate::runtime::systems::{
     advance_ticks, card_gesture_animation_system, card_gesture_update_system,
     card_model_input_system, card_point_overlay_selection_update_system,
     card_selected_modal_update_system, card_selection_update_system,
-    constrain_debug_settings_camera_to_safe_area, constrain_deck_builder_camera_to_safe_area,
-    constrain_game_view_3d_cameras_to_safe_area, cpu_brain_update_system,
+    constrain_debug_camera_to_safe_area, constrain_deck_camera_to_safe_area,
+    constrain_game_scene_3d_cameras_to_safe_area, cpu_brain_update_system,
     cpu_placed_card_animation_system, debug_draw_solo_update_system, debug_drawing_update_system,
-    drop_target_hint_update_system, enforce_hidden_game_view_visibility_system,
+    drop_target_hint_update_system, enforce_hidden_game_scene_visibility_system,
     hot_reload_auto_restart_app_scene, initialize_game_models, load_saved_card_settings,
     load_saved_debug_hud_input, load_saved_match_mode_preference,
     load_saved_player_deck_collection, load_saved_window_placement,
-    log_game_view_card_render_diagnostics, modal_block_game_control_interactions_system,
+    log_game_scene_card_render_diagnostics, modal_block_game_control_interactions_system,
     quit_app_on_escape, record_desktop_hot_reload_patch_message, restart_app_scene,
     restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
-    scene_input_system, setup_app_scene, setup_game, setup_game_view_with_params, setup_inspector,
+    scene_input_system, setup_app_scene, setup_game, setup_game_scene_with_params, setup_inspector,
     smooth_card_rotation, staged_match_resolution_system, sync_browser_fullscreen_state_system,
     sync_cpu_hand_card_entities_system, sync_cpu_placed_card_entities_system,
-    sync_debug_hud_ui_camera_system, sync_game_view_hand_card_entities_system,
+    sync_debug_hud_ui_camera_system, sync_game_scene_hand_card_entities_system,
     toggle_debug_hud_inputs, toggle_inspector, track_card_pointer_target, track_window_placement,
     track_window_size, update_card_face_visibility, update_card_flip_animation,
     update_card_frame_shine, update_card_parallax_layers, update_card_point_text2d_overlay_system,
@@ -126,10 +126,10 @@ impl Plugin for CoreGamePlugin {
                 ),
             )
             .add_systems(Startup, setup_inspector)
-            .add_systems(Startup, setup_game_view_with_params)
+            .add_systems(Startup, setup_game_scene_with_params)
             .add_systems(
                 Startup,
-                sync_debug_hud_ui_camera_system.after(setup_game_view_with_params),
+                sync_debug_hud_ui_camera_system.after(setup_game_scene_with_params),
             )
             .add_systems(
                 Update,
@@ -147,7 +147,7 @@ impl Plugin for CoreGamePlugin {
                     update_card_face_visibility.after(update_card_flip_animation),
                     update_card_parallax_layers.after(smooth_card_rotation),
                     update_card_frame_shine.after(smooth_card_rotation),
-                    log_game_view_card_render_diagnostics.after(smooth_card_rotation),
+                    log_game_scene_card_render_diagnostics.after(smooth_card_rotation),
                     debug_drawing_update_system,
                     card_model_input_system,
                     toggle_inspector,
@@ -202,7 +202,7 @@ impl Plugin for CoreGamePlugin {
             )
             .add_systems(
                 Update,
-                sync_game_view_hand_card_entities_system
+                sync_game_scene_hand_card_entities_system
                     .after(update_end_round_button)
                     .before(card_gesture_animation_system),
             )
@@ -258,7 +258,7 @@ impl Plugin for CoreGamePlugin {
             )
             .add_systems(
                 Update,
-                enforce_hidden_game_view_visibility_system
+                enforce_hidden_game_scene_visibility_system
                     .after(scene_input_system)
                     .after(update_card_face_visibility)
                     .after(update_cpu_placed_card_face_visibility_system)
@@ -270,7 +270,7 @@ impl Plugin for CoreGamePlugin {
                 debug_draw_solo_update_system
                     .after(debug_drawing_update_system)
                     .after(update_debug_hud)
-                    .after(enforce_hidden_game_view_visibility_system),
+                    .after(enforce_hidden_game_scene_visibility_system),
             )
             .add_systems(
                 Update,
@@ -285,9 +285,9 @@ impl Plugin for CoreGamePlugin {
                 )
                     .chain(),
             )
-            .add_systems(Update, constrain_deck_builder_camera_to_safe_area)
-            .add_systems(Update, constrain_debug_settings_camera_to_safe_area)
-            .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area)
+            .add_systems(Update, constrain_deck_camera_to_safe_area)
+            .add_systems(Update, constrain_debug_camera_to_safe_area)
+            .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area)
             .add_systems(
                 Update,
                 quit_app_on_escape.before(save_window_placement_on_close),

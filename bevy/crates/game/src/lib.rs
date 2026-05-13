@@ -13,8 +13,8 @@ use runtime::plugins::CoreGamePlugin;
 use runtime::shaders::materials::CardBackgroundMaskMaterial;
 use runtime::systems::{card_ui, inspector_ui};
 
-const GAME_VIEW_WIDTH: f32 = 1280.0;
-const GAME_VIEW_HEIGHT: f32 = 800.0;
+const GAME_SCENE_WIDTH: f32 = 1280.0;
+const GAME_SCENE_HEIGHT: f32 = 800.0;
 const APP_BACKGROUND_COLOR: Color = Color::srgb(0.08, 0.08, 0.08);
 
 pub struct GamePlugin;
@@ -23,8 +23,8 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(AspectRatioPlugin {
             resolution: Resolution {
-                width: GAME_VIEW_WIDTH,
-                height: GAME_VIEW_HEIGHT,
+                width: GAME_SCENE_WIDTH,
+                height: GAME_SCENE_HEIGHT,
             },
             mask: AspectRatioMask {
                 color: APP_BACKGROUND_COLOR,

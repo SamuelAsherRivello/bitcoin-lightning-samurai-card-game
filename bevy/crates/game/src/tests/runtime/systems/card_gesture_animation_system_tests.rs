@@ -7,8 +7,8 @@ fn selected_inspection_uses_ninety_percent_safe_height() {
     let defaults = CardInspectionDefaults::default();
     let transform = selected_inspection_transform(&defaults);
     let rendered_height = defaults.height * transform.scale.y;
-    let expected = game_view_world_height_for_game_view_height(
-        GAME_VIEW_HEIGHT * DECK_BUILDER_CARD_HEIGHT_FRACTION,
+    let expected = game_scene_world_height_for_game_scene_height(
+        GAME_SCENE_HEIGHT * DECK_SCENE_CARD_HEIGHT_FRACTION,
         CARD_GESTURE_SELECTED_Z,
     );
 
@@ -95,7 +95,7 @@ fn local_slots_area_hit_target_detects_whole_available_location_area() {
         None
     );
     assert_eq!(
-        local_slots_area_hit_target(Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT), &board),
+        local_slots_area_hit_target(Vec2::new(GAME_SCENE_WIDTH * 0.5, GAME_SCENE_HEIGHT), &board),
         None
     );
 }
@@ -107,8 +107,8 @@ fn drag_preview_scales_to_one_hundred_fifty_percent_of_source_visual_height() {
     let transform = drag_preview_transform(Vec2::new(10.0, 10.0), source, &defaults);
 
     assert_close(
-        card_game_view_height(transform, &defaults),
-        card_game_view_height(source, &defaults) * 1.5,
+        card_game_scene_height(transform, &defaults),
+        card_game_scene_height(source, &defaults) * 1.5,
     );
     assert!(transform.scale.y < source.scale.y * 1.5);
 }
@@ -124,8 +124,8 @@ fn drag_preview_source_scale_preserves_current_visual_height_at_drag_depth() {
     };
 
     assert_close(
-        card_game_view_height(lifted_source, &defaults),
-        card_game_view_height(source, &defaults),
+        card_game_scene_height(lifted_source, &defaults),
+        card_game_scene_height(source, &defaults),
     );
 }
 
@@ -142,9 +142,9 @@ fn returning_card_settles_only_when_original_scale_is_restored() {
     assert!(return_transform_is_settled(&nearly_restored, &target));
 }
 
-fn card_game_view_height(transform: Transform, defaults: &CardInspectionDefaults) -> f32 {
+fn card_game_scene_height(transform: Transform, defaults: &CardInspectionDefaults) -> f32 {
     defaults.height * transform.scale.y
-        / game_view_world_height_for_game_view_height(1.0, transform.translation.z)
+        / game_scene_world_height_for_game_scene_height(1.0, transform.translation.z)
 }
 
 fn assert_close(actual: f32, expected: f32) {

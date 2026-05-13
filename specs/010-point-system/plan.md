@@ -5,7 +5,7 @@
 
 ## Summary
 
-Define the card and location point model for the Bevy card game so card cost, card power, effective power, shared location totals, location control, and final match outcome all use one consistent gameplay vocabulary. The implementation should add focused Rust/Bevy ECS models and presentation views for cost and power points, keep base card data separate from match-state card instances, calculate location totals from revealed effective power, compare three shared locations from the local player's perspective, and verify the rules with deterministic tests before wiring visible point displays into `GameView`.
+Define the card and location point model for the Bevy card game so card cost, card power, effective power, shared location totals, location control, and final match outcome all use one consistent gameplay vocabulary. The implementation should add focused Rust/Bevy ECS models and presentation views for cost and power points, keep base card data separate from match-state card instances, calculate location totals from revealed effective power, compare three shared locations from the local player's perspective, and verify the rules with deterministic tests before wiring visible point displays into `GameScene`.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Define the card and location point model for the Bevy card game so card cost, ca
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Point totals, control, and match outcome are small deterministic calculations over three locations and up to four cards per player per location; recomputation should be frame-cheap and allocation-light |
-| Constraints | Keep Bevy runtime code under `bevy/crates/game/src/runtime/`; keep point data as `Model` concepts and point rendering as `View` concepts; keep top opponent total and bottom local total positioned from the aspect-ratio-safe `GameView`; do not implement full deckbuilding, draw, energy, CPU, complete round rules, abilities, or production UI |
+| Constraints | Keep Bevy runtime code under `bevy/crates/game/src/runtime/`; keep point data as `Model` concepts and point rendering as `View` concepts; keep top opponent total and bottom local total positioned from the aspect-ratio-safe `GameScene`; do not implement full deckbuilding, draw, energy, CPU, complete round rules, abilities, or production UI |
 | Scale/Scope | Three shared locations, two players, up to four cards per player per location, rounds 1 through 6, display contract for values from `-99` through `99`, deterministic control and match-outcome rules |
 
 ## Constitution Check
@@ -34,8 +34,8 @@ Define the card and location point model for the Bevy card game so card cost, ca
 | Scene/Model/View naming | ✅ | Point data uses `CostPointModel`, `PowerPointModel`, `CardInstanceModel`, `LocationScoreModel`, and match outcome models; rendering uses `CostPointView` and `PowerPointView` |
 | Theme asset organization | ✅ | No new theme-owned card/location/world assets are required; if point backgrounds become image assets later, they must follow theme or shared asset ownership explicitly |
 | Visible user feedback | ✅ | Not an asynchronous workflow; visible feedback is the rendered cost/power/location point display |
-| Desktop and browser WebGPU parity | ✅ | Point calculations are platform-neutral; visible `GameView` point placement must be verified on desktop and browser WebGPU or blocked with reason |
-| Aspect-ratio-safe layout | ✅ | Location totals and card point displays must derive placement from existing safe `GameView` layout rather than raw window pixels |
+| Desktop and browser WebGPU parity | ✅ | Point calculations are platform-neutral; visible `GameScene` point placement must be verified on desktop and browser WebGPU or blocked with reason |
+| Aspect-ratio-safe layout | ✅ | Location totals and card point displays must derive placement from existing safe `GameScene` layout rather than raw window pixels |
 | Framework-specific API constraints documented | ✅ | Bevy UI/Text and ECS scheduling should be used through existing project patterns; no external UI framework is planned |
 
 ## Project Structure
@@ -58,7 +58,7 @@ bevy/crates/game/src/runtime/
 │   ├── mod.rs            # Card/location registries may gain point fields or re-export focused files
 │   └── point_model.rs
 ├── systems/
-│   ├── mod.rs            # Wire point scoring/view systems into existing GameView flow
+│   ├── mod.rs            # Wire point scoring/view systems into existing GameScene flow
 │   └── point_view_update_system.rs
 └── plugins/
     └── mod.rs            # Wire a feature plugin only if existing app composition benefits from it
@@ -89,6 +89,6 @@ See `specs/010-point-system/data-model.md`, `specs/010-point-system/contracts/po
 | Gate | Status | Notes |
 | ---- | ------ | ----- |
 | No unresolved clarifications | ✅ | The spec already resolves the major point rules: cost vs power, reveal contribution, top/bottom totals, ties, tiebreakers, range, and scope exclusions |
-| No target-specific code required | ✅ | Scoring is pure Rust model behavior; rendering uses existing Bevy UI/GameView conventions for both desktop and browser |
+| No target-specific code required | ✅ | Scoring is pure Rust model behavior; rendering uses existing Bevy UI/GameScene conventions for both desktop and browser |
 | Constitution implementation standards reflected | ✅ | Planned runtime concepts use Model/View naming, focused files, required purpose comments, and `[domain]_[schedule]_system` system names |
 | Verification documented | ✅ | Unit tests, desktop run, and browser WebGPU verification are documented in quickstart |

@@ -48,17 +48,17 @@ pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
     CardViewBundle, LocationViewBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView,
-    PointModel, PointType, PointView, PointViewBundle,
+    PointModel, PointType, PointView, PointViewBundle, DebugScreenBundle, DeckScreenBundle, GameScreenBundle,
 };
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardLayerRole, CardParallaxLayer, CardSelectionSource, CardSlotGestureTarget,
     CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase,
     CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText,
-    DebugSettingsSceneEntity, DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot,
+    DebugSceneEntity, DebugSceneRoot, DeckSceneEntity, DeckSceneRoot,
     DropTargetHint, EndRoundButton, GameControlAction, GameControlButton, GameControlLabel,
-    GameLocation, GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameViewEntity,
-    GameViewRoot, HandCardGestureTarget, InspectorState, LocalPlayerHand,
+    GameLocation, GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameSceneEntity,
+    GameSceneRoot, HandCardGestureTarget, InspectorState, LocalPlayerHand,
     LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, Player, PointViewCircle,
     PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard,
     VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget, VisualModifier, WorldBackground,
@@ -99,8 +99,8 @@ const SCREEN_PADDING_TOP: f32 = 24.0;
 const SCREEN_PADDING_LEFT: f32 = 24.0;
 const TARGET_WIDTH: f32 = DEFAULT_WINDOW_WIDTH as f32;
 const TARGET_HEIGHT: f32 = DEFAULT_WINDOW_HEIGHT as f32;
-const GAME_VIEW_WIDTH: f32 = 1280.0;
-const GAME_VIEW_HEIGHT: f32 = 800.0;
+const GAME_SCENE_WIDTH: f32 = 1280.0;
+const GAME_SCENE_HEIGHT: f32 = 800.0;
 const DEBUG_HUD_FONT_SIZE: f32 = 22.0;
 const DEBUG_WINDOW_FONT_SIZE: f32 = 14.0;
 const DEBUG_WINDOW_WIDTH: f32 = 338.0;
@@ -121,11 +121,11 @@ const PARALLAX_OFFSET_RATIO: f32 = 0.065;
 const FRAME_THICKNESS_RATIO: f32 = 0.05;
 const BACKGROUND_APERTURE_SCALE: f32 = 1.0;
 const FRAME_SHINE_STRENGTH: f32 = 0.22;
-const GAME_VIEW_ASPECT_RATIO: f32 = GAME_VIEW_WIDTH / GAME_VIEW_HEIGHT;
+const GAME_SCENE_ASPECT_RATIO: f32 = GAME_SCENE_WIDTH / GAME_SCENE_HEIGHT;
 const GAME_SCENE_HAND_LEFT: f32 = 364.0;
 const GAME_SCENE_HAND_TOP: f32 = 612.0;
 const GAME_SCENE_HAND_WIDTH: f32 = 552.0;
-const GAME_SCENE_HAND_HEIGHT: f32 = GAME_VIEW_HEIGHT - GAME_SCENE_HAND_TOP;
+const GAME_SCENE_HAND_HEIGHT: f32 = GAME_SCENE_HEIGHT - GAME_SCENE_HAND_TOP;
 const GAME_SCENE_HAND_CARD_HEIGHT_FRACTION: f32 = 0.9;
 const GAME_SCENE_HAND_CARD_HEIGHT: f32 =
     GAME_SCENE_HAND_HEIGHT * GAME_SCENE_HAND_CARD_HEIGHT_FRACTION;
@@ -137,7 +137,7 @@ const GAME_SCENE_HAND_CARD_GAP: f32 = 8.0;
 const GAME_SCENE_HAND_CARD_WORLD_Z: f32 = 0.3;
 const GAME_SCENE_HAND_CARD_Z_STEP: f32 = 0.035;
 const GAME_SCENE_HAND_CARD_HOVER_Z: f32 = 0.74;
-const GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y: f32 = GAME_VIEW_HEIGHT + 140.0;
+const GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y: f32 = GAME_SCENE_HEIGHT + 140.0;
 const GAME_SCENE_FAR_HAND_Y: f32 = -142.0;
 const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const GAME_SCENE_WORLD_BACKGROUND_BLEED: f32 = 1.18;
@@ -145,8 +145,8 @@ const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -0.16;
 const CARD_RENDER_LAYER: usize = 1;
 const CARD_POINT_TEXT_RENDER_LAYER: usize = 2;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
-const DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
-const DECK_BUILDER_CARD_HEIGHT_FRACTION: f32 = 0.9;
+const DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
+const DECK_SCENE_CARD_HEIGHT_FRACTION: f32 = 0.9;
 const DEBUG_HUD_Z_INDEX: i32 = 1_200;
 const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
@@ -165,7 +165,7 @@ const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.5;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
-const DEBUG_SETTINGS_CARD_GAP_TO_CARD_UI: f32 = 20.0;
+const DEBUG_SCENE_CARD_GAP_TO_CARD_UI: f32 = 20.0;
 const POINT_VIEW_WIDTH: f32 = 46.0;
 const POINT_VIEW_HEIGHT: f32 = 36.0;
 const LOCATION_POINT_VIEW_WIDTH: f32 = POINT_VIEW_WIDTH.min(POINT_VIEW_HEIGHT);
@@ -188,13 +188,13 @@ pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<Primary
     spawn_primary_camera(&mut commands, &camera_defaults);
 }
 
-pub fn constrain_deck_builder_camera_to_safe_area(
+pub fn constrain_deck_camera_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut camera_query: Query<
         &mut Camera,
         (
             With<PrimaryViewCamera>,
-            With<DeckBuilderSceneEntity>,
+            With<DeckSceneEntity>,
             With<Camera3d>,
         ),
     >,
@@ -202,20 +202,20 @@ pub fn constrain_deck_builder_camera_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport_for_window(window);
+    let safe_area_viewport = game_scene_safe_area_viewport_for_window(window);
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
     }
 }
 
-pub fn constrain_debug_settings_camera_to_safe_area(
+pub fn constrain_debug_camera_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut camera_query: Query<
         &mut Camera,
         (
             With<PrimaryViewCamera>,
-            With<DebugSettingsSceneEntity>,
+            With<DebugSceneEntity>,
             With<Camera3d>,
         ),
     >,
@@ -223,22 +223,22 @@ pub fn constrain_debug_settings_camera_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport_for_window(window);
+    let safe_area_viewport = game_scene_safe_area_viewport_for_window(window);
 
     for mut camera in &mut camera_query {
         camera.viewport = safe_area_viewport.clone();
     }
 }
 
-/// HUMAN: Keeps GameView card cameras aligned with the aspect-ratio-safe area.
+/// HUMAN: Keeps GameScene card cameras aligned with the aspect-ratio-safe area.
 /// AI: Align 3D cards and their Text2d point overlay camera to the same viewport.
-pub fn constrain_game_view_3d_cameras_to_safe_area(
+pub fn constrain_game_scene_3d_cameras_to_safe_area(
     primary_window: Query<&Window, With<PrimaryWindow>>,
     mut fullscreen_viewport_transition: Option<ResMut<FullscreenViewportTransitionState>>,
     mut camera_query: Query<
         &mut Camera,
         (
-            With<GameViewEntity>,
+            With<GameSceneEntity>,
             Or<(With<Camera3d>, With<CardPointTextCamera>)>,
         ),
     >,
@@ -246,7 +246,7 @@ pub fn constrain_game_view_3d_cameras_to_safe_area(
     let Ok(window) = primary_window.single() else {
         return;
     };
-    let safe_area_viewport = game_view_safe_area_viewport_for_window_transition(
+    let safe_area_viewport = game_scene_safe_area_viewport_for_window_transition(
         window,
         fullscreen_viewport_transition.as_deref(),
     );
@@ -262,15 +262,15 @@ pub fn constrain_game_view_3d_cameras_to_safe_area(
     }
 }
 
-fn game_view_safe_area_viewport_for_window(window: &Window) -> Option<Viewport> {
+fn game_scene_safe_area_viewport_for_window(window: &Window) -> Option<Viewport> {
     if should_use_default_camera_viewport(window) {
         return None;
     }
 
-    game_view_safe_area_viewport(window.resolution.physical_size())
+    game_scene_safe_area_viewport(window.resolution.physical_size())
 }
 
-fn game_view_safe_area_viewport_for_window_transition(
+fn game_scene_safe_area_viewport_for_window_transition(
     window: &Window,
     fullscreen_viewport_transition: Option<&FullscreenViewportTransitionState>,
 ) -> Option<Viewport> {
@@ -278,7 +278,7 @@ fn game_view_safe_area_viewport_for_window_transition(
         return None;
     }
 
-    game_view_safe_area_viewport_for_window(window)
+    game_scene_safe_area_viewport_for_window(window)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -291,19 +291,19 @@ fn should_use_default_camera_viewport(_window: &Window) -> bool {
     false
 }
 
-fn game_view_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
+fn game_scene_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
     if window_size.x == 0 || window_size.y == 0 {
         return None;
     }
 
-    let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
+    let game_scene_size = Vec2::new(GAME_SCENE_WIDTH, GAME_SCENE_HEIGHT);
     let window_size_f32 = window_size.as_vec2();
-    let scale = (window_size_f32.x / game_view_size.x).min(window_size_f32.y / game_view_size.y);
+    let scale = (window_size_f32.x / game_scene_size.x).min(window_size_f32.y / game_scene_size.y);
     if scale <= 0.0 {
         return None;
     }
 
-    let viewport_size = (game_view_size * scale).round().as_uvec2();
+    let viewport_size = (game_scene_size * scale).round().as_uvec2();
     let viewport_position = ((window_size - viewport_size).as_vec2() * 0.5)
         .round()
         .as_uvec2();
@@ -320,13 +320,13 @@ fn spawn_primary_camera(
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
     let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN;
+    camera_transform.position.z = DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
 
     commands
         .spawn((
             Name::new("Primary 3D Camera"),
             PrimaryViewCamera,
-            DeckBuilderSceneEntity,
+            DeckSceneEntity,
             Camera3d::default(),
             NoIndirectDrawing,
             Projection::Perspective(PerspectiveProjection {
@@ -341,11 +341,11 @@ fn spawn_primary_camera(
         .id()
 }
 
-fn spawn_deck_builder_ui_camera(commands: &mut Commands) -> Entity {
+fn spawn_deck_ui_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("DeckBuilderScene UI Camera"),
-            DeckBuilderSceneEntity,
+            Name::new("DeckScene UI Camera"),
+            DeckSceneEntity,
             Camera2d,
             Camera {
                 order: 1,
@@ -356,8 +356,8 @@ fn spawn_deck_builder_ui_camera(commands: &mut Commands) -> Entity {
             PrimaryEguiContext,
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_VIEW_WIDTH,
-                    min_height: GAME_VIEW_HEIGHT,
+                    min_width: GAME_SCENE_WIDTH,
+                    min_height: GAME_SCENE_HEIGHT,
                 },
                 ..OrthographicProjection::default_2d()
             }),
@@ -365,18 +365,18 @@ fn spawn_deck_builder_ui_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_debug_settings_primary_camera(
+fn spawn_debug_primary_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
     let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN;
+    camera_transform.position.z = DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
 
     commands
         .spawn((
-            Name::new("DebugSettingsScene 3D Camera"),
+            Name::new("DebugScene 3D Camera"),
             PrimaryViewCamera,
-            DebugSettingsSceneEntity,
+            DebugSceneEntity,
             Camera3d::default(),
             NoIndirectDrawing,
             Projection::Perspective(PerspectiveProjection {
@@ -391,11 +391,11 @@ fn spawn_debug_settings_primary_camera(
         .id()
 }
 
-fn spawn_debug_settings_ui_camera(commands: &mut Commands) -> Entity {
+fn spawn_debug_ui_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("DebugSettingsScene UI Camera"),
-            DebugSettingsSceneEntity,
+            Name::new("DebugScene UI Camera"),
+            DebugSceneEntity,
             Camera2d,
             Camera {
                 order: 1,
@@ -406,8 +406,8 @@ fn spawn_debug_settings_ui_camera(commands: &mut Commands) -> Entity {
             PrimaryEguiContext,
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_VIEW_WIDTH,
-                    min_height: GAME_VIEW_HEIGHT,
+                    min_width: GAME_SCENE_WIDTH,
+                    min_height: GAME_SCENE_HEIGHT,
                 },
                 ..OrthographicProjection::default_2d()
             }),
@@ -415,11 +415,11 @@ fn spawn_debug_settings_ui_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_game_view_camera(commands: &mut Commands) -> Entity {
+fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("GameView UI Camera"),
-            GameViewEntity,
+            Name::new("GameScene UI Camera"),
+            GameSceneEntity,
             Camera2d,
             Camera {
                 order: 1,
@@ -429,8 +429,8 @@ fn spawn_game_view_camera(commands: &mut Commands) -> Entity {
             IsDefaultUiCamera,
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_VIEW_WIDTH,
-                    min_height: GAME_VIEW_HEIGHT,
+                    min_width: GAME_SCENE_WIDTH,
+                    min_height: GAME_SCENE_HEIGHT,
                 },
                 ..OrthographicProjection::default_2d()
             }),
@@ -438,7 +438,7 @@ fn spawn_game_view_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_game_view_card_camera(
+fn spawn_game_scene_card_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
@@ -447,9 +447,9 @@ fn spawn_game_view_card_camera(
 
     commands
         .spawn((
-            Name::new("GameView 3D Card Camera"),
+            Name::new("GameScene 3D Card Camera"),
             PrimaryViewCamera,
-            GameViewEntity,
+            GameSceneEntity,
             Camera3d::default(),
             Camera {
                 order: 0,
@@ -467,7 +467,7 @@ fn spawn_game_view_card_camera(
         .id()
 }
 
-fn spawn_game_view_card_overlay_camera(
+fn spawn_game_scene_card_overlay_camera(
     commands: &mut Commands,
     camera_defaults: &PrimaryCameraDefaults,
 ) -> Entity {
@@ -476,9 +476,9 @@ fn spawn_game_view_card_overlay_camera(
 
     commands
         .spawn((
-            Name::new("GameView 3D Card Overlay Camera"),
+            Name::new("GameScene 3D Card Overlay Camera"),
             PrimaryViewCamera,
-            GameViewEntity,
+            GameSceneEntity,
             Camera3d::default(),
             Camera {
                 order: 2,
@@ -498,12 +498,12 @@ fn spawn_game_view_card_overlay_camera(
         .id()
 }
 
-fn spawn_game_view_card_point_text_camera(commands: &mut Commands) -> Entity {
+fn spawn_game_scene_card_point_text_camera(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("GameView Card Point Text Camera"),
+            Name::new("GameScene Card Point Text Camera"),
             CardPointTextCamera,
-            GameViewEntity,
+            GameSceneEntity,
             Camera2d,
             Camera {
                 order: 3,
@@ -512,8 +512,8 @@ fn spawn_game_view_card_point_text_camera(commands: &mut Commands) -> Entity {
             },
             Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_VIEW_WIDTH,
-                    min_height: GAME_VIEW_HEIGHT,
+                    min_width: GAME_SCENE_WIDTH,
+                    min_height: GAME_SCENE_HEIGHT,
                 },
                 ..OrthographicProjection::default_2d()
             }),
@@ -522,14 +522,14 @@ fn spawn_game_view_card_point_text_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-/// HUMAN: Marks the GameView 2D camera that draws card point Text2d above point circles.
+/// HUMAN: Marks the GameScene 2D camera that draws card point Text2d above point circles.
 /// AI: The marker lets safe-area viewport code match the 3D card cameras exactly.
 #[derive(Clone, Copy, Component, Debug, Default, Eq, PartialEq)]
 pub struct CardPointTextCamera;
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
 /// HUMAN: Spawns the persistent AppScene and debug HUD.
-/// AI: AppScene remains present while GameView, DeckBuilderScene, and DebugSettingsScene swap on top.
+/// AI: AppScene remains present while GameScene, DeckScene, and DebugScene swap on top.
 pub fn setup_app_scene(
     mut commands: Commands,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
@@ -569,9 +569,9 @@ fn spawn_app_scene_contents(commands: &mut Commands, hud_parent: Option<Entity>)
 }
 
 /// HUMAN: Spawns the gameplay sub-screen view.
-/// AI: GameView is a view, not the persistent scene; keep AppScene parenting intact.
+/// AI: GameScene is a view, not the persistent scene; keep AppScene parenting intact.
 #[derive(SystemParam)]
-pub struct SetupGameViewParams<'w, 's> {
+pub struct SetupGameSceneParams<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
     pub hud: Option<Res<'w, Hud>>,
@@ -597,7 +597,7 @@ pub struct SetupGameViewParams<'w, 's> {
     pub masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
 }
 
-pub fn setup_game_view(mut params: SetupGameViewParams) {
+pub fn setup_game_scene(mut params: SetupGameSceneParams) {
     let fallback_camera_defaults = PrimaryCameraDefaults::default();
     let camera_defaults = params
         .camera_defaults
@@ -671,7 +671,7 @@ pub fn setup_game_view(mut params: SetupGameViewParams) {
             params.hud.as_ref().map(|hud| hud.0),
         ))
     });
-    spawn_game_view_contents(
+    spawn_game_scene_contents(
         &mut params.commands,
         app_scene_parent,
         params.hud.as_ref().map(|hud| hud.0),
@@ -702,11 +702,11 @@ pub fn setup_game_view(mut params: SetupGameViewParams) {
     );
 }
 
-pub fn setup_game_view_with_params(params: SetupGameViewParams) {
-    setup_game_view(params);
+pub fn setup_game_scene_with_params(params: SetupGameSceneParams) {
+    setup_game_scene(params);
 }
 
-fn spawn_game_view_contents(
+fn spawn_game_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
     hud_parent: Option<Entity>,
@@ -728,9 +728,9 @@ fn spawn_game_view_contents(
     mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
     let mut scene = commands.spawn((
-        Name::new("GameView"),
-        GameViewRoot,
-        GameViewEntity,
+        Name::new("GameScene"),
+        GameSceneRoot,
+        GameSceneEntity,
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
@@ -742,7 +742,7 @@ fn spawn_game_view_contents(
         Visibility::default(),
     ));
     scene.with_children(|parent| {
-        spawn_game_view_ui(
+        spawn_game_scene_ui(
             parent,
             asset_server,
             location_model_registry,
@@ -753,11 +753,11 @@ fn spawn_game_view_contents(
         );
     });
     let scene_entity = scene.id();
-    spawn_game_view_camera(commands);
-    spawn_game_view_card_camera(commands, camera_defaults);
-    spawn_game_view_card_overlay_camera(commands, camera_defaults);
-    spawn_game_view_card_point_text_camera(commands);
-    spawn_game_view_world_background(
+    spawn_game_scene_camera(commands);
+    spawn_game_scene_card_camera(commands, camera_defaults);
+    spawn_game_scene_card_overlay_camera(commands, camera_defaults);
+    spawn_game_scene_card_point_text_camera(commands);
+    spawn_game_scene_world_background(
         commands,
         asset_server,
         world_model_registry,
@@ -765,7 +765,7 @@ fn spawn_game_view_contents(
         meshes,
         materials,
     );
-    spawn_game_view_hand_cards(
+    spawn_game_scene_hand_cards(
         commands,
         asset_server,
         card_defaults,
@@ -820,10 +820,10 @@ fn spawn_card_slot_gesture_targets(
             for side in [CardSlotSide::Opponent, CardSlotSide::LocalPlayer] {
                 commands.spawn((
                     Name::new(format!(
-                        "GameView {:?} Card Slot {}-{}",
+                        "GameScene {:?} Card Slot {}-{}",
                         side, location_index, slot_index
                     )),
-                    GameViewEntity,
+                    GameSceneEntity,
                     CardSlotGestureTarget::new(location_index, side, slot_index),
                     card_gesture_animation_system::slot_transform(
                         location_index,
@@ -850,7 +850,7 @@ fn spawn_drop_target_hints(parent: &mut ChildSpawnerCommands, slot_board: &CardS
         let size = max - min;
         parent.spawn((
             Name::new(format!("DropTargetHint {location_index}")),
-            GameViewEntity,
+            GameSceneEntity,
             DropTargetHint::new(location_index),
             Node {
                 position_type: PositionType::Absolute,
@@ -869,7 +869,7 @@ fn spawn_drop_target_hints(parent: &mut ChildSpawnerCommands, slot_board: &CardS
     }
 }
 
-fn spawn_game_view_ui(
+fn spawn_game_scene_ui(
     parent: &mut ChildSpawnerCommands,
     asset_server: &AssetServer,
     location_model_registry: &LocationModelRegistry,
@@ -880,8 +880,8 @@ fn spawn_game_view_ui(
 ) {
     parent
         .spawn((
-            Name::new("GameView UI"),
-            GameViewEntity,
+            Name::new("GameScene UI"),
+            GameSceneEntity,
             Node {
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
@@ -907,7 +907,7 @@ fn spawn_game_view_ui(
         });
 }
 
-fn spawn_game_view_world_background(
+fn spawn_game_scene_world_background(
     commands: &mut Commands,
     asset_server: &AssetServer,
     world_model_registry: &WorldModelRegistry,
@@ -916,12 +916,12 @@ fn spawn_game_view_world_background(
     materials: &mut Assets<StandardMaterial>,
 ) -> Entity {
     let world_model = world_model_registry.active_world_model(active_world_model);
-    let background_size = game_view_world_background_size();
+    let background_size = game_scene_world_background_size();
     commands
         .spawn((
             Name::new(format!("{} World Background", world_model.display_name)),
             WorldBackground,
-            GameViewEntity,
+            GameSceneEntity,
             Mesh3d(meshes.add(Rectangle::new(background_size.x, background_size.y))),
             MeshMaterial3d(card_model_material(
                 asset_server,
@@ -1034,66 +1034,66 @@ fn spawn_location_area_bundles(
     }
 }
 
-fn game_view_perspective_view_size_at_z(z: f32) -> Vec2 {
+fn game_scene_perspective_view_size_at_z(z: f32) -> Vec2 {
     let distance = (GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
     let height = 2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance;
 
-    Vec2::new(height * GAME_VIEW_ASPECT_RATIO, height)
+    Vec2::new(height * GAME_SCENE_ASPECT_RATIO, height)
 }
 
-/// HUMAN: Sizes the GameView world backdrop to cover the safe gameplay viewport.
-/// AI: Keep this tied to the GameView camera projection so background tests match runtime framing.
-fn game_view_world_background_size() -> Vec2 {
-    game_view_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
+/// HUMAN: Sizes the GameScene world backdrop to cover the safe gameplay viewport.
+/// AI: Keep this tied to the GameScene camera projection so background tests match runtime framing.
+fn game_scene_world_background_size() -> Vec2 {
+    game_scene_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
         * GAME_SCENE_WORLD_BACKGROUND_BLEED
 }
 
-/// HUMAN: Scales the deck builder card to fill most of the centered presentation view.
+/// HUMAN: Scales the deck card to fill most of the centered presentation view.
 /// AI: The centered card uses world units so it remains independent of Bevy UI layout.
-fn deck_builder_centered_card_scale(card_defaults: &CardInspectionDefaults) -> f32 {
-    game_view_world_height_for_game_view_height(
-        GAME_VIEW_HEIGHT * DECK_BUILDER_CARD_HEIGHT_FRACTION,
+fn deck_centered_card_scale(card_defaults: &CardInspectionDefaults) -> f32 {
+    game_scene_world_height_for_game_scene_height(
+        GAME_SCENE_HEIGHT * DECK_SCENE_CARD_HEIGHT_FRACTION,
         0.0,
     ) / card_defaults.height
 }
 
-fn game_view_world_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
-    let view_size = game_view_perspective_view_size_at_z(z);
+fn game_scene_world_position_from_game_scene(game_scene_position: Vec2, z: f32) -> Vec3 {
+    let view_size = game_scene_perspective_view_size_at_z(z);
 
     Vec3::new(
-        ((game_view_position.x / GAME_VIEW_WIDTH) - 0.5) * view_size.x,
-        (0.5 - (game_view_position.y / GAME_VIEW_HEIGHT)) * view_size.y,
+        ((game_scene_position.x / GAME_SCENE_WIDTH) - 0.5) * view_size.x,
+        (0.5 - (game_scene_position.y / GAME_SCENE_HEIGHT)) * view_size.y,
         z,
     )
 }
 
-fn game_view_position_from_world_position(world_position: Vec3) -> Vec2 {
-    let view_size = game_view_perspective_view_size_at_z(world_position.z);
+fn game_scene_position_from_world_position(world_position: Vec3) -> Vec2 {
+    let view_size = game_scene_perspective_view_size_at_z(world_position.z);
 
     Vec2::new(
-        ((world_position.x / view_size.x) + 0.5) * GAME_VIEW_WIDTH,
-        (0.5 - (world_position.y / view_size.y)) * GAME_VIEW_HEIGHT,
+        ((world_position.x / view_size.x) + 0.5) * GAME_SCENE_WIDTH,
+        (0.5 - (world_position.y / view_size.y)) * GAME_SCENE_HEIGHT,
     )
 }
 
-fn game_view_world_units_per_game_view_pixel(z: f32) -> f32 {
-    game_view_perspective_view_size_at_z(z).y / GAME_VIEW_HEIGHT
+fn game_scene_world_units_per_game_scene_pixel(z: f32) -> f32 {
+    game_scene_perspective_view_size_at_z(z).y / GAME_SCENE_HEIGHT
 }
 
-fn game_view_text2d_position_from_game_view(game_view_position: Vec2, z: f32) -> Vec3 {
+fn game_scene_text2d_position_from_game_scene(game_scene_position: Vec2, z: f32) -> Vec3 {
     Vec3::new(
-        game_view_position.x - (GAME_VIEW_WIDTH * 0.5),
-        (GAME_VIEW_HEIGHT * 0.5) - game_view_position.y,
+        game_scene_position.x - (GAME_SCENE_WIDTH * 0.5),
+        (GAME_SCENE_HEIGHT * 0.5) - game_scene_position.y,
         z,
     )
 }
 
-fn game_view_world_height_for_game_view_height(game_view_height: f32, z: f32) -> f32 {
-    game_view_perspective_view_size_at_z(z).y * (game_view_height / GAME_VIEW_HEIGHT)
+fn game_scene_world_height_for_game_scene_height(game_scene_height: f32, z: f32) -> f32 {
+    game_scene_perspective_view_size_at_z(z).y * (game_scene_height / GAME_SCENE_HEIGHT)
 }
 
-fn game_view_world_width_for_game_view_width(game_view_width: f32, z: f32) -> f32 {
-    game_view_perspective_view_size_at_z(z).x * (game_view_width / GAME_VIEW_WIDTH)
+fn game_scene_world_width_for_game_scene_width(game_scene_width: f32, z: f32) -> f32 {
+    game_scene_perspective_view_size_at_z(z).x * (game_scene_width / GAME_SCENE_WIDTH)
 }
 
 fn spawn_location_title_and_body(
@@ -1148,7 +1148,7 @@ fn spawn_location_title_and_body(
 }
 
 /// HUMAN: Refreshes visible location reveal state after round changes.
-/// AI: Keep spawned GameView location components in sync with GameLocationModel.
+/// AI: Keep spawned GameScene location components in sync with GameLocationModel.
 pub fn update_game_location_views_system(
     game_location_model: Option<Res<GameLocationModel>>,
     mut location_query: Query<&mut GameLocation>,
@@ -1318,7 +1318,7 @@ fn spawn_card_power_point_view(
 }
 
 /// HUMAN: Recalculates visible location power totals from runtime slot occupancy.
-/// AI: This is the GameView bridge from placed card slots to point presentation.
+/// AI: This is the GameScene bridge from placed card slots to point presentation.
 pub fn update_location_power_points(
     active_view: Option<Res<ActiveView>>,
     slot_board: Res<CardSlotBoardModel>,
@@ -1329,7 +1329,7 @@ pub fn update_location_power_points(
     mut power_query: Query<(&PointLocationView, &mut PointView, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -1432,7 +1432,7 @@ pub(crate) fn update_card_power_point_views_system(
     mut point_query: Query<(&mut PointView, Option<&Children>)>,
     mut text_query: Query<(&CardPointTextView, &mut Text2d)>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -1578,9 +1578,9 @@ pub(crate) fn update_card_point_text2d_overlay_system(
 }
 
 fn card_point_text2d_local_transform(point_transform: &GlobalTransform) -> Transform {
-    let game_view_position = game_view_position_from_world_position(point_transform.translation());
+    let game_scene_position = game_scene_position_from_world_position(point_transform.translation());
     let text_position =
-        game_view_text2d_position_from_game_view(game_view_position, CARD_POINT_TEXT_Z);
+        game_scene_text2d_position_from_game_scene(game_scene_position, CARD_POINT_TEXT_Z);
     let text_global_transform = GlobalTransform::from(Transform {
         translation: text_position,
         scale: Vec3::splat(card_point_text2d_scale_from_point_transform(
@@ -1600,10 +1600,10 @@ fn card_point_text2d_scale_from_point_transform(point_transform: &GlobalTransfor
         .abs()
         .max(point_scale.y.abs())
         .max(f32::EPSILON);
-    let point_view_size = game_view_perspective_view_size_at_z(point_translation.z);
-    let reference_view_size = game_view_perspective_view_size_at_z(GAME_SCENE_HAND_CARD_WORLD_Z);
-    let point_pixels_per_world_unit = GAME_VIEW_HEIGHT / point_view_size.y;
-    let reference_pixels_per_world_unit = GAME_VIEW_HEIGHT / reference_view_size.y;
+    let point_view_size = game_scene_perspective_view_size_at_z(point_translation.z);
+    let reference_view_size = game_scene_perspective_view_size_at_z(GAME_SCENE_HAND_CARD_WORLD_Z);
+    let point_pixels_per_world_unit = GAME_SCENE_HEIGHT / point_view_size.y;
+    let reference_pixels_per_world_unit = GAME_SCENE_HEIGHT / reference_view_size.y;
 
     point_world_scale * (point_pixels_per_world_unit / reference_pixels_per_world_unit)
 }
@@ -1621,16 +1621,16 @@ impl CardPointTextView {
     }
 }
 
-/// HUMAN: Stores pre-scene-switch visibility for hidden GameView entities.
+/// HUMAN: Stores pre-scene-switch visibility for hidden GameScene entities.
 /// AI: Restores exact card layer visibility when returning from non-game views.
 #[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
-pub struct GameViewSceneHiddenVisibility(Visibility);
+pub struct GameSceneSceneHiddenVisibility(Visibility);
 
 fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     parent.spawn((
         Name::new("Local Player Hand"),
         LocalPlayerHand,
-        GameViewEntity,
+        GameSceneEntity,
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(GAME_SCENE_HAND_LEFT),
@@ -1649,27 +1649,27 @@ fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
     ));
 }
 
-fn game_view_hand_area_min() -> Vec2 {
+fn game_scene_hand_area_min() -> Vec2 {
     Vec2::new(GAME_SCENE_HAND_LEFT, GAME_SCENE_HAND_TOP)
 }
 
-fn game_view_hand_area_size() -> Vec2 {
+fn game_scene_hand_area_size() -> Vec2 {
     Vec2::new(GAME_SCENE_HAND_WIDTH, GAME_SCENE_HAND_HEIGHT)
 }
 
-fn game_view_hand_card_size() -> Vec2 {
+fn game_scene_hand_card_size() -> Vec2 {
     Vec2::new(GAME_SCENE_HAND_CARD_WIDTH, GAME_SCENE_HAND_CARD_HEIGHT)
 }
 
 fn local_player_hand_deal_transform(card_defaults: &CardInspectionDefaults) -> Transform {
-    let card_world_scale = game_view_world_height_for_game_view_height(
+    let card_world_scale = game_scene_world_height_for_game_scene_height(
         GAME_SCENE_HAND_CARD_HEIGHT,
         GAME_SCENE_HAND_CARD_WORLD_Z,
     ) / card_defaults.height;
 
     Transform {
-        translation: game_view_world_position_from_game_view(
-            Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y),
+        translation: game_scene_world_position_from_game_scene(
+            Vec2::new(GAME_SCENE_WIDTH * 0.5, GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y),
             GAME_SCENE_HAND_CARD_WORLD_Z,
         ),
         scale: Vec3::splat(card_world_scale),
@@ -1679,7 +1679,7 @@ fn local_player_hand_deal_transform(card_defaults: &CardInspectionDefaults) -> T
 
 // HUMAN: Size and position hand cards using shared hand-area geometry.
 // AI: Use a single source of truth for card height and group centering calculations.
-fn spawn_game_view_hand_cards(
+fn spawn_game_scene_hand_cards(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
@@ -1697,7 +1697,7 @@ fn spawn_game_view_hand_cards(
     let deal_transform = local_player_hand_deal_transform(card_defaults);
 
     for (index, card_model) in card_models.into_iter().enumerate() {
-        spawn_game_view_hand_card(
+        spawn_game_scene_hand_card(
             commands,
             asset_server,
             card_defaults,
@@ -1711,7 +1711,7 @@ fn spawn_game_view_hand_cards(
     }
 }
 
-fn spawn_game_view_hand_card(
+fn spawn_game_scene_hand_card(
     commands: &mut Commands,
     asset_server: &AssetServer,
     card_defaults: &CardInspectionDefaults,
@@ -1737,7 +1737,7 @@ fn spawn_game_view_hand_card(
     commands
         .entity(card)
         .insert((
-            GameViewEntity,
+            GameSceneEntity,
             LocalPlayerHandCardPreview,
             HandCardGestureTarget::new(hand_index),
             SelectableCard::new(CardSelectionSource::LocalHand { hand_index }),
@@ -1748,7 +1748,7 @@ fn spawn_game_view_hand_card(
 
 /// HUMAN: Creates and removes rendered hand card entities as cards are dealt between rounds.
 /// AI: GameHandModel is authoritative; this system reconciles spawned card roots to it.
-pub fn sync_game_view_hand_card_entities_system(
+pub fn sync_game_scene_hand_card_entities_system(
     mut commands: Commands,
     active_view: Option<Res<ActiveView>>,
     asset_server: Res<AssetServer>,
@@ -1760,7 +1760,7 @@ pub fn sync_game_view_hand_card_entities_system(
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
     card_query: Query<(Entity, &HandCardGestureTarget), With<CardGestureView>>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         let _ = commands;
         return;
     }
@@ -1787,7 +1787,7 @@ pub fn sync_game_view_hand_card_entities_system(
         let Some(card_model) = card_model_registry.card_model_for_id(card_id).cloned() else {
             continue;
         };
-        spawn_game_view_hand_card(
+        spawn_game_scene_hand_card(
             &mut commands,
             &asset_server,
             &card_defaults,
@@ -1808,7 +1808,7 @@ fn spawn_game_controls(
 ) {
     parent.spawn((
         Name::new("Match Status Text"),
-        GameViewEntity,
+        GameSceneEntity,
         MatchStatusText,
         Text::new("Status: Playing"),
         TextFont {
@@ -1830,7 +1830,7 @@ fn spawn_game_controls(
     parent
         .spawn((
             Name::new("Mode Button"),
-            GameViewEntity,
+            GameSceneEntity,
             Button,
             GameControlButton::new(GameControlAction::Mode),
             Node {
@@ -1874,7 +1874,7 @@ fn spawn_game_controls(
     parent
         .spawn((
             Name::new("Restart Button"),
-            GameViewEntity,
+            GameSceneEntity,
             Button,
             GameControlButton::new(GameControlAction::Restart),
             Node {
@@ -1908,7 +1908,7 @@ fn spawn_game_controls(
     parent
         .spawn((
             Name::new("Undo Button"),
-            GameViewEntity,
+            GameSceneEntity,
             Button,
             GameControlButton::new(GameControlAction::Undo),
             Node {
@@ -1961,7 +1961,7 @@ fn spawn_game_controls(
         .spawn((
             Name::new("RoundUI"),
             RoundUi,
-            GameViewEntity,
+            GameSceneEntity,
             Button,
             GameControlButton::new(GameControlAction::EndRound),
             Node {
@@ -2007,11 +2007,11 @@ fn spawn_game_controls(
         });
 }
 
-fn spawn_deck_builder_light(commands: &mut Commands) -> Entity {
+fn spawn_deck_light(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("DeckBuilderScene Key Light"),
-            DeckBuilderSceneEntity,
+            Name::new("DeckScene Key Light"),
+            DeckSceneEntity,
             DirectionalLight {
                 illuminance: 1500.0,
                 ..Default::default()
@@ -2021,11 +2021,11 @@ fn spawn_deck_builder_light(commands: &mut Commands) -> Entity {
         .id()
 }
 
-fn spawn_debug_settings_light(commands: &mut Commands) -> Entity {
+fn spawn_debug_light(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Name::new("DebugSettingsScene Key Light"),
-            DebugSettingsSceneEntity,
+            Name::new("DebugScene Key Light"),
+            DebugSceneEntity,
             DirectionalLight {
                 illuminance: 1500.0,
                 ..Default::default()
@@ -2035,9 +2035,9 @@ fn spawn_debug_settings_light(commands: &mut Commands) -> Entity {
         .id()
 }
 
-/// HUMAN: Spawns the deck builder sub-screen view.
-/// AI: DeckBuilderScene keeps the centered card preview separate from the deck list UI.
-pub fn setup_deck_builder_scene(
+/// HUMAN: Spawns the deck sub-screen view.
+/// AI: DeckScene keeps the centered card preview separate from the deck list UI.
+pub fn setup_deck_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     camera_defaults: Res<PrimaryCameraDefaults>,
@@ -2054,7 +2054,7 @@ pub fn setup_deck_builder_scene(
     let player_deck_collection = player_deck_collection
         .as_deref()
         .unwrap_or(&fallback_player_deck_collection);
-    spawn_deck_builder_scene_contents(
+    spawn_deck_scene_contents(
         &mut commands,
         &asset_server,
         &camera_defaults,
@@ -2071,7 +2071,7 @@ pub fn setup_deck_builder_scene(
     );
 }
 
-fn spawn_deck_builder_scene_contents(
+fn spawn_deck_scene_contents(
     commands: &mut Commands,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
@@ -2088,17 +2088,17 @@ fn spawn_deck_builder_scene_contents(
 ) {
     let scene_root = commands
         .spawn((
-            Name::new("DeckBuilderScene"),
-            DeckBuilderSceneRoot,
-            DeckBuilderSceneEntity,
+            Name::new("DeckScene"),
+            DeckSceneRoot,
+            DeckSceneEntity,
             Transform::default(),
             GlobalTransform::default(),
             Visibility::default(),
         ))
         .id();
     let camera = spawn_primary_camera(commands, camera_defaults);
-    let ui_camera = spawn_deck_builder_ui_camera(commands);
-    let light = spawn_deck_builder_light(commands);
+    let ui_camera = spawn_deck_ui_camera(commands);
+    let light = spawn_deck_light(commands);
     let card = spawn_card_structure(
         commands,
         asset_server,
@@ -2113,7 +2113,7 @@ fn spawn_deck_builder_scene_contents(
         Transform {
             translation: Vec3::ZERO,
             rotation: initial_rotation,
-            scale: Vec3::splat(deck_builder_centered_card_scale(card_defaults)),
+            scale: Vec3::splat(deck_centered_card_scale(card_defaults)),
         },
     );
     let deck_cards = player_deck_collection
@@ -2123,8 +2123,8 @@ fn spawn_deck_builder_scene_contents(
         .unwrap_or_else(random_shuffled_default_deck_cards);
     let deck_panel = commands
         .spawn((
-            Name::new("DeckBuilder Content"),
-            DeckBuilderSceneEntity,
+            Name::new("Deck Content"),
+            DeckSceneEntity,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
@@ -2255,7 +2255,7 @@ fn spawn_deck_builder_scene_contents(
         }
     });
     // Keep 3D content out of the UI node hierarchy so resize-driven UI layout
-    // transforms cannot move or scale the deck builder presentation.
+    // transforms cannot move or scale the deck presentation.
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
     commands.entity(scene_root).add_child(light);
@@ -2263,9 +2263,9 @@ fn spawn_deck_builder_scene_contents(
     commands
         .entity(card)
         .insert((
-            DeckBuilderSceneEntity,
+            DeckSceneEntity,
             SelectableCard::new(CardSelectionSource::ScreenCard {
-                view: ActiveView::DeckBuilderScene,
+                view: ActiveView::DeckScene,
             }),
         ))
         .observe(card_click_navigation);
@@ -2277,9 +2277,9 @@ fn spawn_deck_builder_scene_contents(
     }
 }
 
-/// HUMAN: Spawns the debug settings sub-screen scene.
-/// AI: DebugSettingsScene duplicates DeckBuilderScene presentation for debug configuration work.
-pub fn setup_debug_settings_scene(
+/// HUMAN: Spawns the debug sub-screen scene.
+/// AI: DebugScene duplicates DeckScene presentation for debug configuration work.
+pub fn setup_debug_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     camera_defaults: Res<PrimaryCameraDefaults>,
@@ -2291,7 +2291,7 @@ pub fn setup_debug_settings_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
 ) {
-    spawn_debug_settings_scene_contents(
+    spawn_debug_scene_contents(
         &mut commands,
         &asset_server,
         &camera_defaults,
@@ -2307,7 +2307,7 @@ pub fn setup_debug_settings_scene(
     );
 }
 
-fn spawn_debug_settings_scene_contents(
+fn spawn_debug_scene_contents(
     commands: &mut Commands,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
@@ -2323,17 +2323,17 @@ fn spawn_debug_settings_scene_contents(
 ) {
     let scene_root = commands
         .spawn((
-            Name::new("DebugSettingsScene"),
-            DebugSettingsSceneRoot,
-            DebugSettingsSceneEntity,
+            Name::new("DebugScene"),
+            DebugSceneRoot,
+            DebugSceneEntity,
             Transform::default(),
             GlobalTransform::default(),
             Visibility::default(),
         ))
         .id();
-    let camera = spawn_debug_settings_primary_camera(commands, camera_defaults);
-    let ui_camera = spawn_debug_settings_ui_camera(commands);
-    let light = spawn_debug_settings_light(commands);
+    let camera = spawn_debug_primary_camera(commands, camera_defaults);
+    let ui_camera = spawn_debug_ui_camera(commands);
+    let light = spawn_debug_light(commands);
     let card = spawn_card_structure(
         commands,
         asset_server,
@@ -2345,7 +2345,7 @@ fn spawn_debug_settings_scene_contents(
         masked_background_materials,
         visible_face,
         false,
-        debug_settings_scene_card_transform(card_defaults, initial_rotation),
+        debug_scene_card_transform(card_defaults, initial_rotation),
     );
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
@@ -2354,9 +2354,9 @@ fn spawn_debug_settings_scene_contents(
     commands
         .entity(card)
         .insert((
-            DebugSettingsSceneEntity,
+            DebugSceneEntity,
             SelectableCard::new(CardSelectionSource::ScreenCard {
-                view: ActiveView::DebugSettingsScene,
+                view: ActiveView::DebugScene,
             }),
         ))
         .observe(card_click_navigation);
@@ -2389,7 +2389,7 @@ pub fn setup_card_placeholder(
         Transform {
             translation: Vec3::ZERO,
             rotation: Quat::IDENTITY,
-            scale: Vec3::splat(deck_builder_centered_card_scale(&card_defaults)),
+            scale: Vec3::splat(deck_centered_card_scale(&card_defaults)),
         },
     );
 }
@@ -2425,21 +2425,21 @@ fn spawn_card_structure(
     )
 }
 
-/// HUMAN: Positions the DebugSettingsScene card near the card control panel.
+/// HUMAN: Positions the DebugScene card near the card control panel.
 /// AI: Size uses Card UI width and offsets by a fixed gap so the model and UI sit beside each other.
-fn debug_settings_scene_card_transform(
+fn debug_scene_card_transform(
     card_defaults: &CardInspectionDefaults,
     rotation: Quat,
 ) -> Transform {
     let target_card_width = DEBUG_WINDOW_WIDTH;
     let target_card_scale =
-        game_view_world_width_for_game_view_width(target_card_width, 0.0) / card_defaults.width;
+        game_scene_world_width_for_game_scene_width(target_card_width, 0.0) / card_defaults.width;
     let target_card_height = target_card_width / (card_defaults.width / card_defaults.height);
-    let card_center = game_view_world_position_from_game_view(
+    let card_center = game_scene_world_position_from_game_scene(
         Vec2::new(
-            GAME_VIEW_WIDTH
+            GAME_SCENE_WIDTH
                 - SCREEN_PADDING_LEFT
-                - DEBUG_SETTINGS_CARD_GAP_TO_CARD_UI
+                - DEBUG_SCENE_CARD_GAP_TO_CARD_UI
                 - (target_card_width * 1.5),
             SCREEN_PADDING_TOP + (target_card_height * 0.5),
         ),
@@ -3087,13 +3087,13 @@ pub fn smooth_card_rotation(
     card_defaults: Res<CardInspectionDefaults>,
     card_state: Res<CardInspectionState>,
     flip_state: Res<CardFlipState>,
-    mut card_query: Query<&mut Transform, (With<CardView>, With<DeckBuilderSceneEntity>)>,
+    mut card_query: Query<&mut Transform, (With<CardView>, With<DeckSceneEntity>)>,
     mut game_card_query: Query<
         &mut Transform,
         (
             With<LocalPlayerHandCardPreview>,
-            With<GameViewEntity>,
-            Without<DeckBuilderSceneEntity>,
+            With<GameSceneEntity>,
+            Without<DeckSceneEntity>,
         ),
     >,
 ) {
@@ -3112,7 +3112,7 @@ pub fn smooth_card_rotation(
     }
 }
 
-pub fn log_game_view_card_render_diagnostics(
+pub fn log_game_scene_card_render_diagnostics(
     mut has_logged: Local<bool>,
     active_view: Res<ActiveView>,
     card_query: Query<
@@ -3120,8 +3120,8 @@ pub fn log_game_view_card_render_diagnostics(
         (
             With<LocalPlayerHandCardPreview>,
             With<CardView>,
-            With<GameViewEntity>,
-            Without<DeckBuilderSceneEntity>,
+            With<GameSceneEntity>,
+            Without<DeckSceneEntity>,
         ),
     >,
     layer_query: Query<
@@ -3129,12 +3129,12 @@ pub fn log_game_view_card_render_diagnostics(
         (
             With<CardParallaxLayer>,
             With<CardFaceLayer>,
-            Without<DeckBuilderSceneEntity>,
+            Without<DeckSceneEntity>,
         ),
     >,
-    camera_query: Query<(&Name, &Camera, Option<&Projection>), With<GameViewEntity>>,
+    camera_query: Query<(&Name, &Camera, Option<&Projection>), With<GameSceneEntity>>,
 ) {
-    if *has_logged || *active_view != ActiveView::GameView {
+    if *has_logged || *active_view != ActiveView::GameScene {
         return;
     }
 
@@ -3188,7 +3188,7 @@ pub fn log_game_view_card_render_diagnostics(
         .collect();
 
     info!(
-        "GameView 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]",
+        "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]",
         cards.len(),
         layer_details.len(),
         cameras.len(),
@@ -3205,7 +3205,7 @@ pub fn log_game_view_card_render_diagnostics(
             std::fs::write(
                 diagnostic_path,
                 format!(
-                    "GameView 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]\n",
+                    "GameScene 3D card render diagnostics: cards={} layers={} cameras={} card_roots=[{}] layers=[{}] cameras=[{}]\n",
                     cards.len(),
                     layer_details.len(),
                     cameras.len(),
@@ -3216,7 +3216,7 @@ pub fn log_game_view_card_render_diagnostics(
             )
         });
     if let Err(error) = diagnostic_result {
-        warn!("Failed to write GameView render diagnostics: {error}");
+        warn!("Failed to write GameScene render diagnostics: {error}");
     }
     *has_logged = true;
 }
@@ -3247,7 +3247,7 @@ pub fn update_card_face_visibility(
             &CardFaceLayer,
             Option<&CardParallaxLayer>,
             &mut Visibility,
-            Option<&GameViewSceneHiddenVisibility>,
+            Option<&GameSceneSceneHiddenVisibility>,
         ),
         Without<CpuPlacedCardFaceLayer>,
     >,
@@ -3391,7 +3391,7 @@ pub fn card_model_input_system(
     }
 
     match *scene.active_view {
-        ActiveView::GameView => {
+        ActiveView::GameScene => {
             scene.active_world_model.toggle(&scene.world_model_registry);
             scene
                 .active_locations
@@ -3402,7 +3402,7 @@ pub fn card_model_input_system(
             }
             scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
         }
-        ActiveView::DeckBuilderScene | ActiveView::DebugSettingsScene => {
+        ActiveView::DeckScene | ActiveView::DebugScene => {
             card_ui_state.depth_factor = next_card_ui_depth_factor(card_ui_state.depth_factor);
             if let Some(persistent_settings) = persistent_settings.as_deref_mut() {
                 if let Err(error) =
@@ -3480,7 +3480,7 @@ pub fn restart_app_scene(params: RestartAppSceneParams) {
         opponent_match_model.as_deref_mut(),
         player_deck_collection.as_deref(),
     );
-    *scene.active_view = ActiveView::GameView;
+    *scene.active_view = ActiveView::GameScene;
     scene.reload_app_scene_and_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
     *flip_state = CardFlipState::default();
     *scene.card_state = CardInspectionState::default();
@@ -3598,8 +3598,8 @@ pub struct ViewChangeParams<'w, 's> {
     active_view: ResMut<'w, ActiveView>,
     app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
     hud: Option<Res<'w, Hud>>,
-    game_view_roots: Query<'w, 's, Entity, With<GameViewRoot>>,
-    game_view_entities: Query<'w, 's, Entity, With<GameViewEntity>>,
+    game_scene_roots: Query<'w, 's, Entity, With<GameSceneRoot>>,
+    game_scene_entities: Query<'w, 's, Entity, With<GameSceneEntity>>,
     child_query: Query<'w, 's, &'static Children>,
     visibility_query: Query<
         'w,
@@ -3607,54 +3607,54 @@ pub struct ViewChangeParams<'w, 's> {
         (
             Entity,
             &'static mut Visibility,
-            Option<&'static GameViewSceneHiddenVisibility>,
+            Option<&'static GameSceneSceneHiddenVisibility>,
         ),
     >,
-    standalone_game_view_entities: Query<
+    standalone_game_scene_entities: Query<
         'w,
         's,
         Entity,
         (
-            With<GameViewEntity>,
-            Without<GameViewRoot>,
+            With<GameSceneEntity>,
+            Without<GameSceneRoot>,
             Without<ChildOf>,
         ),
     >,
-    standalone_deck_builder_scene_entities: Query<
+    standalone_deck_scene_entities: Query<
         'w,
         's,
         Entity,
         (
-            With<DeckBuilderSceneEntity>,
-            Without<DeckBuilderSceneRoot>,
+            With<DeckSceneEntity>,
+            Without<DeckSceneRoot>,
             Without<ChildOf>,
         ),
     >,
-    standalone_debug_settings_scene_entities: Query<
+    standalone_debug_scene_entities: Query<
         'w,
         's,
         Entity,
         (
-            With<DebugSettingsSceneEntity>,
-            Without<DebugSettingsSceneRoot>,
+            With<DebugSceneEntity>,
+            Without<DebugSceneRoot>,
             Without<ChildOf>,
         ),
     >,
-    deck_builder_scene_roots: Query<'w, 's, Entity, With<DeckBuilderSceneRoot>>,
-    debug_settings_scene_roots: Query<'w, 's, Entity, With<DebugSettingsSceneRoot>>,
+    deck_scene_roots: Query<'w, 's, Entity, With<DeckSceneRoot>>,
+    debug_scene_roots: Query<'w, 's, Entity, With<DebugSceneRoot>>,
     primary_window_query: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     view_camera_queries: ParamSet<
         'w,
         's,
         (
-            Query<'w, 's, &'static mut Camera, With<GameViewEntity>>,
+            Query<'w, 's, &'static mut Camera, With<GameSceneEntity>>,
             Query<
                 'w,
                 's,
                 (&'static Camera, &'static GlobalTransform),
                 (
                     With<PrimaryViewCamera>,
-                    With<DeckBuilderSceneEntity>,
+                    With<DeckSceneEntity>,
                     With<Camera3d>,
                 ),
             >,
@@ -3664,16 +3664,16 @@ pub struct ViewChangeParams<'w, 's> {
                 (&'static Camera, &'static GlobalTransform),
                 (
                     With<PrimaryViewCamera>,
-                    With<DebugSettingsSceneEntity>,
+                    With<DebugSceneEntity>,
                     With<Camera3d>,
                 ),
             >,
         ),
     >,
-    deck_builder_card_query:
-        Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DeckBuilderSceneEntity>)>,
-    debug_settings_card_query:
-        Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DebugSettingsSceneEntity>)>,
+    deck_card_query:
+        Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DeckSceneEntity>)>,
+    debug_card_query:
+        Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DebugSceneEntity>)>,
     mouse_buttons: Res<'w, ButtonInput<MouseButton>>,
     touches: Res<'w, Touches>,
     asset_server: Res<'w, AssetServer>,
@@ -3696,8 +3696,8 @@ pub struct ViewChangeParams<'w, 's> {
 }
 
 impl ViewChangeParams<'_, '_> {
-    fn set_game_view_active(&mut self, is_active: bool) -> bool {
-        let mut has_game_view = false;
+    fn set_game_scene_active(&mut self, is_active: bool) -> bool {
+        let mut has_game_scene = false;
 
         if is_active {
             for (entity, mut visibility, hidden_visibility) in &mut self.visibility_query {
@@ -3707,13 +3707,13 @@ impl ViewChangeParams<'_, '_> {
                 *visibility = hidden_visibility.0;
                 self.commands
                     .entity(entity)
-                    .remove::<GameViewSceneHiddenVisibility>();
+                    .remove::<GameSceneSceneHiddenVisibility>();
             }
         } else {
             let mut visited = std::collections::HashSet::new();
-            let entities: Vec<Entity> = self.game_view_entities.iter().collect();
+            let entities: Vec<Entity> = self.game_scene_entities.iter().collect();
             for entity in entities {
-                self.collect_game_view_entity_tree(entity, &mut visited);
+                self.collect_game_scene_entity_tree(entity, &mut visited);
             }
             for entity in visited {
                 let Ok((_, mut visibility, hidden_visibility)) =
@@ -3724,23 +3724,23 @@ impl ViewChangeParams<'_, '_> {
                 if hidden_visibility.is_none() {
                     self.commands
                         .entity(entity)
-                        .insert(GameViewSceneHiddenVisibility(*visibility));
+                        .insert(GameSceneSceneHiddenVisibility(*visibility));
                 }
                 *visibility = Visibility::Hidden;
             }
         }
 
-        for _ in self.game_view_roots.iter() {
-            has_game_view = true;
+        for _ in self.game_scene_roots.iter() {
+            has_game_scene = true;
         }
         for mut camera in &mut self.view_camera_queries.p0() {
             camera.is_active = is_active;
         }
 
-        has_game_view
+        has_game_scene
     }
 
-    fn collect_game_view_entity_tree(
+    fn collect_game_scene_entity_tree(
         &mut self,
         entity: Entity,
         visited: &mut std::collections::HashSet<Entity>,
@@ -3752,51 +3752,51 @@ impl ViewChangeParams<'_, '_> {
         if let Ok(children) = self.child_query.get(entity) {
             let children: Vec<Entity> = children.iter().collect();
             for child in children {
-                self.collect_game_view_entity_tree(child, visited);
+                self.collect_game_scene_entity_tree(child, visited);
             }
         }
     }
 
-    fn hide_game_view(&mut self) {
-        self.set_game_view_active(false);
+    fn hide_game_scene(&mut self) {
+        self.set_game_scene_active(false);
     }
 
-    fn show_game_view_or_spawn(&mut self, active_card_model: &ActiveCardModel) {
-        if self.set_game_view_active(true) {
+    fn show_game_scene_or_spawn(&mut self, active_card_model: &ActiveCardModel) {
+        if self.set_game_scene_active(true) {
             return;
         }
 
-        self.spawn_game_view(active_card_model);
+        self.spawn_game_scene(active_card_model);
     }
 
-    fn despawn_game_view(&mut self) {
-        for entity in self.game_view_roots.iter() {
+    fn despawn_game_scene(&mut self) {
+        for entity in self.game_scene_roots.iter() {
             self.commands.entity(entity).despawn();
         }
-        for entity in self.standalone_game_view_entities.iter() {
+        for entity in self.standalone_game_scene_entities.iter() {
             self.commands.entity(entity).despawn();
         }
-        for entity in self.standalone_deck_builder_scene_entities.iter() {
+        for entity in self.standalone_deck_scene_entities.iter() {
             self.commands.entity(entity).despawn();
         }
-        for entity in self.standalone_debug_settings_scene_entities.iter() {
-            self.commands.entity(entity).despawn();
-        }
-    }
-
-    fn despawn_deck_builder_scene(&mut self) {
-        for entity in self.deck_builder_scene_roots.iter() {
+        for entity in self.standalone_debug_scene_entities.iter() {
             self.commands.entity(entity).despawn();
         }
     }
 
-    fn despawn_debug_settings_scene(&mut self) {
-        for entity in self.debug_settings_scene_roots.iter() {
+    fn despawn_deck_scene(&mut self) {
+        for entity in self.deck_scene_roots.iter() {
             self.commands.entity(entity).despawn();
         }
     }
 
-    fn spawn_game_view(&mut self, active_card_model: &ActiveCardModel) {
+    fn despawn_debug_scene(&mut self) {
+        for entity in self.debug_scene_roots.iter() {
+            self.commands.entity(entity).despawn();
+        }
+    }
+
+    fn spawn_game_scene(&mut self, active_card_model: &ActiveCardModel) {
         let fallback_slot_board = CardSlotBoardModel::default();
         let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
         let fallback_hand_cards = fallback_starting_hand_cards();
@@ -3812,7 +3812,7 @@ impl ViewChangeParams<'_, '_> {
             .game_location_model
             .as_deref()
             .unwrap_or(&fallback_locations);
-        spawn_game_view_contents(
+        spawn_game_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
             self.hud.as_ref().map(|hud| hud.0),
@@ -3836,7 +3836,7 @@ impl ViewChangeParams<'_, '_> {
     }
 
     #[allow(dead_code)]
-    fn spawn_deck_builder_scene(
+    fn spawn_deck_scene(
         &mut self,
         active_card_model: &ActiveCardModel,
         visible_face: CardFace,
@@ -3847,7 +3847,7 @@ impl ViewChangeParams<'_, '_> {
             .player_deck_collection
             .as_deref()
             .unwrap_or(&fallback_player_deck_collection);
-        spawn_deck_builder_scene_contents(
+        spawn_deck_scene_contents(
             &mut self.commands,
             &self.asset_server,
             &self.camera_defaults,
@@ -3864,13 +3864,13 @@ impl ViewChangeParams<'_, '_> {
         );
     }
 
-    fn spawn_debug_settings_scene(
+    fn spawn_debug_scene(
         &mut self,
         active_card_model: &ActiveCardModel,
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
-        spawn_debug_settings_scene_contents(
+        spawn_debug_scene_contents(
             &mut self.commands,
             &self.asset_server,
             &self.camera_defaults,
@@ -3893,8 +3893,8 @@ impl ViewChangeParams<'_, '_> {
         initial_rotation: Quat,
     ) {
         match *self.active_view {
-            ActiveView::GameView => {
-                self.despawn_game_view();
+            ActiveView::GameScene => {
+                self.despawn_game_scene();
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
                 let fallback_hand_cards = fallback_starting_hand_cards();
@@ -3910,7 +3910,7 @@ impl ViewChangeParams<'_, '_> {
                     .game_location_model
                     .as_deref()
                     .unwrap_or(&fallback_locations);
-                spawn_game_view_contents(
+                spawn_game_scene_contents(
                     &mut self.commands,
                     self.app_scene_query.single().ok(),
                     self.hud.as_ref().map(|hud| hud.0),
@@ -3932,14 +3932,14 @@ impl ViewChangeParams<'_, '_> {
                     self.masked_background_materials.as_deref_mut(),
                 );
             }
-            ActiveView::DeckBuilderScene => {
-                self.despawn_deck_builder_scene();
+            ActiveView::DeckScene => {
+                self.despawn_deck_scene();
                 let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
                 let player_deck_collection = self
                     .player_deck_collection
                     .as_deref()
                     .unwrap_or(&fallback_player_deck_collection);
-                spawn_deck_builder_scene_contents(
+                spawn_deck_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
@@ -3955,9 +3955,9 @@ impl ViewChangeParams<'_, '_> {
                     initial_rotation,
                 );
             }
-            ActiveView::DebugSettingsScene => {
-                self.despawn_debug_settings_scene();
-                spawn_debug_settings_scene_contents(
+            ActiveView::DebugScene => {
+                self.despawn_debug_scene();
+                spawn_debug_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
@@ -3976,9 +3976,9 @@ impl ViewChangeParams<'_, '_> {
     }
 
     fn despawn_app_scene(&mut self) {
-        self.despawn_game_view();
-        self.despawn_deck_builder_scene();
-        self.despawn_debug_settings_scene();
+        self.despawn_game_scene();
+        self.despawn_deck_scene();
+        self.despawn_debug_scene();
         for entity in self.app_scene_query.iter() {
             self.commands.entity(entity).despawn();
         }
@@ -3994,7 +3994,7 @@ impl ViewChangeParams<'_, '_> {
         let app_scene =
             spawn_app_scene_contents(&mut self.commands, self.hud.as_ref().map(|hud| hud.0));
         match *self.active_view {
-            ActiveView::GameView => {
+            ActiveView::GameScene => {
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
                 let fallback_hand_cards = fallback_starting_hand_cards();
@@ -4010,7 +4010,7 @@ impl ViewChangeParams<'_, '_> {
                     .game_location_model
                     .as_deref()
                     .unwrap_or(&fallback_locations);
-                spawn_game_view_contents(
+                spawn_game_scene_contents(
                     &mut self.commands,
                     Some(app_scene),
                     self.hud.as_ref().map(|hud| hud.0),
@@ -4032,13 +4032,13 @@ impl ViewChangeParams<'_, '_> {
                     self.masked_background_materials.as_deref_mut(),
                 );
             }
-            ActiveView::DeckBuilderScene => {
+            ActiveView::DeckScene => {
                 let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
                 let player_deck_collection = self
                     .player_deck_collection
                     .as_deref()
                     .unwrap_or(&fallback_player_deck_collection);
-                spawn_deck_builder_scene_contents(
+                spawn_deck_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
@@ -4054,8 +4054,8 @@ impl ViewChangeParams<'_, '_> {
                     initial_rotation,
                 );
             }
-            ActiveView::DebugSettingsScene => {
-                spawn_debug_settings_scene_contents(
+            ActiveView::DebugScene => {
+                spawn_debug_scene_contents(
                     &mut self.commands,
                     &self.asset_server,
                     &self.camera_defaults,
@@ -4074,20 +4074,20 @@ impl ViewChangeParams<'_, '_> {
     }
 }
 
-/// HUMAN: Guarantees preserved GameView entities stay invisible while another view is active.
+/// HUMAN: Guarantees preserved GameScene entities stay invisible while another view is active.
 /// AI: Runs after presentation systems that may rewrite local card visibility in the same frame.
-pub fn enforce_hidden_game_view_visibility_system(
+pub fn enforce_hidden_game_scene_visibility_system(
     active_view: Res<ActiveView>,
-    game_view_entities: Query<Entity, With<GameViewEntity>>,
+    game_scene_entities: Query<Entity, With<GameSceneEntity>>,
     child_query: Query<&Children>,
     mut visibility_query: Query<&mut Visibility>,
 ) {
-    if *active_view == ActiveView::GameView {
+    if *active_view == ActiveView::GameScene {
         return;
     }
 
     let mut visited = std::collections::HashSet::new();
-    let entities: Vec<Entity> = game_view_entities.iter().collect();
+    let entities: Vec<Entity> = game_scene_entities.iter().collect();
     for entity in entities {
         collect_entity_tree(entity, &child_query, &mut visited);
     }
@@ -4116,7 +4116,7 @@ fn collect_entity_tree(
 }
 
 /// HUMAN: Handles the S-key debug shortcut that cycles active scenes.
-/// AI: Keep it non-toggle and wrap through GameView, DeckBuilderScene, and DebugSettingsScene.
+/// AI: Keep it non-toggle and wrap through GameScene, DeckScene, and DebugScene.
 pub fn scene_input_system(
     keys: Res<ButtonInput<KeyCode>>,
     selected_modal: Option<Res<SelectedCardModalModel>>,
@@ -4132,37 +4132,37 @@ pub fn scene_input_system(
     }
 
     match *params.active_view {
-        ActiveView::GameView => {
+        ActiveView::GameScene => {
             let initial_rotation =
                 composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.hide_game_view();
-            params.spawn_deck_builder_scene(
+            params.hide_game_scene();
+            params.spawn_deck_scene(
                 &active_card_model,
                 flip_state.visible_face,
                 initial_rotation,
             );
-            *params.active_view = ActiveView::DeckBuilderScene;
+            *params.active_view = ActiveView::DeckScene;
         }
-        ActiveView::DeckBuilderScene => {
-            params.despawn_deck_builder_scene();
+        ActiveView::DeckScene => {
+            params.despawn_deck_scene();
             let initial_rotation =
                 composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.spawn_debug_settings_scene(
+            params.spawn_debug_scene(
                 &active_card_model,
                 flip_state.visible_face,
                 initial_rotation,
             );
-            *params.active_view = ActiveView::DebugSettingsScene;
+            *params.active_view = ActiveView::DebugScene;
         }
-        ActiveView::DebugSettingsScene => {
-            params.despawn_debug_settings_scene();
-            params.show_game_view_or_spawn(&active_card_model);
-            *params.active_view = ActiveView::GameView;
+        ActiveView::DebugScene => {
+            params.despawn_debug_scene();
+            params.show_game_scene_or_spawn(&active_card_model);
+            *params.active_view = ActiveView::GameScene;
         }
     }
 }
 
-/// HUMAN: Handles pointer navigation from scene card inspection back to GameView.
+/// HUMAN: Handles pointer navigation from scene card inspection back to GameScene.
 /// AI: Keep pointer return behavior separate from the S-key scene cycle shortcut.
 pub fn view_input_system(
     selected_modal: Option<Res<SelectedCardModalModel>>,
@@ -4183,39 +4183,39 @@ pub fn view_input_system(
     };
 
     match *params.active_view {
-        ActiveView::GameView => {
+        ActiveView::GameScene => {
             let _ = pointer_position;
             let _ = (&mut active_card_model, &mut flip_state);
         }
-        ActiveView::DeckBuilderScene => {
-            let is_card_hit = is_deck_builder_card_hit(
+        ActiveView::DeckScene => {
+            let is_card_hit = is_deck_card_hit(
                 pointer_position,
                 params.view_camera_queries.p1().single().ok(),
-                params.deck_builder_card_query.single().ok(),
+                params.deck_card_query.single().ok(),
                 &params.card_defaults,
             );
             if !is_card_hit {
                 return;
             }
 
-            params.despawn_deck_builder_scene();
-            params.show_game_view_or_spawn(&active_card_model);
-            *params.active_view = ActiveView::GameView;
+            params.despawn_deck_scene();
+            params.show_game_scene_or_spawn(&active_card_model);
+            *params.active_view = ActiveView::GameScene;
         }
-        ActiveView::DebugSettingsScene => {
-            let is_card_hit = is_deck_builder_card_hit(
+        ActiveView::DebugScene => {
+            let is_card_hit = is_deck_card_hit(
                 pointer_position,
                 params.view_camera_queries.p2().single().ok(),
-                params.debug_settings_card_query.single().ok(),
+                params.debug_card_query.single().ok(),
                 &params.card_defaults,
             );
             if !is_card_hit {
                 return;
             }
 
-            params.despawn_debug_settings_scene();
-            params.show_game_view_or_spawn(&active_card_model);
-            *params.active_view = ActiveView::GameView;
+            params.despawn_debug_scene();
+            params.show_game_scene_or_spawn(&active_card_model);
+            *params.active_view = ActiveView::GameScene;
         }
     }
 }
@@ -4230,16 +4230,16 @@ fn card_click_navigation(
         return;
     }
     match *params.active_view {
-        ActiveView::GameView => {}
-        ActiveView::DeckBuilderScene => {
-            params.despawn_deck_builder_scene();
-            params.show_game_view_or_spawn(&active_card_model);
-            *params.active_view = ActiveView::GameView;
+        ActiveView::GameScene => {}
+        ActiveView::DeckScene => {
+            params.despawn_deck_scene();
+            params.show_game_scene_or_spawn(&active_card_model);
+            *params.active_view = ActiveView::GameScene;
         }
-        ActiveView::DebugSettingsScene => {
-            params.despawn_debug_settings_scene();
-            params.show_game_view_or_spawn(&active_card_model);
-            *params.active_view = ActiveView::GameView;
+        ActiveView::DebugScene => {
+            params.despawn_debug_scene();
+            params.show_game_scene_or_spawn(&active_card_model);
+            *params.active_view = ActiveView::GameScene;
         }
     }
 }
@@ -4270,16 +4270,16 @@ fn just_pressed_pointer_position(
 }
 
 #[cfg(test)]
-fn is_game_view_card_hit(pointer_position: Vec2, window_size: Vec2) -> bool {
-    game_view_card_index_at(pointer_position, window_size).is_some()
+fn is_game_scene_card_hit(pointer_position: Vec2, window_size: Vec2) -> bool {
+    game_scene_card_index_at(pointer_position, window_size).is_some()
 }
 
 #[cfg(test)]
-fn game_view_card_index_at(pointer_position: Vec2, window_size: Vec2) -> Option<usize> {
-    game_view_card_index_at_for_count(pointer_position, window_size, STARTING_HAND_CARD_COUNT)
+fn game_scene_card_index_at(pointer_position: Vec2, window_size: Vec2) -> Option<usize> {
+    game_scene_card_index_at_for_count(pointer_position, window_size, STARTING_HAND_CARD_COUNT)
 }
 
-fn game_view_card_index_at_for_count(
+fn game_scene_card_index_at_for_count(
     pointer_position: Vec2,
     window_size: Vec2,
     card_count: usize,
@@ -4288,10 +4288,10 @@ fn game_view_card_index_at_for_count(
         return None;
     }
 
-    let Some(pointer_position) = window_pointer_to_game_view(pointer_position, window_size) else {
+    let Some(pointer_position) = window_pointer_to_game_scene(pointer_position, window_size) else {
         return None;
     };
-    game_view_card_hitboxes_for_count(card_count)
+    game_scene_card_hitboxes_for_count(card_count)
         .iter()
         .rposition(|(min, max)| {
             pointer_position.x >= min.x
@@ -4301,7 +4301,7 @@ fn game_view_card_index_at_for_count(
         })
 }
 
-fn is_deck_builder_card_hit(
+fn is_deck_card_hit(
     pointer_position: Vec2,
     camera: Option<(&Camera, &GlobalTransform)>,
     card_transform: Option<&GlobalTransform>,
@@ -4335,46 +4335,46 @@ fn is_deck_builder_card_hit(
         && local_hit_point.y.abs() <= card_defaults.height * 0.5
 }
 
-fn window_pointer_to_game_view(pointer_position: Vec2, window_size: Vec2) -> Option<Vec2> {
-    let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
-    let scale = (window_size.x / game_view_size.x).min(window_size.y / game_view_size.y);
+fn window_pointer_to_game_scene(pointer_position: Vec2, window_size: Vec2) -> Option<Vec2> {
+    let game_scene_size = Vec2::new(GAME_SCENE_WIDTH, GAME_SCENE_HEIGHT);
+    let scale = (window_size.x / game_scene_size.x).min(window_size.y / game_scene_size.y);
     if scale <= 0.0 {
         return None;
     }
 
-    let scaled_game_view_size = game_view_size * scale;
-    let offset = (window_size - scaled_game_view_size) * 0.5;
+    let scaled_game_scene_size = game_scene_size * scale;
+    let offset = (window_size - scaled_game_scene_size) * 0.5;
     let pointer_position = (pointer_position - offset) / scale;
 
     (pointer_position.x >= 0.0
-        && pointer_position.x <= GAME_VIEW_WIDTH
+        && pointer_position.x <= GAME_SCENE_WIDTH
         && pointer_position.y >= 0.0
-        && pointer_position.y <= GAME_VIEW_HEIGHT)
+        && pointer_position.y <= GAME_SCENE_HEIGHT)
         .then_some(pointer_position)
 }
 
 #[cfg(test)]
-fn game_view_pointer_to_window(pointer_position: Vec2, window_size: Vec2) -> Vec2 {
-    let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
-    let scale = (window_size.x / game_view_size.x).min(window_size.y / game_view_size.y);
-    let scaled_game_view_size = game_view_size * scale;
-    let offset = (window_size - scaled_game_view_size) * 0.5;
+fn game_scene_pointer_to_window(pointer_position: Vec2, window_size: Vec2) -> Vec2 {
+    let game_scene_size = Vec2::new(GAME_SCENE_WIDTH, GAME_SCENE_HEIGHT);
+    let scale = (window_size.x / game_scene_size.x).min(window_size.y / game_scene_size.y);
+    let scaled_game_scene_size = game_scene_size * scale;
+    let offset = (window_size - scaled_game_scene_size) * 0.5;
 
     offset + (pointer_position * scale)
 }
 
 #[cfg(test)]
-fn game_view_card_hitboxes() -> Vec<(Vec2, Vec2)> {
-    game_view_card_hitboxes_for_count(STARTING_HAND_CARD_COUNT)
+fn game_scene_card_hitboxes() -> Vec<(Vec2, Vec2)> {
+    game_scene_card_hitboxes_for_count(STARTING_HAND_CARD_COUNT)
 }
 
 // HUMAN: Builds hand-row hitboxes directly from hand area geometry for stable gestures.
 // AI: Uses the hand-area card size for row centering and spacing behavior.
-fn game_view_card_hitboxes_for_count(card_count: usize) -> Vec<(Vec2, Vec2)> {
-    game_view_card_hitboxes_for_count_with_hover(card_count, None)
+fn game_scene_card_hitboxes_for_count(card_count: usize) -> Vec<(Vec2, Vec2)> {
+    game_scene_card_hitboxes_for_count_with_hover(card_count, None)
 }
 
-fn game_view_card_hitboxes_for_count_with_hover(
+fn game_scene_card_hitboxes_for_count_with_hover(
     card_count: usize,
     hovered_index: Option<usize>,
 ) -> Vec<(Vec2, Vec2)> {
@@ -4382,11 +4382,11 @@ fn game_view_card_hitboxes_for_count_with_hover(
         return Vec::new();
     }
 
-    let hand_min = game_view_hand_area_min();
-    let hand_size = game_view_hand_area_size();
-    let card_size = game_view_hand_card_size();
+    let hand_min = game_scene_hand_area_min();
+    let hand_size = game_scene_hand_area_size();
+    let card_size = game_scene_hand_card_size();
     let row_height = card_size.y;
-    let centers = game_view_hand_card_centers(card_count, hovered_index, hand_min, hand_size);
+    let centers = game_scene_hand_card_centers(card_count, hovered_index, hand_min, hand_size);
     let row_min_y = hand_min.y + ((hand_size.y - row_height) * 0.5).max(0.0);
 
     centers
@@ -4398,13 +4398,13 @@ fn game_view_card_hitboxes_for_count_with_hover(
         .collect()
 }
 
-fn game_view_hand_card_centers(
+fn game_scene_hand_card_centers(
     card_count: usize,
     hovered_index: Option<usize>,
     hand_min: Vec2,
     hand_size: Vec2,
 ) -> Vec<f32> {
-    let card_width = game_view_hand_card_size().x.min(hand_size.x);
+    let card_width = game_scene_hand_card_size().x.min(hand_size.x);
     let min_center_x = hand_min.x + (card_width * 0.5);
     let max_center_x = hand_min.x + hand_size.x - (card_width * 0.5);
     if card_count == 1 || min_center_x >= max_center_x {
@@ -4473,7 +4473,7 @@ fn game_view_hand_card_centers(
     centers
 }
 
-fn game_view_hand_card_z(card_index: usize, hovered_index: Option<usize>) -> f32 {
+fn game_scene_hand_card_z(card_index: usize, hovered_index: Option<usize>) -> f32 {
     if hovered_index == Some(card_index) {
         GAME_SCENE_HAND_CARD_HOVER_Z
     } else {
@@ -4481,11 +4481,11 @@ fn game_view_hand_card_z(card_index: usize, hovered_index: Option<usize>) -> f32
     }
 }
 
-fn is_game_view_active(active_view: Option<&ActiveView>) -> bool {
-    active_view.is_none_or(|active_view| *active_view == ActiveView::GameView)
+fn is_game_scene_active(active_view: Option<&ActiveView>) -> bool {
+    active_view.is_none_or(|active_view| *active_view == ActiveView::GameScene)
 }
 
-/// HUMAN: Clears GameView button interactions while the selected-card modal owns the pointer.
+/// HUMAN: Clears GameScene button interactions while the selected-card modal owns the pointer.
 /// AI: Run before button action systems so modal capture blocks lower UI presses at the source.
 pub fn modal_block_game_control_interactions_system(
     selected_modal: Option<Res<SelectedCardModalModel>>,
@@ -4528,7 +4528,7 @@ pub fn update_end_round_button(
     mut gesture_model: Option<ResMut<CardGestureModel>>,
     mut cpu_brain_model: Option<ResMut<CpuBrainModel>>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -4742,7 +4742,7 @@ fn card_gesture_blocks_game_controls(gesture_model: Option<&CardGestureModel>) -
     })
 }
 
-/// HUMAN: Keeps GameView control labels and disabled states synced to gameplay state.
+/// HUMAN: Keeps GameScene control labels and disabled states synced to gameplay state.
 /// AI: Run this separately from button interactions so round, energy, and undo text stay live.
 pub fn update_game_control_ui_system(
     active_view: Option<Res<ActiveView>>,
@@ -4760,7 +4760,7 @@ pub fn update_game_control_ui_system(
         &mut BorderColor,
     )>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -4953,7 +4953,7 @@ pub fn staged_match_resolution_system(
     animation_query: Query<&CpuPlacedCardAnimation>,
     cpu_card_query: Query<&CpuPlacedCardView>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) || match_model.is_complete() {
+    if !is_game_scene_active(active_view.as_deref()) || match_model.is_complete() {
         return;
     }
 
@@ -5059,7 +5059,7 @@ pub fn cpu_brain_update_system(
     mut slot_board: ResMut<CardSlotBoardModel>,
     cpu_hand_query: Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -5151,7 +5151,7 @@ pub fn sync_cpu_hand_card_entities_system(
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
     mut hand_query: Query<(Entity, &mut CpuHandCardView)>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         let _ = commands;
         let _ = hand_query;
         return;
@@ -5202,7 +5202,7 @@ pub fn sync_cpu_hand_card_entities_system(
             source_transform,
         );
         commands.entity(card).insert((
-            GameViewEntity,
+            GameSceneEntity,
             CpuHandCardView::new(owner, instance_id, hand_index, card_id, visible_face),
             SelectableCard::new(CardSelectionSource::OpponentHand { owner, hand_index }),
             CpuPlacedCardAnimation::move_to_hand(source_transform, hand_transform, visible_face),
@@ -5230,7 +5230,7 @@ pub fn sync_cpu_placed_card_entities_system(
         Option<&CpuPlacedCardAnimation>,
     )>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         let _ = commands;
         let _ = card_query;
         return;
@@ -5325,7 +5325,7 @@ pub fn sync_cpu_placed_card_entities_system(
             source_transform,
         );
         commands.entity(card).insert((
-            GameViewEntity,
+            GameSceneEntity,
             CpuPlacedCardView::new(
                 owner,
                 side,
@@ -5354,8 +5354,8 @@ fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) 
         MatchPlayerSide::Near => GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y,
         MatchPlayerSide::Far => -120.0,
     };
-    let source_position = game_view_world_position_from_game_view(
-        Vec2::new(GAME_VIEW_WIDTH * 0.5, source_y),
+    let source_position = game_scene_world_position_from_game_scene(
+        Vec2::new(GAME_SCENE_WIDTH * 0.5, source_y),
         target_transform.translation.z,
     );
     Transform {
@@ -5390,17 +5390,17 @@ fn cpu_card_hand_transform(
     hand_count: usize,
     card_defaults: &CardInspectionDefaults,
 ) -> Transform {
-    let card_size = game_view_hand_card_size();
-    let hand_z = game_view_hand_card_z(hand_index, None);
+    let card_size = game_scene_hand_card_size();
+    let hand_z = game_scene_hand_card_z(hand_index, None);
     let card_world_scale =
-        game_view_world_height_for_game_view_height(card_size.y, hand_z) / card_defaults.height;
-    let hitboxes = game_view_card_hitboxes_for_count(hand_count);
+        game_scene_world_height_for_game_scene_height(card_size.y, hand_z) / card_defaults.height;
+    let hitboxes = game_scene_card_hitboxes_for_count(hand_count);
     let hand_position = if owner == MatchPlayerSide::Near {
         let (card_min, card_max) = hitboxes[hand_index];
-        game_view_world_position_from_game_view((card_min + card_max) * 0.5, hand_z)
+        game_scene_world_position_from_game_scene((card_min + card_max) * 0.5, hand_z)
     } else {
         let (card_min, card_max) = hitboxes[hand_index];
-        game_view_world_position_from_game_view(
+        game_scene_world_position_from_game_scene(
             Vec2::new((card_min.x + card_max.x) * 0.5, GAME_SCENE_FAR_HAND_Y),
             hand_z,
         )
@@ -5420,8 +5420,8 @@ fn cpu_card_move_source_hand_transform(
         MatchPlayerSide::Near => GAME_SCENE_HAND_TOP + (GAME_SCENE_HAND_HEIGHT * 0.5),
         MatchPlayerSide::Far => GAME_SCENE_FAR_HAND_Y,
     };
-    let hand_position = game_view_world_position_from_game_view(
-        Vec2::new(GAME_VIEW_WIDTH * 0.5, hand_y),
+    let hand_position = game_scene_world_position_from_game_scene(
+        Vec2::new(GAME_SCENE_WIDTH * 0.5, hand_y),
         target_transform.translation.z,
     );
     Transform {
@@ -5439,7 +5439,7 @@ pub fn cpu_placed_card_animation_system(
     mut commands: Commands,
     mut card_query: Query<(Entity, &mut Transform, &mut CpuPlacedCardAnimation)>,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -5550,10 +5550,10 @@ fn cpu_card_move_translation(
     current_z: f32,
     eased_progress: f32,
 ) -> Vec3 {
-    let start_game_view_position = game_view_position_from_world_position(start_translation);
-    let target_game_view_position = game_view_position_from_world_position(target_translation);
-    game_view_world_position_from_game_view(
-        start_game_view_position.lerp(target_game_view_position, eased_progress),
+    let start_game_scene_position = game_scene_position_from_world_position(start_translation);
+    let target_game_scene_position = game_scene_position_from_world_position(target_translation);
+    game_scene_world_position_from_game_scene(
+        start_game_scene_position.lerp(target_game_scene_position, eased_progress),
         current_z,
     )
 }
@@ -5566,10 +5566,10 @@ fn cpu_card_move_scale(
     scale_multiplier: f32,
 ) -> Vec3 {
     let start_world_units_per_pixel =
-        game_view_world_units_per_game_view_pixel(start_transform.translation.z);
+        game_scene_world_units_per_game_scene_pixel(start_transform.translation.z);
     let target_world_units_per_pixel =
-        game_view_world_units_per_game_view_pixel(target_transform.translation.z);
-    let current_world_units_per_pixel = game_view_world_units_per_game_view_pixel(current_z);
+        game_scene_world_units_per_game_scene_pixel(target_transform.translation.z);
+    let current_world_units_per_pixel = game_scene_world_units_per_game_scene_pixel(current_z);
     let start_apparent_scale = start_transform.scale / start_world_units_per_pixel;
     let target_apparent_scale = target_transform.scale / target_world_units_per_pixel;
     let apparent_scale =
@@ -5595,7 +5595,7 @@ pub fn update_cpu_placed_card_face_visibility_system(
         With<CpuPlacedCardFaceLayer>,
     >,
 ) {
-    if !is_game_view_active(active_view.as_deref()) {
+    if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
@@ -5759,7 +5759,7 @@ pub fn setup_debug_hud(mut commands: Commands) {
 fn spawn_debug_hud(commands: &mut Commands) -> Entity {
     commands
         .spawn((
-            Text::new("Scene: GameView\nFrame: 0\nKEYS: "),
+            Text::new("Screen: GameScreen\nFrame: 0\nKEYS: "),
             TextFont {
                 font_size: DEBUG_HUD_FONT_SIZE,
                 ..Default::default()
@@ -5864,11 +5864,11 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     }
 
     let scene_name = match *params.active_view {
-        ActiveView::GameView => "GameView",
-        ActiveView::DeckBuilderScene => "DeckBuilderScene",
-        ActiveView::DebugSettingsScene => "DebugSettingsScene",
+        ActiveView::GameScene => "GameScene",
+        ActiveView::DeckScene => "DeckScene",
+        ActiveView::DebugScene => "DebugScene",
     };
-    let full_text = format!("Scene: {scene_name}\nFrame: {}\nKEYS: ", params.ticks.0);
+    let full_text = format!("Screen: {scene_name}\nFrame: {}\nKEYS: ", params.ticks.0);
     for mut text in &mut params.text_query {
         *text = Text::new(full_text.clone());
     }
@@ -5894,9 +5894,9 @@ pub fn sync_debug_hud_ui_camera_system(
         (
             Entity,
             &Camera,
-            Option<&GameViewEntity>,
-            Option<&DeckBuilderSceneEntity>,
-            Option<&DebugSettingsSceneEntity>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
         ),
         (With<Camera2d>, With<IsDefaultUiCamera>),
     >,
@@ -5933,23 +5933,23 @@ fn active_view_ui_camera(
         (
             Entity,
             &Camera,
-            Option<&GameViewEntity>,
-            Option<&DeckBuilderSceneEntity>,
-            Option<&DebugSettingsSceneEntity>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
         ),
         (With<Camera2d>, With<IsDefaultUiCamera>),
     >,
 ) -> Option<Entity> {
     camera_query.iter().find_map(
-        |(entity, camera, game_view, deck_builder_scene, debug_settings_scene)| {
+        |(entity, camera, game_scene, deck_scene, debug_scene)| {
             if !camera.is_active {
                 return None;
             }
 
             let belongs_to_active_view = match active_view {
-                ActiveView::GameView => game_view.is_some(),
-                ActiveView::DeckBuilderScene => deck_builder_scene.is_some(),
-                ActiveView::DebugSettingsScene => debug_settings_scene.is_some(),
+                ActiveView::GameScene => game_scene.is_some(),
+                ActiveView::DeckScene => deck_scene.is_some(),
+                ActiveView::DebugScene => debug_scene.is_some(),
             };
 
             belongs_to_active_view.then_some(entity)
@@ -6443,7 +6443,7 @@ pub fn inspector_ui(world: &mut World) {
         .default_size(egui::vec2(width, height))
         .show(egui_context, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
-                ui.heading("deck builder");
+                ui.heading("deck");
                 bevy_inspector::ui_for_entities_filtered(world, ui, true, &InspectorEntityFilter);
                 ui.allocate_space(ui.available_size());
             });
@@ -6470,7 +6470,7 @@ pub fn card_ui(world: &mut World) {
             .query_filtered::<&Window, With<PrimaryWindow>>()
             .single(world)
             .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
-            .unwrap_or(Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT)),
+            .unwrap_or(Vec2::new(GAME_SCENE_WIDTH, GAME_SCENE_HEIGHT)),
     );
 
     let Ok(mut egui_context) = world
@@ -6563,7 +6563,7 @@ pub fn card_ui(world: &mut World) {
 }
 
 fn should_show_card_ui(active_view: ActiveView) -> bool {
-    matches!(active_view, ActiveView::DebugSettingsScene)
+    matches!(active_view, ActiveView::DebugScene)
 }
 
 fn depth_factor_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -6615,7 +6615,7 @@ fn layer_scale_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32
 }
 
 fn card_ui_safe_area_anchor_offset(window_size: Vec2) -> egui::Vec2 {
-    let Some((safe_area_margin, scale)) = game_view_layout(window_size) else {
+    let Some((safe_area_margin, scale)) = game_scene_layout(window_size) else {
         return egui::vec2(-SCREEN_PADDING_LEFT, SCREEN_PADDING_TOP);
     };
 
@@ -6625,18 +6625,18 @@ fn card_ui_safe_area_anchor_offset(window_size: Vec2) -> egui::Vec2 {
     )
 }
 
-fn game_view_layout(window_size: Vec2) -> Option<(Vec2, f32)> {
+fn game_scene_layout(window_size: Vec2) -> Option<(Vec2, f32)> {
     if window_size.x <= 0.0 || window_size.y <= 0.0 {
         return None;
     }
 
-    let game_view_size = Vec2::new(GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT);
-    let scale = (window_size.x / game_view_size.x).min(window_size.y / game_view_size.y);
+    let game_scene_size = Vec2::new(GAME_SCENE_WIDTH, GAME_SCENE_HEIGHT);
+    let scale = (window_size.x / game_scene_size.x).min(window_size.y / game_scene_size.y);
     if scale <= 0.0 {
         return None;
     }
 
-    let safe_area_margin = ((window_size - (game_view_size * scale)) * 0.5).max(Vec2::ZERO);
+    let safe_area_margin = ((window_size - (game_scene_size * scale)) * 0.5).max(Vec2::ZERO);
     Some((safe_area_margin, scale))
 }
 

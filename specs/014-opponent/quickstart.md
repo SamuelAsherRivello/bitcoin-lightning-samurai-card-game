@@ -13,7 +13,7 @@
 
 1. Run `scripts/other/RunTests.ps1`.
 2. Launch the game with `scripts/main/RunAppDesktop.ps1`.
-3. In GameView, confirm the lower-left control stack reserves Status above Mode above Restart above Undo.
+3. In GameScene, confirm the lower-left control stack reserves Status above Mode above Restart above Undo.
 4. With no saved mode preference, confirm the mode button displays `Mode:` plus `Human versus CPU`.
 5. Activate the mode button and confirm it cycles to `CPU versus CPU`, saves that mode, and starts a fresh game.
 6. Restart the game and confirm the mode button loads `CPU versus CPU`.
@@ -41,7 +41,7 @@
 | Readiness | Unit tests that one ready player does not advance and two ready players do. |
 | Slot side legality | Unit tests for near/bottom and far/top placement ownership. |
 | Winner resolution | Unit tests proving no final draw and left-to-right location evaluation. |
-| GameView controls | System/UI tests for Status text, Mode label, Restart reset scope, and Next readiness behavior. |
+| GameScene controls | System/UI tests for Status text, Mode label, Restart reset scope, and Next readiness behavior. |
 | CPU versus CPU autoplay | System tests that a fresh CPU-vs-CPU game reaches final winner status after round 6 without human gameplay input. |
 
 ## Browser/Desktop Notes

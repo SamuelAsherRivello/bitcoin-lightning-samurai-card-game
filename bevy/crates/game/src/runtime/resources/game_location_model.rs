@@ -4,7 +4,7 @@ use super::{ACTIVE_LOCATION_COUNT, LOCATION_MODEL_COUNT};
 
 pub const GAME_LOCATION_COUNT: usize = 3;
 
-/// HUMAN: Current round visibility state for one GameView location.
+/// HUMAN: Current round visibility state for one GameScene location.
 /// AI: Only open locations apply location abilities.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GameLocationState {

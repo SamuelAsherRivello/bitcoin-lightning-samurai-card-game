@@ -176,7 +176,7 @@ Task: "Add system tests for card power point abilityoutline activation and clear
 1. Complete Phase 1 setup.
 2. Complete Phase 2 foundational VMS rule and target scaffolding.
 3. Complete Phase 3 / US1 to show gold `abilityoutline` on active ability-modified card power point circles.
-4. Stop and validate User Story 1 independently in tests and, when practical, in the GameView.
+4. Stop and validate User Story 1 independently in tests and, when practical, in the GameScene.
 
 ### Incremental Delivery
 

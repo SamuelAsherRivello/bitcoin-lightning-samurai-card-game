@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-/// HUMAN: User-facing gameplay control actions in GameView.
+/// HUMAN: User-facing gameplay control actions in GameScene.
 /// AI: Button systems route through this enum instead of relying on text labels.
 #[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
 pub enum GameControlAction {

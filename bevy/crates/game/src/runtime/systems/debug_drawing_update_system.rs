@@ -5,7 +5,7 @@ use bevy_hotpatching_experiments::hot;
 use std::collections::HashSet;
 
 use crate::runtime::components::{
-    AppSceneRoot, DebugDrawing, DebugHudText, GameViewEntity, GameViewRoot,
+    AppSceneRoot, DebugDrawing, DebugHudText, GameSceneEntity, GameSceneRoot,
 };
 use crate::runtime::resources::{ActiveView, CardSlotBoardModel, DebugDrawingModel, DebugHudState};
 
@@ -21,10 +21,10 @@ pub fn debug_drawing_update_system(
     slot_board: Res<CardSlotBoardModel>,
     active_view: Res<ActiveView>,
     hud_state: Res<DebugHudState>,
-    game_view_query: Query<Entity, With<GameViewRoot>>,
+    game_scene_query: Query<Entity, With<GameSceneRoot>>,
     drawing_query: Query<(Entity, &DebugDrawing)>,
 ) {
-    if !hud_state.is_debug_drawing_visible() || *active_view != ActiveView::GameView {
+    if !hud_state.is_debug_drawing_visible() || *active_view != ActiveView::GameScene {
         for (entity, _) in &drawing_query {
             despawn_debug_drawing(&mut commands, entity);
         }
@@ -41,7 +41,7 @@ pub fn debug_drawing_update_system(
         }
     }
 
-    let Ok(game_view_entity) = game_view_query.single() else {
+    let Ok(game_scene_entity) = game_scene_query.single() else {
         return;
     };
 
@@ -94,19 +94,19 @@ pub fn debug_drawing_update_system(
                 }
             })
             .id();
-        commands.entity(game_view_entity).add_child(drawing);
+        commands.entity(game_scene_entity).add_child(drawing);
     }
 }
 
 /// HUMAN: Shows debug drawing by itself for visual inspection.
-/// AI: Suppress GameView content while keeping the UI camera path available for debug annotations.
+/// AI: Suppress GameScene content while keeping the UI camera path available for debug annotations.
 pub(crate) fn debug_draw_solo_update_system(
     active_view: Res<ActiveView>,
     hud_state: Res<DebugHudState>,
     mut commands: Commands,
     hud: Option<Res<Hud>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
-    game_view_root_query: Query<Entity, With<GameViewRoot>>,
+    game_scene_root_query: Query<Entity, With<GameSceneRoot>>,
     solo_overlay_query: Query<Entity, With<DebugDrawSoloOverlay>>,
     children_query: Query<&Children>,
     debug_drawing_query: Query<(), With<DebugDrawing>>,
@@ -118,23 +118,23 @@ pub(crate) fn debug_draw_solo_update_system(
         ),
         Without<DebugHudText>,
     >,
-    mut camera_query: Query<(&mut Camera, Option<&IsDefaultUiCamera>), With<GameViewEntity>>,
+    mut camera_query: Query<(&mut Camera, Option<&IsDefaultUiCamera>), With<GameSceneEntity>>,
 ) {
-    let is_game_view = *active_view == ActiveView::GameView;
-    let is_solo = is_game_view && hud_state.is_debug_drawing_solo();
+    let is_game_scene = *active_view == ActiveView::GameScene;
+    let is_solo = is_game_scene && hud_state.is_debug_drawing_solo();
 
     sync_debug_draw_solo_overlay(
         is_solo,
         &mut commands,
         hud.as_ref().map(|hud| hud.0),
         &app_scene_query,
-        &game_view_root_query,
+        &game_scene_root_query,
         &solo_overlay_query,
     );
 
     let solo_hidden_entities = if is_solo {
         collect_debug_draw_solo_hidden_entities(
-            &game_view_root_query,
+            &game_scene_root_query,
             &children_query,
             &debug_drawing_query,
         )
@@ -158,7 +158,7 @@ pub(crate) fn debug_draw_solo_update_system(
         }
     }
 
-    if !is_game_view {
+    if !is_game_scene {
         return;
     }
 
@@ -172,7 +172,7 @@ fn sync_debug_draw_solo_overlay(
     commands: &mut Commands,
     hud_parent: Option<Entity>,
     app_scene_query: &Query<Entity, With<AppSceneRoot>>,
-    game_view_root_query: &Query<Entity, With<GameViewRoot>>,
+    game_scene_root_query: &Query<Entity, With<GameSceneRoot>>,
     solo_overlay_query: &Query<Entity, With<DebugDrawSoloOverlay>>,
 ) {
     let existing_overlay = solo_overlay_query.single().ok();
@@ -189,7 +189,7 @@ fn sync_debug_draw_solo_overlay(
 
     let Some(parent) = hud_parent
         .or_else(|| app_scene_query.single().ok())
-        .or_else(|| game_view_root_query.single().ok())
+        .or_else(|| game_scene_root_query.single().ok())
     else {
         return;
     };
@@ -215,12 +215,12 @@ fn sync_debug_draw_solo_overlay(
 }
 
 fn collect_debug_draw_solo_hidden_entities(
-    game_view_roots: &Query<Entity, With<GameViewRoot>>,
+    game_scene_roots: &Query<Entity, With<GameSceneRoot>>,
     children_query: &Query<&Children>,
     debug_drawing_query: &Query<(), With<DebugDrawing>>,
 ) -> HashSet<Entity> {
     let mut hidden_entities = HashSet::new();
-    for root in game_view_roots.iter() {
+    for root in game_scene_roots.iter() {
         if let Ok(children) = children_query.get(root) {
             for child in children.iter() {
                 collect_debug_draw_solo_hidden_entity(

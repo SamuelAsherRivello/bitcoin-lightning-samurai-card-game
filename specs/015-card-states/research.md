@@ -24,7 +24,7 @@
 | Model state as independent axes | Face, zone, reveal, interaction, and pose change for different reasons and on different schedules. | One `CardViewState` enum was rejected because combinations such as `Location + Selected` and `Location + CurrentRoundHidden + Back` would explode into many variants. |
 | Use stable card instance identity | Current local state keys by `hand_index`, which becomes awkward once cards move between deck, hand, location, and opponent ownership. | Continuing to key by hand index was rejected because location slots already store both `hand_index` and `card_id`, and opponent placements need side-aware identity. |
 | Treat selection and dragging as interaction overlays | A card can be durable `Hand` or `LocationCurrentRound` while transiently selected, dragged, returning, or settling. | Baking `Selected` and `Dragging` into the durable zone enum was rejected because it obscures where the card returns after interaction. |
-| Derive visible face from reveal policy plus render orientation | `PlacementVisibility` answers what the viewer may know; `CardFace` answers which mesh layers are visible. | Using only `CardFace` was rejected because a face-down opponent card and a manually flipped Deck Builder card have different rule meaning. |
+| Derive visible face from reveal policy plus render orientation | `PlacementVisibility` answers what the viewer may know; `CardFace` answers which mesh layers are visible. | Using only `CardFace` was rejected because a face-down opponent card and a manually flipped Deck card have different rule meaning. |
 
 ## State Hierarchy
 

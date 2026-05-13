@@ -48,7 +48,7 @@
 - [X] T013 [P] [US1] Add selectable eligibility tests for front-facing stationary cards and non-selectable moving/back-facing cards in `bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs`
 - [X] T014 [P] [US1] Add click-versus-drag regression tests preserving `CARD_GESTURE_DRAG_THRESHOLD` behavior in `bevy/crates/game/src/tests/runtime/systems/card_gesture_update_system_tests.rs`
 - [X] T015 [P] [US1] Add selected inspection tests for CPU/far/near card sources in `bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs`
-- [X] T016 [P] [US1] Add selectable inspection tests for front-facing stationary non-GameView card screens in `bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs`
+- [X] T016 [P] [US1] Add selectable inspection tests for front-facing stationary non-GameScene card screens in `bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs`
 
 ### Implementation for User Story 1
 
@@ -56,7 +56,7 @@
 - [X] T018 [US1] Export `card_selection_update_system` from `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T019 [US1] Attach selectable source components to local hand and local placed card roots in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T020 [US1] Attach selectable source components to CPU, near-player, and far-player hand/location card roots in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [X] T021 [US1] Attach selectable source components to front-facing stationary non-GameView card roots such as CardBrowserView, DeckBuilderScene, and DebugSettingsScene cards in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T021 [US1] Attach selectable source components to front-facing stationary non-GameScene card roots such as CardBrowserView, DeckScene, and DebugScene cards in `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T022 [US1] Route release-before-threshold selection into `SelectedCardModalModel` while preserving drag start behavior in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [X] T023 [US1] Apply selected inspection target transforms for all selectable card sources in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T024 [US1] Register `card_selection_update_system` ordering before gesture and hover consumers in `bevy/crates/game/src/runtime/plugins/mod.rs`
@@ -81,7 +81,7 @@
 - [X] T027 [US2] Implement modal backdrop spawn/despawn and opacity update in `bevy/crates/game/src/runtime/systems/card_selected_modal_update_system.rs`
 - [X] T028 [US2] Export `card_selected_modal_update_system` from `bevy/crates/game/src/runtime/systems/mod.rs`
 - [X] T029 [US2] Add modal backdrop component markers and purpose comments in `bevy/crates/game/src/runtime/components/card_selection_component.rs`
-- [X] T030 [US2] Position and size the backdrop from aspect-ratio-safe GameView/fullscreen layout helpers in `bevy/crates/game/src/runtime/systems/card_selected_modal_update_system.rs`
+- [X] T030 [US2] Position and size the backdrop from aspect-ratio-safe GameScene/fullscreen layout helpers in `bevy/crates/game/src/runtime/systems/card_selected_modal_update_system.rs`
 - [X] T031 [US2] Ensure selected card transform/render band is above the modal backdrop in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [X] T032 [US2] Register modal update ordering after selection state changes and before render-dependent point overlay updates in `bevy/crates/game/src/runtime/plugins/mod.rs`
 
@@ -171,7 +171,7 @@
 Task: "Add selectable eligibility tests for front-facing stationary cards and non-selectable moving/back-facing cards in bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs"
 Task: "Add click-versus-drag regression tests preserving CARD_GESTURE_DRAG_THRESHOLD behavior in bevy/crates/game/src/tests/runtime/systems/card_gesture_update_system_tests.rs"
 Task: "Add selected inspection tests for CPU/far/near card sources in bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs"
-Task: "Add selectable inspection tests for front-facing stationary non-GameView card screens in bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs"
+Task: "Add selectable inspection tests for front-facing stationary non-GameScene card screens in bevy/crates/game/src/tests/runtime/systems/card_selection_update_system_tests.rs"
 ```
 
 ## Parallel Example: User Story 3

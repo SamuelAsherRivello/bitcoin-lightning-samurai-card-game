@@ -16,18 +16,18 @@ use super::{
 fn screen_card_source_matches_its_active_view() {
     assert!(selection_source_matches_view(
         CardSelectionSource::ScreenCard {
-            view: ActiveView::DebugSettingsScene,
+            view: ActiveView::DebugScene,
         },
-        ActiveView::DebugSettingsScene,
+        ActiveView::DebugScene,
         None,
         None,
         None,
     ));
     assert!(!selection_source_matches_view(
         CardSelectionSource::ScreenCard {
-            view: ActiveView::DebugSettingsScene,
+            view: ActiveView::DebugScene,
         },
-        ActiveView::GameView,
+        ActiveView::GameScene,
         None,
         None,
         None,
@@ -36,29 +36,29 @@ fn screen_card_source_matches_its_active_view() {
 
 #[test]
 fn generic_card_view_bundle_source_matches_scene_markers() {
-    let game_view = crate::runtime::components::GameViewEntity;
-    let debug_settings = crate::runtime::components::DebugSettingsSceneEntity;
+    let game_scene = crate::runtime::components::GameSceneEntity;
+    let debug = crate::runtime::components::DebugSceneEntity;
 
     assert!(selection_source_matches_view(
         CardSelectionSource::CardViewBundle,
-        ActiveView::GameView,
-        Some(&game_view),
+        ActiveView::GameScene,
+        Some(&game_scene),
         None,
         None,
     ));
     assert!(selection_source_matches_view(
         CardSelectionSource::CardViewBundle,
-        ActiveView::DebugSettingsScene,
+        ActiveView::DebugScene,
         None,
         None,
-        Some(&debug_settings),
+        Some(&debug),
     ));
     assert!(!selection_source_matches_view(
         CardSelectionSource::CardViewBundle,
-        ActiveView::DeckBuilderScene,
-        Some(&game_view),
+        ActiveView::DeckScene,
+        Some(&game_scene),
         None,
-        Some(&debug_settings),
+        Some(&debug),
     ));
 }
 
@@ -68,7 +68,7 @@ fn screen_card_requires_front_face_and_no_flip_animation() {
     flip_state.visible_face = CardFace::Front;
     assert!(selectable_card_front_is_visible(
         CardSelectionSource::ScreenCard {
-            view: ActiveView::DebugSettingsScene,
+            view: ActiveView::DebugScene,
         },
         None,
         None,
@@ -79,7 +79,7 @@ fn screen_card_requires_front_face_and_no_flip_animation() {
     flip_state.target_y_rotation = std::f32::consts::PI;
     assert!(!selectable_card_front_is_visible(
         CardSelectionSource::ScreenCard {
-            view: ActiveView::DebugSettingsScene,
+            view: ActiveView::DebugScene,
         },
         None,
         None,

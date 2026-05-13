@@ -24,7 +24,7 @@
 
 1. Run `scripts/other/RunTests.ps1`.
 2. Run `scripts/main/RunAppDesktop.ps1`.
-3. Inspect `GameView` and confirm the three shared locations still appear inside the aspect-ratio-safe area.
+3. Inspect `GameScene` and confirm the three shared locations still appear inside the aspect-ratio-safe area.
 4. Confirm location top values represent opponent totals and bottom values represent local totals.
 5. Confirm visible card point views keep cost and power visually distinct.
 6. Run `scripts/other/StopApp.ps1` when finished.
@@ -33,7 +33,7 @@
 
 1. Run the existing web workflow documented by the repository, typically `scripts/other/RunAppWeb.ps1`.
 2. Open the served local browser target.
-3. Confirm point text renders, remains inside the safe `GameView` layout, and matches desktop semantics.
+3. Confirm point text renders, remains inside the safe `GameScene` layout, and matches desktop semantics.
 4. If browser WebGPU cannot be verified, record the exact blocker before considering the feature complete.
 
 ## Notes For Task Generation

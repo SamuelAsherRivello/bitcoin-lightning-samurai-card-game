@@ -3,7 +3,7 @@
 **Input**: Design documents from `specs/007-gameplay-concepts/`  
 **Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/gameview-round-flow-contract.md`, `quickstart.md`
 
-**Tests**: Include focused model and regression tests because deck selection, round energy, undo, restart, and GameView control behavior are high-risk user-visible gameplay behavior.
+**Tests**: Include focused model and regression tests because deck selection, round energy, undo, restart, and GameScene control behavior are high-risk user-visible gameplay behavior.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -27,7 +27,7 @@
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Add shared runtime state and deterministic helpers required by all GameView round-flow work.
+**Purpose**: Add shared runtime state and deterministic helpers required by all GameScene round-flow work.
 
 **CRITICAL**: No user story implementation can begin until this phase is complete.
 
@@ -50,11 +50,11 @@
 
 **Goal**: The near human player can play through six local rounds with cards dealt from deck to hand every round, energy spending, undo, End Round, and Restart.
 
-**Independent Test**: Launch or inspect GameView and verify lower-right End Round remains present, lower-left Restart and Undo are present, cards deal from deck to hand at the start of every round 1 through 6, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
+**Independent Test**: Launch or inspect GameScene and verify lower-right End Round remains present, lower-left Restart and Undo are present, cards deal from deck to hand at the start of every round 1 through 6, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
 
 ### Tests for User Story 5
 
-- [X] T016 [P] [US5] Add contract-style tests for the GameView round schedule and every-round deck-to-hand deal counts in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
+- [X] T016 [P] [US5] Add contract-style tests for the GameScene round schedule and every-round deck-to-hand deal counts in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
 - [X] T017 [P] [US5] Add deal-selection tests for rounds 1 through 6 with the initial deck, verifying deals occur every round with counts `1, 2, 3, 1, 1, 1` in `bevy/crates/game/src/runtime/resources/game_deck_model.rs`
 - [ ] T018 [P] [US5] Add hand recentering tests after deal, placement, undo, and restart in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T019 [P] [US5] Add integration tests for affordable placement, over-cost rejection, energy deduction, and energy restoration on undo in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
@@ -63,16 +63,16 @@
 ### Implementation for User Story 5
 
 - [X] T021 [US5] Implement start-of-game and start-of-round deck-to-hand deal orchestration in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
-- [ ] T022 [US5] Spawn or update visible hand card entities from `GameHandModel` in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
+- [ ] T022 [US5] Spawn or update visible hand card entities from `GameHandModel` in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
 - [ ] T023 [US5] Animate dealt cards from below safe-view screen center into centered hand positions in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
-- [ ] T024 [US5] Add lower-left Restart and Undo controls under the aspect-ratio-safe HUD root in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T025 [US5] Preserve and update the lower-right End Round control and round fraction in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
+- [ ] T024 [US5] Add lower-left Restart and Undo controls under the aspect-ratio-safe HUD root in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
+- [ ] T025 [US5] Preserve and update the lower-right End Round control and round fraction in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
 - [ ] T026 [US5] Implement End Round advancement, current-round history clearing, round energy reset, round-6 allowed End Round, and next-round deal triggering in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
 - [ ] T027 [US5] Integrate card placement energy validation before slot placement in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T028 [US5] Record current-round move history, placement energy cost, and applied location energy delta after successful hand-to-location placement in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T029 [US5] Implement Undo to return only current-round placed cards to hand, remove active location energy deltas, restore their energy spend, clear current-round history, free slots, and recenter hand in `bevy/crates/game/src/runtime/systems/game_undo_update_system.rs`
 - [ ] T030 [US5] Disable or grey out Undo when current-round move history is empty and update the `Energy current/max` label in `bevy/crates/game/src/runtime/systems/game_undo_update_system.rs`
-- [ ] T031 [US5] Implement Restart control handling that clears active GameView play state and starts a fresh randomized round `1/6` game in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
+- [ ] T031 [US5] Implement Restart control handling that clears active GameScene play state and starts a fresh randomized round `1/6` game in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
 **Checkpoint**: User Story 5 is fully functional and testable independently as the MVP runtime loop.
 
@@ -112,40 +112,40 @@
 
 ## Phase 6: User Story 3 - Clarify Prototype Scene Layering (Priority: P2)
 
-**Goal**: AppScene remains persistent, GameView remains the startup child view, and DeckBuilderScene remains available through existing scene switching behavior.
+**Goal**: AppScene remains persistent, GameScene remains the startup child view, and DeckScene remains available through existing scene switching behavior.
 
-**Independent Test**: Launch or inspect the runtime and verify AppScene owns exactly one active child, GameView starts by default, DeckBuilderScene can still be reached through the scene shortcut, and debug UI is not recreated on child scene changes.
+**Independent Test**: Launch or inspect the runtime and verify AppScene owns exactly one active child, GameScene starts by default, DeckScene can still be reached through the scene shortcut, and debug UI is not recreated on child scene changes.
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Add or update active child scene lifecycle tests for AppScene, GameView, DeckBuilderScene, and DebugSettingsScene in `bevy/crates/game/src/runtime/systems/mod.rs`
-- [ ] T039 [P] [US3] Add regression coverage that Restart resets only GameView play state and does not recreate AppScene debug UI in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
+- [ ] T038 [P] [US3] Add or update active child scene lifecycle tests for AppScene, GameScene, DeckScene, and DebugScene in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [ ] T039 [P] [US3] Add regression coverage that Restart resets only GameScene play state and does not recreate AppScene debug UI in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Preserve AppScene parenting and active child scene ownership while wiring GameView resources in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T041 [US3] Preserve existing DeckBuilderScene setup and reload behavior while adding GameView round resources in `bevy/crates/game/src/runtime/scenes/deck_builder_scene.rs`
-- [ ] T042 [US3] Verify `S` scene switching still cycles GameView, DeckBuilderScene, and DebugSettingsScene after GameView round setup in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [ ] T040 [US3] Preserve AppScene parenting and active child scene ownership while wiring GameScene resources in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
+- [ ] T041 [US3] Preserve existing DeckScene setup and reload behavior while adding GameScene round resources in `bevy/crates/game/src/runtime/scenes/deck_scene.rs`
+- [ ] T042 [US3] Verify `S` scene switching still cycles GameScene, DeckScene, and DebugScene after GameScene round setup in `bevy/crates/game/src/runtime/systems/mod.rs`
 
-**Checkpoint**: Scene layering remains intact with the new GameView runtime loop.
+**Checkpoint**: Scene layering remains intact with the new GameScene runtime loop.
 
 ---
 
 ## Phase 7: User Story 4 - Introduce Game Scene Table Top (Priority: P2)
 
-**Goal**: GameView continues to show DesertWorld, three locations, hand area, RoundUI, and hybrid 2D/3D card presentation while supporting the new round loop.
+**Goal**: GameScene continues to show DesertWorld, three locations, hand area, RoundUI, and hybrid 2D/3D card presentation while supporting the new round loop.
 
-**Independent Test**: Launch or inspect GameView and verify the DesertWorld background, exactly three locations, location open/closed outlines, centered title/body text, local hand area, End Round, Restart, Undo, and 3D hand cards all appear within the safe area.
+**Independent Test**: Launch or inspect GameScene and verify the DesertWorld background, exactly three locations, location open/closed outlines, centered title/body text, local hand area, End Round, Restart, Undo, and 3D hand cards all appear within the safe area.
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Add or update tests for exactly three GameView locations, location open/closed outline state, and safe-area placement in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T044 [P] [US4] Add or update tests that hand card transforms derive from the aspect-ratio-safe GameView rather than raw window pixels in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
+- [ ] T043 [P] [US4] Add or update tests for exactly three GameScene locations, location open/closed outline state, and safe-area placement in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
+- [ ] T044 [P] [US4] Add or update tests that hand card transforms derive from the aspect-ratio-safe GameScene rather than raw window pixels in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] Preserve DesertWorld background and three location UI instances while adding round controls in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T046 [US4] Keep local hand area and 3D card presentation aligned with the aspect-ratio-safe GameView in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
+- [ ] T045 [US4] Preserve DesertWorld background and three location UI instances while adding round controls in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
+- [ ] T046 [US4] Keep local hand area and 3D card presentation aligned with the aspect-ratio-safe GameScene in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
 - [ ] T047 [US4] Keep closed red and open green location outline behavior intact while adding placement and undo state changes in `bevy/crates/game/src/runtime/bundles/location_view_bundle.rs`
 
 **Checkpoint**: Table top presentation remains visually stable while the local round loop runs.
@@ -160,7 +160,7 @@
 - [ ] T049 [P] [US4] Add tests for left, middle, and right location open rounds, closed titles, open titles, ability bodies, and `(No Ability)` fallback in `bevy/crates/game/src/runtime/resources/game_location_model.rs`
 - [ ] T050 [US4] Render each location title as larger centered text about 30% from the location top with up to two lines in `bevy/crates/game/src/runtime/bundles/location_view_bundle.rs`
 - [ ] T051 [US4] Render each location body as centered text below the title with up to three lines and blank body while closed in `bevy/crates/game/src/runtime/bundles/location_view_bundle.rs`
-- [ ] T052 [US4] Update GameView location setup to use `Fortress Gate`, `Bamboo Crossing`, and `Normal` definitions instead of three generic locations in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
+- [ ] T052 [US4] Update GameScene location setup to use `Fortress Gate`, `Bamboo Crossing`, and `Normal` definitions instead of three generic locations in `bevy/crates/game/src/runtime/scenes/game_scene_scene.rs`
 - [ ] T053 [US5] Apply open location effective-energy deltas immediately after successful card placement in `bevy/crates/game/src/runtime/systems/game_location_effect_system.rs`
 - [ ] T054 [P] [US5] Add tests for Fortress Gate `+2`, Bamboo Crossing `-2`, Normal no-op, and closed-location no-op effects in `bevy/crates/game/src/runtime/systems/game_location_effect_system.rs`
 - [ ] T055 [US5] Remove active location effective-energy deltas when Undo returns current-round cards to hand in `bevy/crates/game/src/runtime/systems/game_undo_update_system.rs`
@@ -179,7 +179,7 @@
 - [ ] T059 Run workspace tests with `scripts/other/RunTests.ps1`
 - [ ] T060 Run desktop verification from `specs/007-gameplay-concepts/quickstart.md`
 - [ ] T061 Run browser WebGPU verification from `specs/007-gameplay-concepts/quickstart.md` or document the exact blocker in `specs/007-gameplay-concepts/quickstart.md`
-- [ ] T062 Capture an AI runtime screenshot through the Bevy Remote Protocol workflow and inspect GameView controls, hand centering, location text/effects, and current-round undo behavior with output under `target/ai-runtime-screenshots/`
+- [ ] T062 Capture an AI runtime screenshot through the Bevy Remote Protocol workflow and inspect GameScene controls, hand centering, location text/effects, and current-round undo behavior with output under `target/ai-runtime-screenshots/`
 - [ ] T063 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept, Scene/Model/View naming, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` purpose comment standards in `bevy/crates/game/src/runtime/`
 - [ ] T064 Update `specs/007-gameplay-concepts/quickstart.md` with final desktop/browser verification notes and any blocked target details
 
@@ -208,7 +208,7 @@
 | US5 Play Local Round Progression | Foundational only | MVP runtime behavior requested by the latest spec update |
 | US1 Preserve Gameplay Vocabulary | Foundational only; may run alongside US5 once model names are chosen | Primarily naming/docs consistency |
 | US2 Describe Future Hidden Card Flow | Foundational only; should avoid adding reveal scope | Ensures future concepts remain boundaries, not implementation creep |
-| US3 Clarify Prototype Scene Layering | US5 setup path | Protects AppScene/child-scene behavior while GameView grows |
+| US3 Clarify Prototype Scene Layering | US5 setup path | Protects AppScene/child-scene behavior while GameScene grows |
 | US4 Introduce Game Scene Table Top | US5 presentation integration | Protects visual layout while controls and dealt cards are added |
 
 ### Parallel Opportunities
@@ -229,7 +229,7 @@
 ## Parallel Example: User Story 5
 
 ```text
-Task: "T016 [P] [US5] Add contract-style tests for the GameView round schedule and every-round deck-to-hand deal counts in bevy/crates/game/src/runtime/resources/game_round_model.rs"
+Task: "T016 [P] [US5] Add contract-style tests for the GameScene round schedule and every-round deck-to-hand deal counts in bevy/crates/game/src/runtime/resources/game_round_model.rs"
 Task: "T017 [P] [US5] Add deal-selection tests for rounds 1 through 6 with the initial deck, verifying deals occur every round with counts 1, 2, 3, 1, 1, 1 in bevy/crates/game/src/runtime/resources/game_deck_model.rs"
 Task: "T018 [P] [US5] Add hand recentering tests after deal, placement, undo, and restart in bevy/crates/game/src/runtime/resources/game_hand_model.rs"
 Task: "T020 [P] [US5] Add restart reset tests for deck, hand, round, energy, slots, card states, gesture state, and move history in bevy/crates/game/src/runtime/systems/game_restart_update_system.rs"
@@ -238,8 +238,8 @@ Task: "T020 [P] [US5] Add restart reset tests for deck, hand, round, energy, slo
 ## Parallel Example: User Story 4
 
 ```text
-Task: "T043 [P] [US4] Add or update tests for exactly three GameView locations, location open/closed outline state, and safe-area placement in bevy/crates/game/src/runtime/scenes/game_view_scene.rs"
-Task: "T044 [P] [US4] Add or update tests that hand card transforms derive from the aspect-ratio-safe GameView rather than raw window pixels in bevy/crates/game/src/runtime/resources/game_hand_model.rs"
+Task: "T043 [P] [US4] Add or update tests for exactly three GameScene locations, location open/closed outline state, and safe-area placement in bevy/crates/game/src/runtime/scenes/game_scene_scene.rs"
+Task: "T044 [P] [US4] Add or update tests that hand card transforms derive from the aspect-ratio-safe GameScene rather than raw window pixels in bevy/crates/game/src/runtime/resources/game_hand_model.rs"
 ```
 
 ---
@@ -251,11 +251,11 @@ Task: "T044 [P] [US4] Add or update tests that hand card transforms derive from 
 1. Complete Phase 1 setup.
 2. Complete Phase 2 foundational models, exports, and reset helpers.
 3. Complete Phase 3 US5.
-4. Stop and validate the GameView local round loop independently with focused tests and desktop inspection.
+4. Stop and validate the GameScene local round loop independently with focused tests and desktop inspection.
 
 ### Incremental Delivery
 
-1. Add US5 to make GameView playable through local round progression.
+1. Add US5 to make GameScene playable through local round progression.
 2. Add US1 consistency checks so implementation vocabulary stays aligned with the concept spec.
 3. Add US2 boundary checks so hidden-card concepts do not accidentally become runtime scope.
 4. Add US3 scene-layering regression coverage.
@@ -275,7 +275,7 @@ Task: "T044 [P] [US4] Add or update tests that hand card transforms derive from 
 
 - `[P]` tasks use different files or independent test scopes.
 - `[US#]` labels map tasks to user stories for traceability.
-- Keep all visible layout derived from the aspect-ratio-safe `GameView`.
+- Keep all visible layout derived from the aspect-ratio-safe `GameScene`.
 - Keep runtime source organized around one primary concept per file.
 - Do not add CPU rounds, scoring, card abilities, full location control, persistence, production mobile layout, reveal-resolution behavior, or additional location ability types in this feature.
 - Avoid reverting unrelated modified runtime files already present in the working tree.

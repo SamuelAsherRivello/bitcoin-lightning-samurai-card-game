@@ -16,7 +16,7 @@ Extend card selection from local hand/local placed cards to any front-facing sta
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime under `bevy/crates/game`  
 **Performance Goals**: Keep selection hit testing linear over currently rendered card roots; avoid per-frame allocations for modal opacity and point overlay visibility  
-**Constraints**: Preserve `CARD_GESTURE_DRAG_THRESHOLD`, existing selected inspection transform, aspect-ratio-safe GameView layout, current drag placement behavior, current CPU reveal rules, and Scene/Model/View naming  
+**Constraints**: Preserve `CARD_GESTURE_DRAG_THRESHOLD`, existing selected inspection transform, aspect-ratio-safe GameScene layout, current drag placement behavior, current CPU reveal rules, and Scene/Model/View naming  
 **Scale/Scope**: Rendered front-facing card selection across local/CPU/near/far hand and location cards, selected modal fade/input capture, and selected-card point overlay depth correctness
 
 ## Constitution Check
@@ -37,7 +37,7 @@ Extend card selection from local hand/local placed cards to any front-facing sta
 | Visible feedback | ✅ | Modal darkening is visible feedback for selected inspection. |
 | Browser/native storage constraints | ✅ | No storage, localStorage, SQLite, or OPFS change. |
 | Browser-visible verification path | ✅ | Plan includes desktop and browser/WebGPU parity; browser verification can use existing served-web flow if available. |
-| Aspect-ratio-safe layout | ✅ | Selected transform and modal dimensions must derive from the aspect-ratio-safe GameView/fullscreen layout as appropriate. |
+| Aspect-ratio-safe layout | ✅ | Selected transform and modal dimensions must derive from the aspect-ratio-safe GameScene/fullscreen layout as appropriate. |
 | Framework constraints documented | ✅ | Separate 3D card and 2D point text render layers are documented as a key depth risk. |
 
 ## Project Structure
@@ -122,7 +122,7 @@ Research is complete in [research.md](./research.md). Key decisions:
 | ----- | ------ | ----- |
 | Source remains scoped | ✅ | Future changes stay under `bevy/crates/game/src/runtime` and tests under `bevy/crates/game/src/tests/runtime`. |
 | Desktop/browser parity addressed | ✅ | No platform-specific dependency is proposed; input and rendering must be checked on Windows desktop and browser WebGPU when practical. |
-| Aspect-ratio-safe layout addressed | ✅ | Selected target and modal visual sizing must derive from existing GameView layout helpers. |
+| Aspect-ratio-safe layout addressed | ✅ | Selected target and modal visual sizing must derive from existing GameScene layout helpers. |
 | Data changes explicit | ✅ | Changes are transient runtime model/component state only. |
 | Framework constraints recorded | ✅ | Separate card mesh and point text render layers are recorded as the main ordering risk. |
 

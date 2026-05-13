@@ -3,7 +3,7 @@
 **Feature Branch**: `012-card-gestures`  
 **Created**: 2026-05-11  
 **Status**: Draft  
-**Input**: User description: "Card gestures for the game view. Mouse input should also mean mobile pointer input such as tap, press, swipe, and drag. Clicking a hand card should no longer switch to the Deck Builder scene. A click selects the card in the game view, moves it to the center at the same large inspection position used by the Deck Builder scene, around 90% of screen height, and clicking that selected card returns it to its hand position. Dragging a hand card after moving a few pixels should not count as a click. Dragging allows the card to move into empty slots in the local player's side of the three location areas. Each location has four slots above and four below, and the local human player may only allocate into the twelve closest slots below the three locations. Dropping onto an empty valid slot snaps the card there while preserving card aspect ratio and fitting the slot."
+**Input**: User description: "Card gestures for the game view. Mouse input should also mean mobile pointer input such as tap, press, swipe, and drag. Clicking a hand card should no longer switch to the Deck scene. A click selects the card in the game view, moves it to the center at the same large inspection position used by the Deck scene, around 90% of screen height, and clicking that selected card returns it to its hand position. Dragging a hand card after moving a few pixels should not count as a click. Dragging allows the card to move into empty slots in the local player's side of the three location areas. Each location has four slots above and four below, and the local human player may only allocate into the twelve closest slots below the three locations. Dropping onto an empty valid slot snaps the card there while preserving card aspect ratio and fitting the slot."
 
 ## Clarifications
 
@@ -15,7 +15,7 @@
 
 ### User Story 1 - Inspect a Hand Card In Place (Priority: P1)
 
-A player can tap or click a card in their hand to inspect it at the center of the game view without leaving the game view. The enlarged card appears in the same center inspection position used by the Deck Builder view, sized to nearly fill the available height while preserving its aspect ratio.
+A player can tap or click a card in their hand to inspect it at the center of the game view without leaving the game view. The enlarged card appears in the same center inspection position used by the Deck view, sized to nearly fill the available height while preserving its aspect ratio.
 
 **Why this priority**: The current click behavior exits the game view, which interrupts gameplay. In-place inspection is the minimum gesture change needed before hand cards can become playable.
 
@@ -24,9 +24,9 @@ A player can tap or click a card in their hand to inspect it at the center of th
 **Acceptance Scenarios**:
 
 1. **Given** the game view is active and a card is visible in the hand area, **When** the player clicks or taps the card without dragging, **Then** the game view remains active and the card becomes the selected inspected card.
-2. **Given** a hand card is selected for inspection, **When** its movement completes, **Then** it is centered in the screen at the same inspection position as the Deck Builder view and is approximately 90% of the safe visible height.
+2. **Given** a hand card is selected for inspection, **When** its movement completes, **Then** it is centered in the screen at the same inspection position as the Deck view and is approximately 90% of the safe visible height.
 3. **Given** a hand card is selected for inspection, **When** the player clicks or taps that enlarged selected card, **Then** the card returns to its original hand position and hand-sized presentation.
-4. **Given** a hand card is clicked or tapped for inspection, **When** the interaction resolves, **Then** the Deck Builder view is not opened and no other user-facing GameView gesture opens it.
+4. **Given** a hand card is clicked or tapped for inspection, **When** the interaction resolves, **Then** the Deck view is not opened and no other user-facing GameScene gesture opens it.
 
 ---
 
@@ -114,8 +114,8 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **FR-001**: The game view MUST treat mouse, touch, stylus, and equivalent screen interactions as pointer input for card gestures.
 - **FR-002**: The game view MUST support card gestures for cards visible in the local player's hand area.
 - **FR-003**: Clicking or tapping a local hand card without crossing the drag movement threshold MUST select that card for inspection in the game view.
-- **FR-004**: Selecting a hand card for inspection MUST NOT switch to, open, or otherwise activate the Deck Builder view.
-- **FR-005**: A selected inspected card MUST move to the center inspection position used by the Deck Builder view while the game view remains active.
+- **FR-004**: Selecting a hand card for inspection MUST NOT switch to, open, or otherwise activate the Deck view.
+- **FR-005**: A selected inspected card MUST move to the center inspection position used by the Deck view while the game view remains active.
 - **FR-006**: A selected inspected card MUST be approximately 90% of the current safe visible height, unless constrained by width, while preserving card aspect ratio.
 - **FR-007**: Clicking or tapping the selected inspected card MUST return it to its source hand position and hand-sized presentation.
 - **FR-008**: Card movement between hand, selected inspection, drag, and slot positions MUST be animated smoothly rather than teleporting.
@@ -135,7 +135,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **FR-022**: A card gesture MUST maintain a single clear active card focus so click, selected inspection, and drag states do not conflict.
 - **FR-023**: Card gestures MUST remain inside the aspect-ratio safe game view area for visible hand cards, selected inspection, and local slot placement.
 - **FR-024**: This feature MUST NOT require full round rules, energy costs, CPU placement, opponent interaction, card reveal rules, scoring changes, or completed gameplay resolution.
-- **FR-025**: This feature MUST leave the existing Deck Builder view implementation unchanged, even though users will no longer have a GameView gesture path to reach it after this feature.
+- **FR-025**: This feature MUST leave the existing Deck view implementation unchanged, even though users will no longer have a GameScene gesture path to reach it after this feature.
 - **FR-026**: When a hand-card drag begins, the card MUST animate to 150% of its hand size over 0.25 seconds with ease-out motion.
 - **FR-027**: While dragging, each location with at least one empty local-player slot MUST show a user-facing light blue DropTargetHint rectangle over its entire local-player slots area.
 - **FR-028**: A full location's local-player slots area MUST NOT show as an available DropTargetHint and MUST reject drops.
@@ -175,7 +175,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 
 ### Measurable Outcomes
 
-- **SC-001**: In 100% of click or tap inspection tests on hand cards, the game view remains active and the Deck Builder view is not opened.
+- **SC-001**: In 100% of click or tap inspection tests on hand cards, the game view remains active and the Deck view is not opened.
 - **SC-002**: In 95% of ordinary tap or click attempts on hand cards, reviewers can select and unselect a card without accidentally starting a drag.
 - **SC-003**: In 95% of ordinary drag attempts on hand cards, reviewers can drag beyond the threshold without accidentally triggering card inspection.
 - **SC-004**: A selected inspected card reaches a centered inspection presentation using approximately 90% of safe visible height within 500 ms of the click or tap in normal test conditions.
@@ -193,8 +193,8 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | "Mouse input" in the feature request means generalized pointer input. | The user explicitly said mouse movement and mouse click should also work for mobile tap, press, swipe, and related gestures. |
 | The local human player is always seated at the near or bottom side of the screen. | The request states the player is in the near position and that the bottom side is always the human player. |
 | The valid direct placement slots are the four bottom slots for each of the three locations, totaling twelve slots. | The request identifies three location areas and four closest slots per location. |
-| The center inspection position should match the already approved Deck Builder inspection pose as closely as the game view layout allows. | The request wants the exact same position as the Deck Builder scene while staying in the game view. |
+| The center inspection position should match the already approved Deck inspection pose as closely as the game view layout allows. | The request wants the exact same position as the Deck scene while staying in the game view. |
 | Invalid drag drops return the card to its source position. | This preserves the card and follows common card-game drag behavior when a target cannot accept a card. |
 | Full gameplay legality beyond slot emptiness and local-player ownership is outside this feature. | The request is focused on gestures and slot allocation, not round, cost, reveal, or scoring rules. |
 | Desktop-only iteration is acceptable, but the gesture vocabulary must be designed so touch/mobile pointer input can use the same behavior. | The user emphasized mobile-compatible meaning for mouse input without asking for a complete mobile platform release. |
-| Deck Builder view behavior remains as-is. | The feature removes user reachability from GameView hand-card gestures, but does not modify the existing Deck Builder view itself. |
+| Deck view behavior remains as-is. | The feature removes user reachability from GameScene hand-card gestures, but does not modify the existing Deck view itself. |

@@ -13,7 +13,7 @@
 | Card UI separation | Card UI is temporary developer/prototype UI, remains separate from DebugHUD, and is not final player-facing UI |
 | Card UI placement | Card UI, when present, remains inside the aspect-ratio-safe HUD area and does not merge with DebugHUD |
 | Debug drawing | Requested scene areas may be marked with runtime visual annotations that remain until removal or replacement is requested |
-| Debug drawing placement | Debug drawings align to requested `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` scene areas using aspect-ratio-safe coordinates, not raw window pixels |
+| Debug drawing placement | Debug drawings align to requested `GameScene`, `DeckScene`, or `DebugScene` scene areas using aspect-ratio-safe coordinates, not raw window pixels |
 | Debug drawing temporariness | Debug drawings are temporary scaffolding and must not be treated as final player-facing UI or production art |
 | Terminal logging | Scoped logs may support developer self-debugging, but must avoid secrets and unrelated noisy output |
 | Test workflow | Implementers run `scripts/other/RunTests.ps1` and document any blocked manual or browser checks before handoff |

@@ -17,7 +17,7 @@
 | Slot model tests | Three locations expose four opponent slots and four local-player slots each; runtime slot rectangles match debug-drawn reference lines; only locations with an empty local slot accept direct placement and assign slots in upper-left, upper-right, lower-left, lower-right order |
 | Card state tests | Cards move through `Hand`, `Dragging`, `LocationCurrentRound`, and `LocationLocked`; only hand cards and current-round placed cards can start allowed drags |
 | Location power tests | Location-side PowerPointViews start at 0 and update to the sum of card powers assigned to that side's slots |
-| Navigation regression tests | Clicking a hand card in `GameView` no longer opens `DeckBuilderScene`; the existing Deck Builder view implementation is not modified |
+| Navigation regression tests | Clicking a hand card in `GameScene` no longer opens `DeckScene`; the existing Deck view implementation is not modified |
 | Animation integration | Hand-to-selected, selected-to-hand, drag-to-slot, and invalid-drop return movements animate smoothly |
 | Aspect-ratio checks | Hand, selected inspection, drag preview, and placed slots derive from the safe game view and reflow on viewport changes |
 
@@ -25,7 +25,7 @@
 
 1. Run `scripts/other/RunTests.ps1`.
 2. Run `scripts/main/RunAppDesktop.ps1`.
-3. In `GameView`, click or tap a local hand card and confirm the Deck Builder view does not open.
+3. In `GameScene`, click or tap a local hand card and confirm the Deck view does not open.
 4. Confirm the selected card animates to the center inspection position at approximately 90% safe visible height.
 5. Click or tap the selected card and confirm it returns to its hand source.
 6. Press a hand card, move beyond the drag threshold, release over each empty local-player slot, and confirm the card snaps into the destination location card slot.
@@ -40,7 +40,7 @@
 15. Place one or more cards into a location and confirm the local side's visible power points move from 0 to the sum of the placed cards' power values.
 16. Drag over an opponent slot, a full local location, and empty board space; confirm each invalid drop returns the card to its original hand card slot.
 17. Resize the window and confirm selected, dragged, placed cards, DropTargetHint rectangles, insertion gaps, and location power points keep their aspect-ratio-safe layout.
-18. Confirm there is no user-facing GameView gesture path to reach the Deck Builder view.
+18. Confirm there is no user-facing GameScene gesture path to reach the Deck view.
 19. Run `scripts/other/StopApp.ps1` when finished.
 
 ## Browser WebGPU Verification
@@ -61,7 +61,7 @@
 | Naming | Use `Model` for gesture/slot state and `View` for visual card presentation states |
 | Purpose comments | Add required `HUMAN:` and `AI:` lines above new or changed primary runtime items |
 | Exclusions | Do not add CPU placement, reveal rules, scoring resolution, or production mobile packaging; round-aware placed-card mobility is governed by the gameplay round spec |
-| Deck Builder boundary | Do not modify the existing Deck Builder view implementation; only remove user reachability from GameView gestures |
+| Deck boundary | Do not modify the existing Deck view implementation; only remove user reachability from GameScene gestures |
 
 ## Implementation Verification Notes
 
@@ -74,4 +74,4 @@
 | `scripts/other/RunTests.ps1` | Blocked by rustc process exit `0xffffffff` during the `fast-dev` workspace build without a Rust diagnostic; rerunning without `fast-dev` passed. |
 | Manual desktop gesture walkthrough | Not performed in this pass; covered by model/system regression tests and desktop check-only build. |
 | Manual browser gesture walkthrough | Not performed in this pass; covered by model/system regression tests and browser check-only build. |
-| Deck Builder boundary | Confirmed in tests: GameView hand-card click remains in GameView and does not spawn DeckBuilderScene entities. |
+| Deck boundary | Confirmed in tests: GameScene hand-card click remains in GameScene and does not spawn DeckScene entities. |

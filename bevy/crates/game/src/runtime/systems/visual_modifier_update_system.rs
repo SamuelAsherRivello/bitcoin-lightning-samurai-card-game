@@ -69,7 +69,7 @@ pub fn visual_modifier_update_system(
     game_location_model: Option<Res<GameLocationModel>>,
     mut queries: VisualModifierUpdateQueries,
 ) {
-    if !super::is_game_view_active(active_view.as_deref()) {
+    if !super::is_game_scene_active(active_view.as_deref()) {
         return;
     }
 

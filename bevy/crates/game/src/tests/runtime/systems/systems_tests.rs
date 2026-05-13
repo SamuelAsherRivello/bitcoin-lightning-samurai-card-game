@@ -62,14 +62,14 @@ fn assert_vec2_close(left: Vec2, right: Vec2) {
 }
 
 fn apparent_scale_at_z(scale: f32, z: f32) -> f32 {
-    scale / game_view_world_units_per_game_view_pixel(z)
+    scale / game_scene_world_units_per_game_scene_pixel(z)
 }
 
 fn active_child_scene_root_count(app: &mut App) -> usize {
     let mut scene_query = app.world_mut().query_filtered::<Entity, Or<(
-        With<GameViewRoot>,
-        With<DeckBuilderSceneRoot>,
-        With<DebugSettingsSceneRoot>,
+        With<GameSceneRoot>,
+        With<DeckSceneRoot>,
+        With<DebugSceneRoot>,
     )>>();
     scene_query.iter(app.world()).count()
 }
@@ -107,12 +107,12 @@ fn assert_debug_hud_targets_active_ui_camera(app: &mut App, active_view: ActiveV
     assert!(camera.is_active);
 
     match active_view {
-        ActiveView::GameView => assert!(camera_entity.get::<GameViewEntity>().is_some()),
-        ActiveView::DeckBuilderScene => {
-            assert!(camera_entity.get::<DeckBuilderSceneEntity>().is_some())
+        ActiveView::GameScene => assert!(camera_entity.get::<GameSceneEntity>().is_some()),
+        ActiveView::DeckScene => {
+            assert!(camera_entity.get::<DeckSceneEntity>().is_some())
         }
-        ActiveView::DebugSettingsScene => {
-            assert!(camera_entity.get::<DebugSettingsSceneEntity>().is_some())
+        ActiveView::DebugScene => {
+            assert!(camera_entity.get::<DebugSceneEntity>().is_some())
         }
     }
 }
@@ -232,7 +232,7 @@ fn debug_hud_title_shows_active_view_without_card_model_status() {
         .query_filtered::<&Text, With<DebugHudText>>();
     let hud_text = hud_query.single(app.world()).unwrap();
 
-    assert!(hud_text.0.starts_with("Scene: GameView\nFrame: 0"));
+    assert!(hud_text.0.starts_with("Screen: GameScreen\nFrame: 0"));
     assert!(!hud_text.0.contains("CardModel:"));
 }
 
@@ -247,7 +247,7 @@ fn inspector_defaults_are_compact_and_below_hud() {
 }
 
 #[test]
-fn app_scene_owns_debug_hud_without_deck_builder_entities() {
+fn app_scene_owns_debug_hud_without_deck_entities() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<PrimaryCameraDefaults>()
@@ -286,7 +286,7 @@ fn app_scene_owns_debug_hud_without_deck_builder_entities() {
 }
 
 #[test]
-fn deck_builder_scene_owns_camera_light_and_card() {
+fn deck_scene_owns_camera_light_and_card() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -297,29 +297,29 @@ fn deck_builder_scene_owns_camera_light_and_card() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<&Transform, (With<PrimaryViewCamera>, With<DeckBuilderSceneEntity>)>();
+        .query_filtered::<&Transform, (With<PrimaryViewCamera>, With<DeckSceneEntity>)>();
     let camera_transform = camera_query.single(app.world()).unwrap();
     assert_eq!(
         camera_transform.translation.z,
-        DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN
+        DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN
     );
 
     let mut light_query = app
         .world_mut()
-        .query_filtered::<Entity, (With<DirectionalLight>, With<DeckBuilderSceneEntity>)>();
+        .query_filtered::<Entity, (With<DirectionalLight>, With<DeckSceneEntity>)>();
     assert_eq!(light_query.iter(app.world()).count(), 1);
 
     let mut ui_camera_query = app
             .world_mut()
             .query_filtered::<(&Camera, Option<&PrimaryEguiContext>), (
                 With<Camera2d>,
-                With<DeckBuilderSceneEntity>,
+                With<DeckSceneEntity>,
             )>();
     let (ui_camera, egui_context) = ui_camera_query.single(app.world()).unwrap();
     assert_eq!(ui_camera.order, 1);
@@ -328,10 +328,10 @@ fn deck_builder_scene_owns_camera_light_and_card() {
 
     let mut card_query = app
         .world_mut()
-        .query_filtered::<&Transform, (With<CardView>, With<DeckBuilderSceneEntity>)>();
+        .query_filtered::<&Transform, (With<CardView>, With<DeckSceneEntity>)>();
     let card_transform = card_query.single(app.world()).unwrap();
     let expected_card_scale =
-        deck_builder_centered_card_scale(app.world().resource::<CardInspectionDefaults>());
+        deck_centered_card_scale(app.world().resource::<CardInspectionDefaults>());
     assert_eq!(card_transform.translation, Vec3::ZERO);
     assert_close(card_transform.scale.x, expected_card_scale);
     assert_close(card_transform.scale.y, expected_card_scale);
@@ -339,7 +339,7 @@ fn deck_builder_scene_owns_camera_light_and_card() {
 }
 
 #[test]
-fn debug_settings_scene_owns_camera_light_and_card() {
+fn debug_scene_owns_camera_light_and_card() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -350,34 +350,34 @@ fn debug_settings_scene_owns_camera_light_and_card() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_debug_settings_scene);
+        .add_systems(Startup, setup_debug_scene);
 
     app.update();
 
     let mut root_query = app
         .world_mut()
-        .query_filtered::<Entity, With<DebugSettingsSceneRoot>>();
+        .query_filtered::<Entity, With<DebugSceneRoot>>();
     assert_eq!(root_query.iter(app.world()).count(), 1);
 
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<&Transform, (With<PrimaryViewCamera>, With<DebugSettingsSceneEntity>)>();
+        .query_filtered::<&Transform, (With<PrimaryViewCamera>, With<DebugSceneEntity>)>();
     let camera_transform = camera_query.single(app.world()).unwrap();
     assert_eq!(
         camera_transform.translation.z,
-        DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN
+        DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN
     );
 
     let mut light_query = app
         .world_mut()
-        .query_filtered::<Entity, (With<DirectionalLight>, With<DebugSettingsSceneEntity>)>();
+        .query_filtered::<Entity, (With<DirectionalLight>, With<DebugSceneEntity>)>();
     assert_eq!(light_query.iter(app.world()).count(), 1);
 
     let mut card_query = app
         .world_mut()
-        .query_filtered::<&Transform, (With<CardView>, With<DebugSettingsSceneEntity>)>();
+        .query_filtered::<&Transform, (With<CardView>, With<DebugSceneEntity>)>();
     let card_transform = card_query.single(app.world()).unwrap();
-    let expected_transform = debug_settings_scene_card_transform(
+    let expected_transform = debug_scene_card_transform(
         app.world().resource::<CardInspectionDefaults>(),
         Quat::IDENTITY,
     );
@@ -409,7 +409,7 @@ fn card_structure_spawns_visible_cost_and_power_point_views() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -525,7 +525,7 @@ fn card_structure_spawns_visible_cost_and_power_point_views() {
 }
 
 #[test]
-fn deck_builder_scene_root_does_not_inherit_ui_layout_transform() {
+fn deck_scene_root_does_not_inherit_ui_layout_transform() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -537,13 +537,13 @@ fn deck_builder_scene_root_does_not_inherit_ui_layout_transform() {
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
         .add_systems(Startup, setup_app_scene)
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
     let mut root_query = app
         .world_mut()
-        .query_filtered::<(Option<&ChildOf>, &Transform), With<DeckBuilderSceneRoot>>();
+        .query_filtered::<(Option<&ChildOf>, &Transform), With<DeckSceneRoot>>();
     let (parent, transform) = {
         let (parent, transform) = root_query.single(app.world()).unwrap();
         (parent.map(ChildOf::parent), *transform)
@@ -558,24 +558,24 @@ fn deck_builder_scene_root_does_not_inherit_ui_layout_transform() {
 }
 
 #[test]
-fn deck_builder_camera_viewport_matches_centered_safe_area() {
-    let wide_viewport = game_view_safe_area_viewport(UVec2::new(1600, 800)).unwrap();
+fn deck_camera_viewport_matches_centered_safe_area() {
+    let wide_viewport = game_scene_safe_area_viewport(UVec2::new(1600, 800)).unwrap();
     assert_eq!(wide_viewport.physical_position, UVec2::new(160, 0));
     assert_eq!(wide_viewport.physical_size, UVec2::new(1280, 800));
 
-    let tall_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1000)).unwrap();
+    let tall_viewport = game_scene_safe_area_viewport(UVec2::new(1280, 1000)).unwrap();
     assert_eq!(tall_viewport.physical_position, UVec2::new(0, 100));
     assert_eq!(tall_viewport.physical_size, UVec2::new(1280, 800));
 
     let default_viewport =
-        game_view_safe_area_viewport(UVec2::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT))
+        game_scene_safe_area_viewport(UVec2::new(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT))
             .unwrap();
     assert_eq!(default_viewport.physical_position, UVec2::new(0, 64));
     assert_eq!(default_viewport.physical_size, UVec2::new(1024, 640));
 }
 
 #[test]
-fn game_view_3d_cameras_use_centered_safe_area_viewport() {
+fn game_scene_3d_cameras_use_centered_safe_area_viewport() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -590,8 +590,8 @@ fn game_view_3d_cameras_use_centered_safe_area_viewport() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view)
-        .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area);
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area);
     app.world_mut().spawn((
         Window {
             resolution: WindowResolution::new(1280, 1536),
@@ -603,10 +603,10 @@ fn game_view_3d_cameras_use_centered_safe_area_viewport() {
     app.update();
     app.update();
 
-    let expected_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
+    let expected_viewport = game_scene_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<&Camera, (With<GameViewEntity>, With<Camera3d>)>();
+        .query_filtered::<&Camera, (With<GameSceneEntity>, With<Camera3d>)>();
     let cameras: Vec<&Camera> = camera_query.iter(app.world()).collect();
     assert_eq!(cameras.len(), 2);
     for camera in cameras {
@@ -621,7 +621,7 @@ fn game_view_3d_cameras_use_centered_safe_area_viewport() {
 }
 
 #[test]
-fn game_view_card_point_text_camera_uses_centered_safe_area_viewport() {
+fn game_scene_card_point_text_camera_uses_centered_safe_area_viewport() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -636,8 +636,8 @@ fn game_view_card_point_text_camera_uses_centered_safe_area_viewport() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view)
-        .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area);
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area);
     app.world_mut().spawn((
         Window {
             resolution: WindowResolution::new(1280, 1536),
@@ -649,10 +649,10 @@ fn game_view_card_point_text_camera_uses_centered_safe_area_viewport() {
     app.update();
     app.update();
 
-    let expected_viewport = game_view_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
+    let expected_viewport = game_scene_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<&Camera, (With<GameViewEntity>, With<CardPointTextCamera>)>();
+        .query_filtered::<&Camera, (With<GameSceneEntity>, With<CardPointTextCamera>)>();
     let camera = camera_query.single(app.world()).unwrap();
     let viewport = camera.viewport.as_ref().unwrap();
 
@@ -666,7 +666,7 @@ fn game_view_card_point_text_camera_uses_centered_safe_area_viewport() {
 
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
-fn game_view_3d_cameras_use_default_viewport_in_native_fullscreen() {
+fn game_scene_3d_cameras_use_default_viewport_in_native_fullscreen() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -681,8 +681,8 @@ fn game_view_3d_cameras_use_default_viewport_in_native_fullscreen() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view)
-        .add_systems(Update, constrain_game_view_3d_cameras_to_safe_area);
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, constrain_game_scene_3d_cameras_to_safe_area);
     app.world_mut().spawn((
         Window {
             resolution: WindowResolution::new(2560, 1600),
@@ -696,7 +696,7 @@ fn game_view_3d_cameras_use_default_viewport_in_native_fullscreen() {
 
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<&Camera, (With<GameViewEntity>, With<Camera3d>)>();
+        .query_filtered::<&Camera, (With<GameSceneEntity>, With<Camera3d>)>();
     let cameras: Vec<&Camera> = camera_query.iter(app.world()).collect();
     assert_eq!(cameras.len(), 2);
     for camera in cameras {
@@ -706,7 +706,7 @@ fn game_view_3d_cameras_use_default_viewport_in_native_fullscreen() {
 
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
-fn game_view_uses_default_viewport_during_fullscreen_transition() {
+fn game_scene_uses_default_viewport_during_fullscreen_transition() {
     let window = Window {
         resolution: WindowResolution::new(2560, 1600),
         mode: WindowMode::Windowed,
@@ -717,16 +717,16 @@ fn game_view_uses_default_viewport_during_fullscreen_transition() {
     };
 
     assert!(
-        game_view_safe_area_viewport_for_window_transition(&window, Some(&transition)).is_none()
+        game_scene_safe_area_viewport_for_window_transition(&window, Some(&transition)).is_none()
     );
     assert!(
-        game_view_safe_area_viewport_for_window_transition(&window, None)
+        game_scene_safe_area_viewport_for_window_transition(&window, None)
             .is_some_and(|viewport| viewport.physical_size == UVec2::new(2560, 1600))
     );
 }
 
 #[test]
-fn game_view_owns_camera_world_background_and_three_locations() {
+fn game_scene_owns_camera_world_background_and_three_locations() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -742,18 +742,18 @@ fn game_view_owns_camera_world_background_and_three_locations() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view);
+        .add_systems(Startup, setup_game_scene);
 
     app.update();
 
     let mut camera_query = app
         .world_mut()
-        .query_filtered::<Entity, (With<PrimaryViewCamera>, With<GameViewEntity>)>();
+        .query_filtered::<Entity, (With<PrimaryViewCamera>, With<GameSceneEntity>)>();
     assert_eq!(camera_query.iter(app.world()).count(), 2);
 
     let mut light_query = app
         .world_mut()
-        .query_filtered::<Entity, (With<DirectionalLight>, With<GameViewEntity>)>();
+        .query_filtered::<Entity, (With<DirectionalLight>, With<GameSceneEntity>)>();
     assert_eq!(light_query.iter(app.world()).count(), 0);
 
     let mut background_query = app.world_mut().query_filtered::<(
@@ -772,7 +772,7 @@ fn game_view_owns_camera_world_background_and_three_locations() {
         .unwrap();
     let (background_width, background_height) =
         mesh_bounds(background_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
-    let expected_background_size = game_view_world_background_size();
+    let expected_background_size = game_scene_world_background_size();
     assert_close(background_width, expected_background_size.x);
     assert_close(background_height, expected_background_size.y);
 
@@ -962,8 +962,8 @@ fn game_view_owns_camera_world_background_and_three_locations() {
     let mut preview_query = app.world_mut().query_filtered::<&Transform, (
         With<LocalPlayerHandCardPreview>,
         With<CardView>,
-        With<GameViewEntity>,
-        Without<DeckBuilderSceneEntity>,
+        With<GameSceneEntity>,
+        Without<DeckSceneEntity>,
     )>();
     let mut preview_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
     preview_transforms.sort_by(|left, right| {
@@ -1037,13 +1037,13 @@ fn game_view_owns_camera_world_background_and_three_locations() {
     let mut preview_layer_query = app.world_mut().query_filtered::<Entity, (
         With<CardParallaxLayer>,
         With<CardFaceLayer>,
-        Without<DeckBuilderSceneEntity>,
+        Without<DeckSceneEntity>,
     )>();
-    assert_eq!(preview_layer_query.iter(app.world()).count(), 20);
+    assert_eq!(preview_layer_query.iter(app.world()).count(), 25);
 
     let mut preview_camera_query = app
         .world_mut()
-        .query_filtered::<&Camera, (With<Camera3d>, With<GameViewEntity>)>();
+        .query_filtered::<&Camera, (With<Camera3d>, With<GameSceneEntity>)>();
     let mut preview_camera_orders: Vec<isize> = preview_camera_query
         .iter(app.world())
         .map(|camera| camera.order)
@@ -1051,9 +1051,11 @@ fn game_view_owns_camera_world_background_and_three_locations() {
     preview_camera_orders.sort();
     assert_eq!(preview_camera_orders, vec![0, 2]);
 
-    let mut ui_camera_query = app
-        .world_mut()
-        .query_filtered::<&Camera, (With<Camera2d>, With<GameViewEntity>)>();
+    let mut ui_camera_query = app.world_mut().query_filtered::<&Camera, (
+        With<Camera2d>,
+        With<GameSceneEntity>,
+        With<IsDefaultUiCamera>,
+    )>();
     let ui_camera = ui_camera_query.single(app.world()).unwrap();
     assert_eq!(ui_camera.order, 1);
     assert!(matches!(ui_camera.clear_color, ClearColorConfig::None));
@@ -1910,7 +1912,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
 }
 
 #[test]
-fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
+fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CardModelRegistry>()
@@ -1921,7 +1923,7 @@ fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
         .init_resource::<CpuBrainModel>()
-        .insert_resource(ActiveView::DeckBuilderScene)
+        .insert_resource(ActiveView::DeckScene)
         .insert_resource(OpponentMatchModel::new(
             MatchModeModel::CpuVersusCpu,
             vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
@@ -1954,7 +1956,7 @@ fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
         0
     );
 
-    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameView;
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameScene;
     {
         let match_model = app.world().resource::<OpponentMatchModel>();
         let round = match_model.round.round;
@@ -2131,7 +2133,7 @@ fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
 }
 
 #[test]
-fn game_view_card_sync_does_not_render_outside_game_view() {
+fn game_scene_card_sync_does_not_render_outside_game_scene() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -2139,11 +2141,11 @@ fn game_view_card_sync_does_not_render_outside_game_view() {
         .init_asset::<Image>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
-        .insert_resource(ActiveView::DeckBuilderScene)
+        .insert_resource(ActiveView::DeckScene)
         .insert_resource(GameHandModel::new(vec![
             crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
         ]))
-        .add_systems(Update, sync_game_view_hand_card_entities_system);
+        .add_systems(Update, sync_game_scene_hand_card_entities_system);
 
     app.update();
 
@@ -2154,14 +2156,14 @@ fn game_view_card_sync_does_not_render_outside_game_view() {
 }
 
 #[test]
-fn hidden_game_view_enforcement_hides_local_card_descendants() {
+fn hidden_game_scene_enforcement_hides_local_card_descendants() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .insert_resource(ActiveView::DeckBuilderScene)
-        .add_systems(Update, enforce_hidden_game_view_visibility_system);
+        .insert_resource(ActiveView::DeckScene)
+        .add_systems(Update, enforce_hidden_game_scene_visibility_system);
     let card = app
         .world_mut()
-        .spawn((GameViewEntity, CardGestureView, Visibility::Visible))
+        .spawn((GameSceneEntity, CardGestureView, Visibility::Visible))
         .id();
     let front_layer = app
         .world_mut()
@@ -2365,14 +2367,14 @@ fn cpu_placed_card_scale_multiplier_uses_equal_half_move_timing() {
 }
 
 #[test]
-fn cpu_placed_card_move_preserves_tweened_game_view_path_while_lifted_forward() {
+fn cpu_placed_card_move_preserves_tweened_game_scene_path_while_lifted_forward() {
     let hand_transform = Transform {
-        translation: game_view_world_position_from_game_view(Vec2::new(260.0, 720.0), 0.3),
+        translation: game_scene_world_position_from_game_scene(Vec2::new(260.0, 720.0), 0.3),
         rotation: Quat::IDENTITY,
         scale: Vec3::splat(0.25),
     };
     let slot_transform = Transform {
-        translation: game_view_world_position_from_game_view(Vec2::new(840.0, 260.0), 0.52),
+        translation: game_scene_world_position_from_game_scene(Vec2::new(840.0, 260.0), 0.52),
         rotation: Quat::IDENTITY,
         scale: Vec3::splat(0.25),
     };
@@ -2388,9 +2390,9 @@ fn cpu_placed_card_move_preserves_tweened_game_view_path_while_lifted_forward() 
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
     assert_vec2_close(
-        game_view_position_from_world_position(transform.translation),
-        game_view_position_from_world_position(hand_transform.translation).lerp(
-            game_view_position_from_world_position(slot_transform.translation),
+        game_scene_position_from_world_position(transform.translation),
+        game_scene_position_from_world_position(hand_transform.translation).lerp(
+            game_scene_position_from_world_position(slot_transform.translation),
             0.875,
         ),
     );
@@ -2471,11 +2473,11 @@ fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
 }
 
 #[test]
-fn far_cpu_hand_sits_above_the_game_view() {
+fn far_cpu_hand_sits_above_the_game_scene() {
     let card_defaults = CardInspectionDefaults::default();
     let hand_transform = cpu_card_hand_transform(MatchPlayerSide::Far, 0, 1, &card_defaults);
-    let (card_min, card_max) = game_view_card_hitboxes_for_count(1)[0];
-    let expected_position = game_view_world_position_from_game_view(
+    let (card_min, card_max) = game_scene_card_hitboxes_for_count(1)[0];
+    let expected_position = game_scene_world_position_from_game_scene(
         Vec2::new((card_min.x + card_max.x) * 0.5, GAME_SCENE_FAR_HAND_Y),
         hand_transform.translation.z,
     );
@@ -2491,8 +2493,8 @@ fn far_cpu_hand_sits_above_the_game_view() {
     };
     let source_transform =
         cpu_card_move_source_hand_transform(MatchPlayerSide::Far, slot_transform);
-    let expected_source_position = game_view_world_position_from_game_view(
-        Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_SCENE_FAR_HAND_Y),
+    let expected_source_position = game_scene_world_position_from_game_scene(
+        Vec2::new(GAME_SCENE_WIDTH * 0.5, GAME_SCENE_FAR_HAND_Y),
         slot_transform.translation.z,
     );
 
@@ -2583,7 +2585,7 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
         .init_resource::<GameRoundModel>()
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
-        .insert_resource(ActiveView::GameView)
+        .insert_resource(ActiveView::GameScene)
         .insert_resource(OpponentMatchModel::new(
             MatchModeModel::HumanVersusCpu,
             vec!["a".to_string(); crate::runtime::resources::STARTING_DECK_CARD_COUNT],
@@ -2740,7 +2742,7 @@ fn cpu_placed_card_face_visibility_uses_per_card_reveal_state() {
 
 #[test]
 fn card_point_text2d_overlay_projects_point_root_into_2d_text_space() {
-    let point_world_position = game_view_world_position_from_game_view(
+    let point_world_position = game_scene_world_position_from_game_scene(
         Vec2::new(444.0, 612.0),
         GAME_SCENE_HAND_CARD_WORLD_Z,
     );
@@ -2749,7 +2751,7 @@ fn card_point_text2d_overlay_projects_point_root_into_2d_text_space() {
     let text_transform = card_point_text2d_local_transform(&point_transform);
     let text_global = point_transform * GlobalTransform::from(text_transform);
     let expected_translation =
-        game_view_text2d_position_from_game_view(Vec2::new(444.0, 612.0), CARD_POINT_TEXT_Z);
+        game_scene_text2d_position_from_game_scene(Vec2::new(444.0, 612.0), CARD_POINT_TEXT_Z);
 
     assert_close(text_global.translation().x, expected_translation.x);
     assert_close(text_global.translation().y, expected_translation.y);
@@ -2760,7 +2762,7 @@ fn card_point_text2d_overlay_projects_point_root_into_2d_text_space() {
 
 #[test]
 fn card_point_text2d_overlay_scales_with_point_root() {
-    let point_world_position = game_view_world_position_from_game_view(
+    let point_world_position = game_scene_world_position_from_game_scene(
         Vec2::new(444.0, 612.0),
         GAME_SCENE_HAND_CARD_WORLD_Z,
     );
@@ -2779,15 +2781,15 @@ fn card_point_text2d_overlay_scales_with_point_root() {
 }
 
 #[test]
-fn game_view_world_position_round_trips_to_game_view_position() {
-    let game_view_position = Vec2::new(724.0, 533.0);
+fn game_scene_world_position_round_trips_to_game_scene_position() {
+    let game_scene_position = Vec2::new(724.0, 533.0);
     let world_position =
-        game_view_world_position_from_game_view(game_view_position, GAME_SCENE_HAND_CARD_WORLD_Z);
+        game_scene_world_position_from_game_scene(game_scene_position, GAME_SCENE_HAND_CARD_WORLD_Z);
 
-    let round_trip_position = game_view_position_from_world_position(world_position);
+    let round_trip_position = game_scene_position_from_world_position(world_position);
 
-    assert_close(round_trip_position.x, game_view_position.x);
-    assert_close(round_trip_position.y, game_view_position.y);
+    assert_close(round_trip_position.x, game_scene_position.x);
+    assert_close(round_trip_position.y, game_scene_position.y);
 }
 
 #[test]
@@ -2804,7 +2806,7 @@ fn hand_card_entity_sync_spawns_newly_dealt_cards() {
             crate::runtime::resources::SISTER_HOTARU_CARD_MODEL_ID.to_string(),
             crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
         ]))
-        .add_systems(Update, sync_game_view_hand_card_entities_system);
+        .add_systems(Update, sync_game_scene_hand_card_entities_system);
 
     app.update();
 
@@ -2831,7 +2833,7 @@ fn hand_card_entity_sync_spawns_newly_dealt_cards() {
 }
 
 #[test]
-fn game_view_hand_preview_transform_chain_has_global_transforms() {
+fn game_scene_hand_preview_transform_chain_has_global_transforms() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -2847,30 +2849,30 @@ fn game_view_hand_preview_transform_chain_has_global_transforms() {
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
         .add_systems(Startup, setup_app_scene)
-        .add_systems(Startup, setup_game_view);
+        .add_systems(Startup, setup_game_scene);
 
     app.update();
 
     let mut transform_parent_query =
             app.world_mut()
                 .query_filtered::<(&Name, &Transform, &GlobalTransform), Or<(
-                    With<GameViewRoot>,
+                    With<GameSceneRoot>,
                     With<LocalPlayerHand>,
                 )>>();
     let transform_parent_names: Vec<&str> = transform_parent_query
         .iter(app.world())
         .map(|(name, _, _)| name.as_str())
         .collect();
-    assert!(transform_parent_names.contains(&"GameView"));
+    assert!(transform_parent_names.contains(&"GameScene"));
     assert!(transform_parent_names.contains(&"Local Player Hand"));
 
-    let mut game_view_ui_query =
+    let mut game_scene_ui_query =
         app.world_mut()
-            .query::<(&Name, &Transform, &GlobalTransform, &GameViewEntity)>();
+            .query::<(&Name, &Transform, &GlobalTransform, &GameSceneEntity)>();
     assert!(
-        game_view_ui_query
+        game_scene_ui_query
             .iter(app.world())
-            .any(|(name, _, _, _)| name.as_str() == "GameView UI")
+            .any(|(name, _, _, _)| name.as_str() == "GameScene UI")
     );
 
     let mut preview_query = app
@@ -2884,7 +2886,7 @@ fn game_view_hand_preview_transform_chain_has_global_transforms() {
 }
 
 #[test]
-fn deck_builder_rotation_system_does_not_recenter_game_view_hand_card() {
+fn deck_rotation_system_does_not_recenter_game_scene_hand_card() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -2899,7 +2901,7 @@ fn deck_builder_rotation_system_does_not_recenter_game_view_hand_card() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view)
+        .add_systems(Startup, setup_game_scene)
         .add_systems(Update, smooth_card_rotation);
 
     app.update();
@@ -2907,8 +2909,8 @@ fn deck_builder_rotation_system_does_not_recenter_game_view_hand_card() {
 
     let mut preview_query = app.world_mut().query_filtered::<&Transform, (
         With<LocalPlayerHandCardPreview>,
-        With<GameViewEntity>,
-        Without<DeckBuilderSceneEntity>,
+        With<GameSceneEntity>,
+        Without<DeckSceneEntity>,
     )>();
     let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
     assert_eq!(initial_transforms.len(), STARTING_HAND_CARD_COUNT);
@@ -2942,7 +2944,7 @@ fn initial_local_player_hand_tweens_from_offscreen_deal_source() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, setup_game_view);
+        .add_systems(Startup, setup_game_scene);
 
     app.update();
 
@@ -2951,8 +2953,8 @@ fn initial_local_player_hand_tweens_from_offscreen_deal_source() {
     let mut preview_query = app.world_mut().query_filtered::<&Transform, (
         With<LocalPlayerHandCardPreview>,
         With<CardView>,
-        With<GameViewEntity>,
-        Without<DeckBuilderSceneEntity>,
+        With<GameSceneEntity>,
+        Without<DeckSceneEntity>,
     )>();
     let initial_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
     assert_eq!(initial_transforms.len(), STARTING_HAND_CARD_COUNT);
@@ -2976,52 +2978,52 @@ fn initial_local_player_hand_tweens_from_offscreen_deal_source() {
     let tweened_transforms: Vec<Transform> = preview_query.iter(app.world()).copied().collect();
     assert_eq!(tweened_transforms.len(), STARTING_HAND_CARD_COUNT);
     assert!(tweened_transforms.iter().all(|transform| {
-        let game_view_position = game_view_position_from_world_position(transform.translation);
-        game_view_position.y < GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y
+        let game_scene_position = game_scene_position_from_world_position(transform.translation);
+        game_scene_position.y < GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y
             && transform.translation.distance(deal_transform.translation) > 0.01
     }));
 }
 
 #[test]
-fn game_view_card_hitbox_accepts_only_lower_center_card_area() {
+fn game_scene_card_hitbox_accepts_only_lower_center_card_area() {
     let window_size = Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32);
     assert_close(
         GAME_SCENE_HAND_CARD_WIDTH / GAME_SCENE_HAND_CARD_HEIGHT,
         CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT,
     );
 
-    let hitboxes = game_view_card_hitboxes();
+    let hitboxes = game_scene_card_hitboxes();
     assert_eq!(hitboxes.len(), STARTING_HAND_CARD_COUNT);
     let (card_min, card_max) = hitboxes[0];
     let card_center = (card_min + card_max) * 0.5;
-    let window_card_center = game_view_pointer_to_window(card_center, window_size);
+    let window_card_center = game_scene_pointer_to_window(card_center, window_size);
 
-    assert!(is_game_view_card_hit(window_card_center, window_size));
-    assert!(is_game_view_card_hit(
-        game_view_pointer_to_window(card_min + Vec2::splat(0.5), window_size),
+    assert!(is_game_scene_card_hit(window_card_center, window_size));
+    assert!(is_game_scene_card_hit(
+        game_scene_pointer_to_window(card_min + Vec2::splat(0.5), window_size),
         window_size
     ));
-    assert!(is_game_view_card_hit(
-        game_view_pointer_to_window(card_max - Vec2::splat(0.5), window_size),
+    assert!(is_game_scene_card_hit(
+        game_scene_pointer_to_window(card_max - Vec2::splat(0.5), window_size),
         window_size
     ));
-    assert!(!is_game_view_card_hit(
-        game_view_pointer_to_window(
-            Vec2::new(GAME_VIEW_WIDTH * 0.5, GAME_VIEW_HEIGHT * 0.5),
+    assert!(!is_game_scene_card_hit(
+        game_scene_pointer_to_window(
+            Vec2::new(GAME_SCENE_WIDTH * 0.5, GAME_SCENE_HEIGHT * 0.5),
             window_size
         ),
         window_size
     ));
-    assert!(!is_game_view_card_hit(
-        game_view_pointer_to_window(card_min - Vec2::splat(1.0), window_size),
+    assert!(!is_game_scene_card_hit(
+        game_scene_pointer_to_window(card_min - Vec2::splat(1.0), window_size),
         window_size
     ));
 
     let last_index = STARTING_HAND_CARD_COUNT - 1;
     let last_center = (hitboxes[last_index].0 + hitboxes[last_index].1) * 0.5;
     assert_eq!(
-        game_view_card_index_at(
-            game_view_pointer_to_window(last_center, window_size),
+        game_scene_card_index_at(
+            game_scene_pointer_to_window(last_center, window_size),
             window_size
         ),
         Some(last_index)
@@ -3030,7 +3032,7 @@ fn game_view_card_hitbox_accepts_only_lower_center_card_area() {
 
 #[test]
 fn hand_cards_are_centered_in_aligned_hand_area_for_variable_counts() {
-    let four_hitboxes = game_view_card_hitboxes_for_count(4);
+    let four_hitboxes = game_scene_card_hitboxes_for_count(4);
     let first_min = four_hitboxes.first().map(|(min, _)| *min).unwrap();
     let last_max = four_hitboxes.last().map(|(_, max)| *max).unwrap();
     let group_center = (first_min + last_max) * 0.5;
@@ -3041,13 +3043,13 @@ fn hand_cards_are_centered_in_aligned_hand_area_for_variable_counts() {
 
     assert_close(
         GAME_SCENE_HAND_TOP + GAME_SCENE_HAND_HEIGHT,
-        GAME_VIEW_HEIGHT,
+        GAME_SCENE_HEIGHT,
     );
     assert_close(group_center.x, hand_center.x);
     assert_close(group_center.y, hand_center.y);
     assert_close(last_max.y - first_min.y, GAME_SCENE_HAND_CARD_HEIGHT);
 
-    let one_hitbox = game_view_card_hitboxes_for_count(1);
+    let one_hitbox = game_scene_card_hitboxes_for_count(1);
     let (single_min, single_max) = one_hitbox[0];
     assert_close(((single_min + single_max) * 0.5).x, hand_center.x);
     assert_close(((single_min + single_max) * 0.5).y, hand_center.y);
@@ -3056,9 +3058,9 @@ fn hand_cards_are_centered_in_aligned_hand_area_for_variable_counts() {
 
 #[test]
 fn hand_cards_fit_inside_hand_area_when_count_exceeds_available_gap_space() {
-    let hitboxes = game_view_card_hitboxes_for_count(12);
-    let hand_min = game_view_hand_area_min();
-    let hand_max = hand_min + game_view_hand_area_size();
+    let hitboxes = game_scene_card_hitboxes_for_count(12);
+    let hand_min = game_scene_hand_area_min();
+    let hand_max = hand_min + game_scene_hand_area_size();
 
     assert_eq!(hitboxes.len(), 12);
     for (min, max) in hitboxes {
@@ -3072,10 +3074,10 @@ fn hand_cards_fit_inside_hand_area_when_count_exceeds_available_gap_space() {
 #[test]
 fn hand_hover_layout_clears_space_around_hovered_card_without_leaving_hand_area() {
     let hovered_index = 5;
-    let hitboxes = game_view_card_hitboxes_for_count_with_hover(12, Some(hovered_index));
+    let hitboxes = game_scene_card_hitboxes_for_count_with_hover(12, Some(hovered_index));
     let (hover_min, hover_max) = hitboxes[hovered_index];
-    let hand_min = game_view_hand_area_min();
-    let hand_max = hand_min + game_view_hand_area_size();
+    let hand_min = game_scene_hand_area_min();
+    let hand_max = hand_min + game_scene_hand_area_size();
 
     for (index, (min, max)) in hitboxes.iter().enumerate() {
         assert!(min.x >= hand_min.x);
@@ -3090,7 +3092,7 @@ fn hand_hover_layout_clears_space_around_hovered_card_without_leaving_hand_area(
 
 #[test]
 fn hand_overlap_hit_testing_prefers_rightmost_visible_card() {
-    let hitboxes = game_view_card_hitboxes_for_count(12);
+    let hitboxes = game_scene_card_hitboxes_for_count(12);
     let overlap_pair = hitboxes
         .windows(2)
         .enumerate()
@@ -3104,8 +3106,8 @@ fn hand_overlap_hit_testing_prefers_rightmost_visible_card() {
     let window_size = Vec2::new(1280.0, 800.0);
 
     assert_eq!(
-        game_view_card_index_at_for_count(
-            game_view_pointer_to_window(overlap_pair.1, window_size),
+        game_scene_card_index_at_for_count(
+            game_scene_pointer_to_window(overlap_pair.1, window_size),
             window_size,
             12
         ),
@@ -3114,7 +3116,7 @@ fn hand_overlap_hit_testing_prefers_rightmost_visible_card() {
 }
 
 #[test]
-fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
+fn clicking_game_card_selects_in_game_without_opening_deck() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -3136,7 +3138,7 @@ fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
+        .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
         .add_systems(
             Update,
             (view_input_system, card_gesture_update_system).chain(),
@@ -3144,14 +3146,14 @@ fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
     let window = spawn_test_primary_window(&mut app);
 
     app.update();
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
     assert_eq!(active_child_scene_root_count(&mut app), 1);
 
     app.world_mut()
         .get_mut::<Window>(window)
         .unwrap()
-        .set_cursor_position(Some(game_view_pointer_to_window(
-            (game_view_card_hitboxes()[2].0 + game_view_card_hitboxes()[2].1) * 0.5,
+        .set_cursor_position(Some(game_scene_pointer_to_window(
+            (game_scene_card_hitboxes()[2].0 + game_scene_card_hitboxes()[2].1) * 0.5,
             Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32),
         )));
     app.world_mut()
@@ -3163,7 +3165,7 @@ fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
         .release(MouseButton::Left);
     app.update();
 
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
     assert_eq!(
         app.world().resource::<CardGestureModel>().active_hand_index,
         Some(2)
@@ -3173,18 +3175,18 @@ fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
         CardGestureState::SelectedInspecting
     );
     assert_eq!(active_child_scene_root_count(&mut app), 1);
-    let mut game_view_query = app
+    let mut game_scene_query = app
         .world_mut()
-        .query_filtered::<Entity, With<GameViewRoot>>();
-    assert_eq!(game_view_query.iter(app.world()).count(), 1);
+        .query_filtered::<Entity, With<GameSceneRoot>>();
+    assert_eq!(game_scene_query.iter(app.world()).count(), 1);
     let mut card_scene_query = app
         .world_mut()
-        .query_filtered::<Entity, With<DeckBuilderSceneEntity>>();
+        .query_filtered::<Entity, With<DeckSceneEntity>>();
     assert_eq!(card_scene_query.iter(app.world()).count(), 0);
-    let mut game_view_entity_query = app
+    let mut game_scene_entity_query = app
         .world_mut()
-        .query_filtered::<Entity, With<GameViewEntity>>();
-    assert!(game_view_entity_query.iter(app.world()).count() > 0);
+        .query_filtered::<Entity, With<GameSceneEntity>>();
+    assert!(game_scene_entity_query.iter(app.world()).count() > 0);
     let mut camera_query = app
         .world_mut()
         .query_filtered::<Entity, With<PrimaryViewCamera>>();
@@ -3193,9 +3195,9 @@ fn clicking_game_card_selects_in_game_without_opening_deck_builder() {
 
 #[test]
 fn card_ui_visibility_follows_active_view() {
-    assert!(!should_show_card_ui(ActiveView::GameView));
-    assert!(!should_show_card_ui(ActiveView::DeckBuilderScene));
-    assert!(should_show_card_ui(ActiveView::DebugSettingsScene));
+    assert!(!should_show_card_ui(ActiveView::GameScene));
+    assert!(!should_show_card_ui(ActiveView::DeckScene));
+    assert!(should_show_card_ui(ActiveView::DebugScene));
 }
 
 #[test]
@@ -3346,7 +3348,7 @@ fn card_structure_uses_one_cutout_frame_entity() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3374,7 +3376,7 @@ fn card_structure_spawns_one_card_back_and_one_card_root() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3405,7 +3407,7 @@ fn card_faces_default_to_front_visible_and_back_hidden() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3609,11 +3611,11 @@ fn card_ui_toggle_while_back_visible_keeps_card_back_visible() {
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
         .init_resource::<CardUiState>()
-        .add_systems(Startup, setup_deck_builder_scene)
+        .add_systems(Startup, setup_deck_scene)
         .add_systems(Update, card_model_input_system);
 
     app.update();
-    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckBuilderScene;
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
     {
         app.world_mut()
             .resource_mut::<CardInspectionState>()
@@ -3683,11 +3685,11 @@ fn card_ui_toggle_while_front_visible_changes_global_card_settings() {
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
         .init_resource::<CardUiState>()
-        .add_systems(Startup, setup_deck_builder_scene)
+        .add_systems(Startup, setup_deck_scene)
         .add_systems(Update, card_model_input_system);
 
     app.update();
-    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckBuilderScene;
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(KeyCode::KeyT);
@@ -3707,7 +3709,7 @@ fn card_ui_toggle_while_front_visible_changes_global_card_settings() {
 }
 
 #[test]
-fn deck_builder_card_layers_use_shared_render_aspect_ratio() {
+fn deck_card_layers_use_shared_render_aspect_ratio() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -3718,7 +3720,7 @@ fn deck_builder_card_layers_use_shared_render_aspect_ratio() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3754,7 +3756,7 @@ fn kage_ren_background_uses_frame_mask_full_card_space() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3822,7 +3824,7 @@ fn unmasked_background_geometry_is_clipped_to_rectangular_frame_hole() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .insert_resource(ActiveCardModel { index: 1 })
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3865,7 +3867,7 @@ fn layer_materials_have_stable_front_to_back_depth_biases() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene);
+        .add_systems(Startup, setup_deck_scene);
 
     app.update();
 
@@ -3927,7 +3929,7 @@ fn card_ui_layer_scales_apply_without_moving_layer_centers() {
         .init_resource::<CardUiState>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
-        .add_systems(Startup, setup_deck_builder_scene)
+        .add_systems(Startup, setup_deck_scene)
         .add_systems(Update, update_card_parallax_layers);
 
     app.update();
@@ -4004,7 +4006,7 @@ fn debug_hud_includes_card_model_toggle_key() {
 }
 
 #[test]
-fn debug_hud_excludes_removed_deck_builder_toggle_key() {
+fn debug_hud_excludes_removed_deck_toggle_key() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_systems(Startup, setup_debug_hud);
@@ -4795,7 +4797,7 @@ fn h_key_toggles_hot_reload_autorestart() {
 }
 
 #[test]
-fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
+fn s_key_cycles_game_to_deck_to_debug_and_wraps() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -4819,10 +4821,10 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
         .init_resource::<ActiveView>()
-        .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
+        .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
         .add_systems(
             Startup,
-            sync_debug_hud_ui_camera_system.after(setup_game_view),
+            sync_debug_hud_ui_camera_system.after(setup_game_scene),
         )
         .add_systems(
             Update,
@@ -4833,8 +4835,8 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         );
 
     app.update();
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameScene);
 
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -4843,9 +4845,9 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
 
     assert_eq!(
         *app.world().resource::<ActiveView>(),
-        ActiveView::DeckBuilderScene
+        ActiveView::DeckScene
     );
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DeckBuilderScene);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DeckScene);
     let mut hud_query = app
         .world_mut()
         .query_filtered::<&Visibility, With<DebugHudText>>();
@@ -4856,15 +4858,15 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
     assert_eq!(active_child_scene_root_count(&mut app), 2);
     let mut game_query = app
         .world_mut()
-        .query_filtered::<&Visibility, With<GameViewRoot>>();
+        .query_filtered::<&Visibility, With<GameSceneRoot>>();
     assert!(matches!(
         game_query.single(app.world()),
         Ok(Visibility::Hidden)
     ));
-    let mut deck_builder_query = app
+    let mut deck_query = app
         .world_mut()
-        .query_filtered::<Entity, With<DeckBuilderSceneRoot>>();
-    assert_eq!(deck_builder_query.iter(app.world()).count(), 1);
+        .query_filtered::<Entity, With<DeckSceneRoot>>();
+    assert_eq!(deck_query.iter(app.world()).count(), 1);
 
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -4877,9 +4879,9 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
 
     assert_eq!(
         *app.world().resource::<ActiveView>(),
-        ActiveView::DebugSettingsScene
+        ActiveView::DebugScene
     );
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DebugSettingsScene);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DebugScene);
     let mut hud_query = app
         .world_mut()
         .query_filtered::<&Visibility, With<DebugHudText>>();
@@ -4888,10 +4890,10 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         Ok(Visibility::Visible | Visibility::Inherited)
     ));
     assert_eq!(active_child_scene_root_count(&mut app), 2);
-    let mut debug_settings_query = app
+    let mut debug_query = app
         .world_mut()
-        .query_filtered::<Entity, With<DebugSettingsSceneRoot>>();
-    assert_eq!(debug_settings_query.iter(app.world()).count(), 1);
+        .query_filtered::<Entity, With<DebugSceneRoot>>();
+    assert_eq!(debug_query.iter(app.world()).count(), 1);
 
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
@@ -4902,12 +4904,12 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
         .press(KeyCode::KeyS);
     app.update();
 
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
+    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameScene);
     assert_eq!(active_child_scene_root_count(&mut app), 1);
     let mut game_query = app
         .world_mut()
-        .query_filtered::<&Visibility, With<GameViewRoot>>();
+        .query_filtered::<&Visibility, With<GameSceneRoot>>();
     assert!(matches!(
         game_query.single(app.world()),
         Ok(Visibility::Visible | Visibility::Inherited)
@@ -4915,7 +4917,7 @@ fn s_key_cycles_game_to_deck_builder_to_debug_settings_and_wraps() {
 }
 
 #[test]
-fn s_key_return_preserves_existing_game_view_entities() {
+fn s_key_return_preserves_existing_game_scene_entities() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -4939,24 +4941,24 @@ fn s_key_return_preserves_existing_game_view_entities() {
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
         .init_resource::<ActiveView>()
-        .add_systems(Startup, (setup_app_scene, setup_game_view).chain())
+        .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
         .add_systems(Update, scene_input_system);
 
     app.update();
 
-    let game_view_root = {
+    let game_scene_root = {
         let mut query = app
             .world_mut()
-            .query_filtered::<Entity, With<GameViewRoot>>();
+            .query_filtered::<Entity, With<GameSceneRoot>>();
         query
             .single(app.world())
-            .expect("GameView root should spawn")
+            .expect("GameScene root should spawn")
     };
     let expected_transform = Transform::from_xyz(12.0, 34.0, 56.0);
     let preserved_entity = app
         .world_mut()
         .spawn((
-            GameViewEntity,
+            GameSceneEntity,
             expected_transform,
             GlobalTransform::default(),
             Visibility::Visible,
@@ -4999,27 +5001,27 @@ fn s_key_return_preserves_existing_game_view_entities() {
         app.update();
     }
 
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
     let mut root_query = app
         .world_mut()
-        .query_filtered::<Entity, With<GameViewRoot>>();
+        .query_filtered::<Entity, With<GameSceneRoot>>();
     assert_eq!(
         root_query
             .single(app.world())
-            .expect("GameView root should be reused"),
-        game_view_root
+            .expect("GameScene root should be reused"),
+        game_scene_root
     );
     let transform = app
         .world()
         .entity(preserved_entity)
         .get::<Transform>()
-        .expect("preserved GameView entity should survive scene cycling");
+        .expect("preserved GameScene entity should survive scene cycling");
     assert_eq!(*transform, expected_transform);
     let visibility = app
         .world()
         .entity(preserved_entity)
         .get::<Visibility>()
-        .expect("preserved GameView entity should keep visibility");
+        .expect("preserved GameScene entity should keep visibility");
     assert!(matches!(
         visibility,
         Visibility::Visible | Visibility::Inherited
@@ -5028,7 +5030,7 @@ fn s_key_return_preserves_existing_game_view_entities() {
         .world()
         .entity(preserved_child)
         .get::<Visibility>()
-        .expect("preserved GameView child should restore visibility");
+        .expect("preserved GameScene child should restore visibility");
     assert!(matches!(
         child_visibility,
         Visibility::Visible | Visibility::Inherited
@@ -5036,7 +5038,7 @@ fn s_key_return_preserves_existing_game_view_entities() {
 }
 
 #[test]
-fn restart_key_reloads_game_view_and_clears_game_model() {
+fn restart_key_reloads_game_scene_and_clears_game_model() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -5061,10 +5063,10 @@ fn restart_key_reloads_game_view_and_clears_game_model() {
         .init_resource::<ActiveLocations>()
         .init_resource::<ActiveView>()
         .add_systems(Startup, setup_app_scene)
-        .add_systems(Startup, setup_deck_builder_scene)
+        .add_systems(Startup, setup_deck_scene)
         .add_systems(Update, restart_app_scene);
 
-    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckBuilderScene;
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
 
     app.update();
 
@@ -5089,7 +5091,7 @@ fn restart_key_reloads_game_view_and_clears_game_model() {
         .press(KeyCode::KeyR);
     app.update();
 
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameView);
+    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
 
     let mut hud_query = app
         .world_mut()

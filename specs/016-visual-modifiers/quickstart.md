@@ -16,7 +16,7 @@
 | ----- | ------------------- | -------------- |
 | Rust tests | `scripts/other/RunTests.ps1` | Component/system tests pass. |
 | Desktop visual smoke | `scripts/main/RunAppDesktop.ps1` or AI runtime workflow | Card power point views show gold outlines only under active ability modifiers. |
-| Location lead visual smoke | Desktop GameView with unequal and tied totals | Higher location total shows white outline; ties clear both outlines. |
+| Location lead visual smoke | Desktop GameScene with unequal and tied totals | Higher location total shows white outline; ties clear both outlines. |
 | Browser parity | Project browser WebGPU workflow when practical | Outlines render with the same activation behavior as desktop. |
 
 ## Implementation Notes

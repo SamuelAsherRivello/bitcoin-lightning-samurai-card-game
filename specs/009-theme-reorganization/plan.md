@@ -7,7 +7,7 @@
 
 ## Summary
 
-Reorganize the current Japan proof-of-concept assets under a theme root so cards, locations, and worlds are grouped as `bevy/crates/game/assets/themes/theme_japan/{cards,locations,worlds}`. Rename theme-owned folders with category prefixes that do not repeat `japan`, update Bevy asset path references to load through the new tree, introduce purposeful Scene/Model/View naming so `AppScene` is always present, active sub-screen presentations are `GameView`, `DeckBuilderScene`, and `DebugSettingsScene`, card data is `CardModel`, and visual spawning is `CardViewBundle`, and verify the existing card browsing, card flipping, world display, and tactical location presentation remain unchanged.
+Reorganize the current Japan proof-of-concept assets under a theme root so cards, locations, and worlds are grouped as `bevy/crates/game/assets/themes/theme_japan/{cards,locations,worlds}`. Rename theme-owned folders with category prefixes that do not repeat `japan`, update Bevy asset path references to load through the new tree, introduce purposeful Scene/Model/View naming so `AppScene` is always present, active sub-screen presentations are `GameScene`, `DeckScene`, and `DebugScene`, card data is `CardModel`, and visual spawning is `CardViewBundle`, and verify the existing card browsing, card flipping, world display, and tactical location presentation remain unchanged.
 
 ## Technical Context
 
@@ -33,7 +33,7 @@ Reorganize the current Japan proof-of-concept assets under a theme root so cards
 | Template crate reference | PASS | `bevy/crates/template-crate` is the proper local reference for Bevy folders, representative files, asset folders, and Rust coding standards. |
 | Runtime source organization uses one primary concept per changed file | PASS | 009 implementation must use `bevy/crates/template-crate` as the proper reference and split changed runtime source around purposeful Plugin, Component, Scene, View, Model, and System names. |
 | Runtime systems and purpose comments follow project standards | PASS | Changed systems must use `[domain]_[schedule]_system`; changed primary items must include terse `HUMAN:` and `AI:` comments. |
-| Scene/Model/View naming is explicit | PASS | `AppScene`, `GameView`, `DeckBuilderScene`, `DebugSettingsScene`, `DebugSettingsScene`, `CardModel`, `CardView`, and `CardViewBundle` are the canonical target names. |
+| Scene/Model/View naming is explicit | PASS | `AppScene`, `GameScene`, `DeckScene`, `DebugScene`, `DebugScene`, `CardModel`, `CardView`, and `CardViewBundle` are the canonical target names. |
 | Theme asset layout follows project standard | PASS | Theme-owned cards, locations, and worlds move under `assets/themes/theme_japan/{cards,locations,worlds}` with category-prefixed folders. |
 | Visible feedback preserved | PASS | Feature does not alter asynchronous loading or settings workflows. |
 | Browser build constraints preserved | PASS | Feature changes static asset paths only and does not introduce browser storage, SQLite, or OPFS behavior. |
@@ -102,7 +102,7 @@ scripts/
     └── RunAppWeb.ps1
 ```
 
-**Structure Decision**: Keep the Bevy asset root unchanged and move only theme-owned card, location, and world assets below `assets/themes/theme_japan`. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Shaders stay shared under `assets/shaders`. Runtime registries in `resources` remain the source of explicit card, world, and location asset paths; systems keep spawning the same entities from those resources. Documentation and implementation naming should distinguish app container, data, and rendering: `AppScene` is always present, `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` is the active sub-screen presentation loaded on top, `CardModel` stores card identity and asset data, `CardView` describes rendered card presentation, and `CardViewBundle` is the bundle that creates the card visuals with front presentation, back presentation, all layers, and view behavior.
+**Structure Decision**: Keep the Bevy asset root unchanged and move only theme-owned card, location, and world assets below `assets/themes/theme_japan`. Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. Shaders stay shared under `assets/shaders`. Runtime registries in `resources` remain the source of explicit card, world, and location asset paths; systems keep spawning the same entities from those resources. Documentation and implementation naming should distinguish app container, data, and rendering: `AppScene` is always present, `GameScene`, `DeckScene`, or `DebugScene` is the active sub-screen presentation loaded on top, `CardModel` stores card identity and asset data, `CardView` describes rendered card presentation, and `CardViewBundle` is the bundle that creates the card visuals with front presentation, back presentation, all layers, and view behavior.
 
 ## Complexity Tracking
 
