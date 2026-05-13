@@ -1,5 +1,7 @@
 use super::*;
-use crate::runtime::resources::{CardGestureModel, CardGestureState, CardSlotBoardModel};
+use crate::runtime::resources::{
+    CardGestureModel, CardGestureState, CardSlotBoardModel, DebugDrawMode,
+};
 use bevy::ecs::system::RunSystemOnce;
 use bevy::text::Font;
 use bevy_persistent::prelude::StorageFormat;
@@ -724,8 +726,8 @@ fn game_view_owns_camera_world_background_and_three_locations() {
         locations,
         vec![
             (0, LocationRevealState::Revealed),
-            (1, LocationRevealState::Revealed),
-            (2, LocationRevealState::Revealed)
+            (1, LocationRevealState::Unrevealed),
+            (2, LocationRevealState::Unrevealed)
         ]
     );
 
@@ -888,13 +890,13 @@ fn game_view_owns_camera_world_background_and_three_locations() {
         .query_filtered::<Entity, With<LocalPlayerHand>>();
     assert_eq!(hand_query.iter(app.world()).count(), 1);
 
-    let mut turn_ui_query = app.world_mut().query_filtered::<Entity, With<TurnUi>>();
-    assert_eq!(turn_ui_query.iter(app.world()).count(), 1);
+    let mut round_ui_query = app.world_mut().query_filtered::<Entity, With<RoundUi>>();
+    assert_eq!(round_ui_query.iter(app.world()).count(), 1);
 
-    let mut end_turn_button_query =
+    let mut end_round_button_query =
         app.world_mut()
-            .query_filtered::<Entity, (With<TurnUi>, With<EndTurnButton>, With<Button>)>();
-    assert_eq!(end_turn_button_query.iter(app.world()).count(), 1);
+            .query_filtered::<Entity, (With<RoundUi>, With<EndRoundButton>, With<Button>)>();
+    assert_eq!(end_round_button_query.iter(app.world()).count(), 1);
 
     let mut preview_query = app.world_mut().query_filtered::<&Transform, (
         With<LocalPlayerHandCardPreview>,
@@ -1061,7 +1063,7 @@ fn location_views_open_second_and_third_locations_when_round_changes() {
             LocationRevealState::Revealed,
         ],
     );
-    assert_location_text(&mut app, 2, "Normal", "(No Ability)");
+    assert_location_text(&mut app, 2, "Shrine Ruins", "(No Ability)");
 }
 
 fn assert_location_reveal_states(app: &mut App, expected: [LocationRevealState; 3]) {
@@ -1167,6 +1169,80 @@ fn location_power_points_update_from_populated_card_slots() {
     assert_eq!(
         app.world().entity(text_child).get::<Text>().unwrap().0,
         expected_total.to_string()
+    );
+}
+
+#[test]
+fn location_power_points_wait_for_current_round_reveal_state() {
+    let mut app = App::new();
+    app.init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardModelRegistry>()
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::HumanVersusCpu,
+            vec!["a".to_string(); crate::runtime::resources::STARTING_DECK_CARD_COUNT],
+        ))
+        .add_systems(Update, update_location_power_points);
+    let power_view = app
+        .world_mut()
+        .spawn((
+            PointView::new(PointModel::location_power(0)),
+            PointLocationView::new(1, CardSlotSide::LocalPlayer),
+        ))
+        .with_children(|parent| {
+            parent.spawn(Text::new("0"));
+        })
+        .id();
+    let placed_card_id = app
+        .world()
+        .resource::<CardModelRegistry>()
+        .card_models()
+        .next()
+        .unwrap()
+        .id
+        .to_string();
+    let expected_total = app
+        .world()
+        .resource::<CardModelRegistry>()
+        .card_model_for_id(&placed_card_id)
+        .unwrap()
+        .base_power;
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert_eq!(
+            slots.place_next_local_with_card_id(1, 0, placed_card_id),
+            Some(0)
+        );
+    }
+    app.world_mut()
+        .resource_mut::<OpponentMatchModel>()
+        .record_placement(MatchPlayerSide::Near, 1, 0);
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_view)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::location_power(0)
+    );
+
+    let slots = app.world().resource::<CardSlotBoardModel>().clone();
+    {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.start_next_current_round_reveal(&slots);
+        match_model.complete_revealing_current_round_placements();
+    }
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_view)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::location_power(expected_total.value)
     );
 }
 
@@ -1621,7 +1697,13 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
                 crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
             ],
         ))
-        .add_systems(Update, cpu_brain_update_system);
+        .add_systems(
+            Update,
+            (
+                cpu_brain_update_system,
+                staged_match_resolution_system.after(cpu_brain_update_system),
+            ),
+        );
     {
         let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
         match_model.near.draw(1);
@@ -1635,7 +1717,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
         elapsed += 0.5;
         {
             let match_model = app.world().resource::<OpponentMatchModel>();
-            let turn = match_model.turn.turn;
+            let round = match_model.round.round;
             let near_hand_count = match_model.near.hand.len();
             let far_hand_count = match_model.far.hand.len();
             let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
@@ -1643,28 +1725,28 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
             brain.far_next_decision_seconds = 0.0;
             brain.wait_for_hand_presentation(
                 MatchPlayerSide::Near,
-                turn,
+                round,
                 near_hand_count,
                 0.0,
                 CPU_CARD_MOVE_SECONDS,
             );
             brain.wait_for_hand_presentation(
                 MatchPlayerSide::Near,
-                turn,
+                round,
                 near_hand_count,
                 CPU_CARD_MOVE_SECONDS,
                 CPU_CARD_MOVE_SECONDS,
             );
             brain.wait_for_hand_presentation(
                 MatchPlayerSide::Far,
-                turn,
+                round,
                 far_hand_count,
                 0.0,
                 CPU_CARD_MOVE_SECONDS,
             );
             brain.wait_for_hand_presentation(
                 MatchPlayerSide::Far,
-                turn,
+                round,
                 far_hand_count,
                 CPU_CARD_MOVE_SECONDS,
                 CPU_CARD_MOVE_SECONDS,
@@ -1677,7 +1759,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
         if app
             .world()
             .resource::<OpponentMatchModel>()
-            .turn
+            .round
             .winner
             .is_some()
         {
@@ -1687,10 +1769,10 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
 
     let match_model = app.world().resource::<OpponentMatchModel>();
     assert!(
-        match_model.turn.winner.is_some(),
-        "CPU-vs-CPU did not finish within 30 seconds; status={} turn={} near_ready={} far_ready={} near_hand={} far_hand={}",
+        match_model.round.winner.is_some(),
+        "CPU-vs-CPU did not finish within 30 seconds; status={} round={} near_ready={} far_ready={} near_hand={} far_hand={}",
         match_model.status_text(),
-        match_model.turn.turn,
+        match_model.round.round,
         match_model.near.ready_for_next,
         match_model.far.ready_for_next,
         match_model.near.hand.len(),
@@ -1720,7 +1802,13 @@ fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
             MatchModeModel::CpuVersusCpu,
             vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
         ))
-        .add_systems(Update, cpu_brain_update_system);
+        .add_systems(
+            Update,
+            (
+                cpu_brain_update_system,
+                staged_match_resolution_system.after(cpu_brain_update_system),
+            ),
+        );
     {
         let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
         match_model.near.draw(1);
@@ -1745,11 +1833,12 @@ fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
     *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameView;
     {
         let match_model = app.world().resource::<OpponentMatchModel>();
-        let turn = match_model.turn.turn;
+        let round = match_model.round.round;
         let near_hand_count = match_model.near.hand.len();
         let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
         brain.near_next_decision_seconds = 0.0;
-        brain.wait_for_hand_presentation(MatchPlayerSide::Near, turn, near_hand_count, 0.0, 0.0);
+        brain.far_next_decision_seconds = 0.0;
+        brain.wait_for_hand_presentation(MatchPlayerSide::Near, round, near_hand_count, 0.0, 0.0);
     }
     app.world_mut()
         .resource_mut::<Time>()
@@ -1765,6 +1854,155 @@ fn cpu_gameplay_pauses_outside_game_view_and_resumes_on_return() {
             .resource::<CardSlotBoardModel>()
             .populated_count(),
         1
+    );
+}
+
+#[test]
+fn cpu_brain_plans_moves_without_populating_slots_until_both_players_are_ready() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CpuBrainModel>()
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::HumanVersusCpu,
+            vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
+        ))
+        .add_systems(Update, cpu_brain_update_system);
+    let (round, far_hand_count) = {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.far.draw(1);
+        match_model.far.energy_available = 10;
+        (match_model.round.round, match_model.far.hand.len())
+    };
+    {
+        let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
+        brain.far_next_decision_seconds = 0.0;
+        brain.wait_for_hand_presentation(MatchPlayerSide::Far, round, far_hand_count, 0.0, 0.0);
+    }
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs(1));
+    app.update();
+
+    let match_model = app.world().resource::<OpponentMatchModel>();
+    assert_eq!(match_model.far.hand.len(), 1);
+    assert!(match_model.has_pending_cpu_placements());
+    assert!(match_model.far.ready_for_next);
+    assert!(!match_model.near.ready_for_next);
+    assert_eq!(
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count(),
+        0
+    );
+}
+
+#[test]
+fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CpuBrainModel>()
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::HumanVersusCpu,
+            vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
+        ))
+        .add_systems(Update, cpu_brain_update_system);
+    let (instance_id, card_id) = {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.far.draw(1);
+        match_model.far.energy_available = 10;
+        (
+            match_model.far.hand_instance_id(0).unwrap(),
+            match_model.far.hand[0].clone(),
+        )
+    };
+    app.world_mut().spawn((
+        CpuHandCardView::new(
+            MatchPlayerSide::Far,
+            instance_id,
+            0,
+            card_id,
+            CardFace::Back,
+        ),
+        CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+            Transform::default(),
+            Transform::default(),
+            Transform::default(),
+            CardFace::Back,
+        ),
+    ));
+    app.world_mut()
+        .resource_mut::<CpuBrainModel>()
+        .far_next_decision_seconds = 0.0;
+
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs(2));
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<OpponentMatchModel>()
+            .has_pending_cpu_placements()
+    );
+
+    let animated_hand_cards: Vec<_> = app
+        .world_mut()
+        .query_filtered::<Entity, (With<CpuHandCardView>, With<CpuPlacedCardAnimation>)>()
+        .iter(app.world())
+        .collect();
+    for entity in animated_hand_cards {
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<CpuPlacedCardAnimation>();
+    }
+    let remaining_animated_hand_cards = app
+        .world_mut()
+        .query_filtered::<Entity, (With<CpuHandCardView>, With<CpuPlacedCardAnimation>)>()
+        .iter(app.world())
+        .count();
+    assert_eq!(remaining_animated_hand_cards, 0);
+
+    {
+        let (round, far_hand_count) = {
+            let match_model = app.world().resource::<OpponentMatchModel>();
+            (match_model.round.round, match_model.far.hand.len())
+        };
+        let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
+        assert!(!brain.wait_for_settled_hand_pause(
+            MatchPlayerSide::Far,
+            round,
+            far_hand_count,
+            true,
+            0.6,
+            CPU_HAND_SETTLED_PAUSE_SECONDS,
+        ));
+        brain.far_next_decision_seconds = 0.0;
+    }
+    app.update();
+    let match_model = app.world().resource::<OpponentMatchModel>();
+    assert!(
+        match_model.has_pending_cpu_placements(),
+        "far_ready={} far_hand={} far_energy={} pending={} populated={}",
+        match_model.far.ready_for_next,
+        match_model.far.hand.len(),
+        match_model.far.energy_available,
+        match_model.pending_cpu_placements.len(),
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count()
     );
 }
 
@@ -1842,6 +2080,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
     };
     let mut transform = source_transform;
     let mut animation = CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+        source_transform,
         hand_transform,
         slot_transform,
         CardFace::Back,
@@ -1878,6 +2117,76 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
 }
 
 #[test]
+fn cpu_placed_card_animation_lifts_and_scales_while_moving() {
+    let hand_transform = Transform {
+        translation: Vec3::new(0.0, -3.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let source_transform = Transform {
+        translation: Vec3::new(-4.0, -2.0, 0.52),
+        rotation: Quat::from_rotation_y(std::f32::consts::PI),
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = source_transform;
+    let mut animation = CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+        source_transform,
+        hand_transform,
+        slot_transform,
+        CardFace::Back,
+    );
+
+    assert!(!advance_cpu_placed_card_animation(
+        CPU_CARD_MOVE_SECONDS * 0.5,
+        &mut transform,
+        &mut animation
+    ));
+
+    assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
+    assert_close(transform.scale.x, source_transform.scale.x * 1.5);
+}
+
+#[test]
+fn cpu_placed_card_position_move_takes_half_second() {
+    let hand_transform = Transform {
+        translation: Vec3::new(0.0, -3.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = hand_transform;
+    let mut animation =
+        CpuPlacedCardAnimation::move_hand_to_slot(hand_transform, slot_transform, CardFace::Back);
+
+    assert!(!advance_cpu_placed_card_animation(
+        CPU_CARD_MOVE_SECONDS - 0.01,
+        &mut transform,
+        &mut animation
+    ));
+    assert!(transform.translation.distance(slot_transform.translation) > 0.0);
+    assert_close(transform.scale.x, slot_transform.scale.x * 1.5);
+
+    assert!(advance_cpu_placed_card_animation(
+        0.01,
+        &mut transform,
+        &mut animation
+    ));
+    assert_close(transform.translation.x, slot_transform.translation.x);
+    assert_close(transform.translation.y, slot_transform.translation.y);
+    assert_close(transform.translation.z, slot_transform.translation.z);
+    assert_close(transform.scale.x, slot_transform.scale.x);
+}
+
+#[test]
 fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
     assert_eq!(
         cpu_card_hand_visible_face(MatchPlayerSide::Near),
@@ -1890,12 +2199,15 @@ fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
     assert_eq!(
         cpu_card_slot_visible_face(
             MatchPlayerSide::Near,
-            PlacementVisibility::CurrentTurnHidden
+            PlacementVisibility::CurrentRoundHidden
         ),
         CardFace::Front
     );
     assert_eq!(
-        cpu_card_slot_visible_face(MatchPlayerSide::Far, PlacementVisibility::CurrentTurnHidden),
+        cpu_card_slot_visible_face(
+            MatchPlayerSide::Far,
+            PlacementVisibility::CurrentRoundHidden
+        ),
         CardFace::Back
     );
     assert_eq!(
@@ -1982,15 +2294,15 @@ fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
     assert_close(animation.start_delay_seconds, 0.01);
 
     assert!(!advance_cpu_placed_card_animation(
-        0.134,
+        0.25,
         &mut transform,
         &mut animation
     ));
-    assert_eq!(animation.current_face(), CardFace::Back);
+    assert_eq!(animation.current_face(), CardFace::Front);
     assert!(animation.current_y_rotation < std::f32::consts::PI);
 
     assert!(advance_cpu_placed_card_animation(
-        0.126,
+        0.26,
         &mut transform,
         &mut animation
     ));
@@ -1999,46 +2311,93 @@ fn cpu_placed_card_reveal_waits_for_delay_then_flips_over_duration() {
 }
 
 #[test]
-fn cpu_card_reveal_delays_follow_location_then_slot_order() {
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 2),
-        0.0,
+fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<CardStateModel>()
+        .insert_resource(ActiveView::GameView)
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::HumanVersusCpu,
+            vec!["a".to_string(); crate::runtime::resources::STARTING_DECK_CARD_COUNT],
+        ))
+        .add_systems(Update, staged_match_resolution_system);
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert!(slots.place_for_side_with_card_id(0, CardSlotSide::Opponent, 1, 20, "far_first"));
+        assert!(slots.place_for_side_with_card_id(
+            2,
+            CardSlotSide::LocalPlayer,
+            0,
+            10,
+            "near_last"
+        ));
+    }
+    {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.record_placement(MatchPlayerSide::Far, 0, 1);
+        match_model.record_placement(MatchPlayerSide::Near, 0, 0);
+        match_model.record_placement(MatchPlayerSide::Near, 2, 0);
+        match_model.begin_current_round_reveal();
+        match_model.resolution_phase = MatchResolutionPhase::CpuPlacementsRevealing;
+    }
+    app.world_mut().spawn(CpuPlacedCardView::new(
+        MatchPlayerSide::Far,
+        CardSlotSide::Opponent,
+        0,
+        1,
+        "far_first",
+        CardFace::Back,
+    ));
+
+    app.update();
+
+    let match_model = app.world().resource::<OpponentMatchModel>();
+    assert_eq!(
+        match_model.placement_visibility(MatchPlayerSide::Far, 0, 1),
+        PlacementVisibility::Revealing
+    );
+    assert_eq!(
+        match_model.placement_visibility(MatchPlayerSide::Near, 0, 0),
+        PlacementVisibility::CurrentRoundHidden
+    );
+    assert_eq!(
+        match_model.placement_visibility(MatchPlayerSide::Near, 2, 0),
+        PlacementVisibility::CurrentRoundHidden
+    );
+    assert_close(match_model.next_reveal_delay_seconds, 0.0);
+
+    app.update();
+
+    let match_model = app.world().resource::<OpponentMatchModel>();
+    assert_eq!(
+        match_model.placement_visibility(MatchPlayerSide::Far, 0, 1),
+        PlacementVisibility::Revealed
+    );
+    assert_eq!(
+        match_model.placement_visibility(MatchPlayerSide::Near, 2, 0),
+        PlacementVisibility::CurrentRoundHidden
     );
     assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 3),
-        0.25,
+        match_model.next_reveal_delay_seconds,
+        CPU_CARD_REVEAL_STAGGER_SECONDS,
     );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 0),
-        0.5,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::Opponent, 1),
-        0.75,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 0),
-        1.0,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 1),
-        1.25,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 2),
-        1.5,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(0, CardSlotSide::LocalPlayer, 3),
-        1.75,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(1, CardSlotSide::Opponent, 2),
-        2.5,
-    );
-    assert_close(
-        cpu_card_reveal_delay_seconds(2, CardSlotSide::LocalPlayer, 3),
-        6.75,
+
+    app.world_mut()
+        .resource_mut::<OpponentMatchModel>()
+        .next_reveal_delay_seconds = 0.0;
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<OpponentMatchModel>()
+            .placement_visibility(MatchPlayerSide::Near, 2, 0),
+        PlacementVisibility::Revealing
     );
 }
 
@@ -2061,6 +2420,7 @@ fn cpu_placed_card_face_visibility_uses_per_card_reveal_state() {
                 CardFace::Back,
             ),
             CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+                Transform::default(),
                 Transform::default(),
                 Transform::default(),
                 CardFace::Back,
@@ -2601,51 +2961,51 @@ fn card_ui_anchor_padding_scales_with_debug_hud() {
 }
 
 #[test]
-fn end_turn_button_updates_visual_state_from_interaction() {
+fn end_round_button_updates_visual_state_from_interaction() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_systems(Update, update_end_turn_button);
+        .add_systems(Update, update_end_round_button);
     let button = app
         .world_mut()
         .spawn((
-            EndTurnButton,
-            GameControlButton::new(GameControlAction::EndTurn),
+            EndRoundButton,
+            GameControlButton::new(GameControlAction::EndRound),
             Interaction::Hovered,
-            BackgroundColor(END_TURN_BUTTON_NORMAL_COLOR),
-            BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR),
+            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
+            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
         ))
         .id();
 
     app.update();
     assert_eq!(
         app.world().get::<BackgroundColor>(button).unwrap().0,
-        END_TURN_BUTTON_HOVER_COLOR
+        END_ROUND_BUTTON_HOVER_COLOR
     );
     assert_eq!(
         *app.world().get::<BorderColor>(button).unwrap(),
-        BorderColor::all(END_TURN_BUTTON_HOVER_BORDER_COLOR)
+        BorderColor::all(END_ROUND_BUTTON_HOVER_BORDER_COLOR)
     );
 
     *app.world_mut().get_mut::<Interaction>(button).unwrap() = Interaction::Pressed;
     app.update();
     assert_eq!(
         app.world().get::<BackgroundColor>(button).unwrap().0,
-        END_TURN_BUTTON_PRESSED_COLOR
+        END_ROUND_BUTTON_PRESSED_COLOR
     );
     assert_eq!(
         *app.world().get::<BorderColor>(button).unwrap(),
-        BorderColor::all(END_TURN_BUTTON_PRESSED_BORDER_COLOR)
+        BorderColor::all(END_ROUND_BUTTON_PRESSED_BORDER_COLOR)
     );
 
     *app.world_mut().get_mut::<Interaction>(button).unwrap() = Interaction::None;
     app.update();
     assert_eq!(
         app.world().get::<BackgroundColor>(button).unwrap().0,
-        END_TURN_BUTTON_NORMAL_COLOR
+        END_ROUND_BUTTON_NORMAL_COLOR
     );
     assert_eq!(
         *app.world().get::<BorderColor>(button).unwrap(),
-        BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR)
+        BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR)
     );
 }
 
@@ -2654,14 +3014,14 @@ fn selected_card_modal_blocks_game_control_interactions() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<CardGestureModel>()
-        .add_systems(Update, update_end_turn_button);
+        .add_systems(Update, update_end_round_button);
     let button = app
         .world_mut()
         .spawn((
             GameControlButton::new(GameControlAction::Restart),
             Interaction::Pressed,
-            BackgroundColor(END_TURN_BUTTON_NORMAL_COLOR),
-            BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR),
+            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
+            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
         ))
         .id();
     {
@@ -2674,11 +3034,11 @@ fn selected_card_modal_blocks_game_control_interactions() {
 
     assert_eq!(
         app.world().get::<BackgroundColor>(button).unwrap().0,
-        END_TURN_BUTTON_NORMAL_COLOR
+        END_ROUND_BUTTON_NORMAL_COLOR
     );
     assert_eq!(
         *app.world().get::<BorderColor>(button).unwrap(),
-        BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR)
+        BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR)
     );
 }
 
@@ -2873,8 +3233,10 @@ fn composed_card_rotation_layers_flip_over_pointer_rotation() {
         target_rotation: Quat::from_euler(EulerRot::XYZ, 0.2, -0.1, 0.0),
     };
     let flip_state = CardFlipState {
+        start_y_rotation: std::f32::consts::PI,
         current_y_rotation: std::f32::consts::PI,
         target_y_rotation: std::f32::consts::PI,
+        elapsed_seconds: 0.0,
         visible_face: CardFace::Back,
     };
 
@@ -3426,6 +3788,26 @@ fn debug_hud_debug_drawing_key_is_d_toggle() {
 }
 
 #[test]
+fn debug_hud_debug_drawing_key_label_hints_shift_mode() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .add_systems(Startup, setup_debug_hud);
+
+    app.update();
+
+    let label = app
+        .world_mut()
+        .query::<(&DebugHudKeyText, &TextSpan)>()
+        .iter(app.world())
+        .find_map(|(key_text, text_span)| {
+            (key_text.key_code == KeyCode::KeyD).then_some(text_span.0.as_str())
+        })
+        .unwrap();
+
+    assert_eq!(label, "[D]");
+}
+
+#[test]
 fn debug_hud_removes_unused_wa_keys() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
@@ -3521,7 +3903,7 @@ fn d_key_toggles_debug_drawing() {
     assert!(
         app.world()
             .resource::<DebugHudState>()
-            .is_debug_drawing_visible
+            .is_debug_drawing_visible()
     );
 
     app.world_mut()
@@ -3536,7 +3918,40 @@ fn d_key_toggles_debug_drawing() {
     assert!(
         !app.world()
             .resource::<DebugHudState>()
-            .is_debug_drawing_visible
+            .is_debug_drawing_visible()
+    );
+}
+
+#[test]
+fn shift_d_toggles_solo_debug_drawing() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<DebugHudState>()
+        .add_systems(Update, toggle_debug_hud_inputs);
+
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.press(KeyCode::ShiftLeft);
+        keys.press(KeyCode::KeyD);
+    }
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<DebugHudState>().debug_draw_mode,
+        DebugDrawMode::OnSolo
+    );
+
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.reset(KeyCode::KeyD);
+        keys.press(KeyCode::KeyD);
+    }
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<DebugHudState>().debug_draw_mode,
+        DebugDrawMode::Off
     );
 }
 

@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use super::{ACTIVE_LOCATION_COUNT, LOCATION_MODEL_COUNT};
+
 pub const GAME_LOCATION_COUNT: usize = 3;
 
 /// HUMAN: Current round visibility state for one GameView location.
@@ -91,6 +93,23 @@ impl GameLocationModel {
         self.round = 1;
     }
 
+    pub fn reset_with_active_location_indices(&mut self, active_location_indices: &[usize]) {
+        self.round = 1;
+        self.set_active_location_indices(active_location_indices);
+    }
+
+    pub fn set_active_location_indices(&mut self, active_location_indices: &[usize]) {
+        let pool = location_definition_pool();
+        for (slot_index, definition) in self.definitions.iter_mut().enumerate() {
+            let pool_index = active_location_indices
+                .get(slot_index)
+                .copied()
+                .unwrap_or(slot_index)
+                % LOCATION_MODEL_COUNT;
+            *definition = pool[pool_index].for_slot(slot_index);
+        }
+    }
+
     pub fn set_round(&mut self, round: u8) {
         self.round = round.clamp(1, 6);
     }
@@ -118,6 +137,15 @@ impl GameLocationModel {
 }
 
 pub const fn location_definitions() -> [LocationDefinitionModel; GAME_LOCATION_COUNT] {
+    let pool = location_definition_pool();
+    [
+        pool[0].for_slot(0),
+        pool[1].for_slot(1),
+        pool[2].for_slot(2),
+    ]
+}
+
+pub const fn location_definition_pool() -> [LocationDefinitionModel; LOCATION_MODEL_COUNT] {
     [
         LocationDefinitionModel {
             location_index: 0,
@@ -136,11 +164,44 @@ pub const fn location_definitions() -> [LocationDefinitionModel; GAME_LOCATION_C
         LocationDefinitionModel {
             location_index: 2,
             opens_on_round: 3,
-            title: "Normal",
+            title: "Shrine Ruins",
+            body: "(No Ability)",
+            ability: LocationAbility::NoAbility,
+        },
+        LocationDefinitionModel {
+            location_index: 3,
+            opens_on_round: 1,
+            title: "Battlefield",
+            body: "+1 Power to each card here",
+            ability: LocationAbility::EnergyDelta(1),
+        },
+        LocationDefinitionModel {
+            location_index: 4,
+            opens_on_round: 2,
+            title: "Spirit Well",
+            body: "-1 Power to each card here",
+            ability: LocationAbility::EnergyDelta(-1),
+        },
+        LocationDefinitionModel {
+            location_index: 5,
+            opens_on_round: 3,
+            title: "Market Square",
             body: "(No Ability)",
             ability: LocationAbility::NoAbility,
         },
     ]
+}
+
+impl LocationDefinitionModel {
+    const fn for_slot(self, slot_index: usize) -> Self {
+        Self {
+            location_index: slot_index,
+            opens_on_round: (slot_index % ACTIVE_LOCATION_COUNT) as u8 + 1,
+            title: self.title,
+            body: self.body,
+            ability: self.ability,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@
 | Card type | Replaceable CardType artwork, `T` card type toggle, valid active front selection |
 | Runtime reload | DebugHUD `R` AppScene reload and `H` hot-reload auto-restart toggle |
 | Flip | Temporary Card UI `Flip` button, animated front/back transition, midpoint face swap, shared CardBack |
-| Boundaries | No gameplay, scoring, turns, targeting, tabletop placement, final menu UI, or collection/deck browser scope |
+| Boundaries | No gameplay, scoring, rounds, targeting, tabletop placement, final menu UI, or collection/deck browser scope |
 
 ## Clarifications
 
@@ -198,7 +198,7 @@ A reviewer sees one card-series back design that belongs with the current superh
 | FR-027 | CardBack MUST be one shared card-series/CardStructure backface independent of individual CardFront content. |
 | FR-028 | CardBack artwork MUST be a compatible abstract superhero-pattern card back with no words, readable letters, characters, logos, or clear icon-like symbols. |
 | FR-029 | Pressing `T` while CardBack is visible MUST change the hidden active CardFront without changing the visible CardBack until the card flips face up. |
-| FR-030 | The card presentation bundle MUST NOT introduce gameplay, scoring, turns, targeting, tabletop placement, deck browsing, collection UI, final menus, or multi-card layout scope. |
+| FR-030 | The card presentation bundle MUST NOT introduce gameplay, scoring, rounds, targeting, tabletop placement, deck browsing, collection UI, final menus, or multi-card layout scope. |
 | FR-031 | Broader Game, Player, Deck, hand, placed card, shared location, and Table Top concepts MUST remain in `007-gameplay-concepts` rather than becoming implementation scope for this feature. |
 | FR-032 | Final acceptance SHOULD include Windows desktop and browser WebGPU verification, or document exact blockers for unavailable targets. |
 
@@ -238,7 +238,7 @@ A reviewer sees one card-series back design that belongs with the current superh
 | SC-013 | Repeated `Flip` activations always settle into a valid front or back state without disappearing, indefinite jitter, or showing both faces at once. |
 | SC-014 | CardBack remains unchanged when active CardFront changes while face down. |
 | SC-015 | CardBack contains no words, readable letters, characters, logos, or clear icon-like symbols. |
-| SC-016 | Scope review confirms this bundle does not introduce gameplay, tabletop placement, scoring, turns, final menus, collection UI, or multi-card layout behavior. |
+| SC-016 | Scope review confirms this bundle does not introduce gameplay, tabletop placement, scoring, rounds, final menus, collection UI, or multi-card layout behavior. |
 
 ## Assumptions
 

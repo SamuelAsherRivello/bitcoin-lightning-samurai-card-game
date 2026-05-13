@@ -44,6 +44,6 @@
 
 | Field | Decision |
 | ----- | -------- |
-| Choice | Do not implement deckbuilding, card draw, energy, CPU strategy, complete turn rules, card abilities, or production UI in this feature. |
+| Choice | Do not implement deckbuilding, card draw, energy, CPU strategy, complete round rules, card abilities, or production UI in this feature. |
 | Rationale | FR-031 explicitly excludes those systems. The point model should provide stable integration targets for later features. |
 | Alternatives considered | Building a full playable loop now was rejected because it would expand the feature beyond its spec and create unclear dependencies. |

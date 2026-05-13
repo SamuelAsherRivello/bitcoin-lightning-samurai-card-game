@@ -161,7 +161,7 @@
 - [ ] T051 [US3] Reject pointer press and drag start from prior-round locked location cards in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T052 [US3] Show x-axis hand insertion gap movement while dragging a current-round placed card over the hand area in `bevy/crates/game/src/runtime/systems/card_gesture_animation_system.rs`
 - [ ] T053 [US3] Return a current-round placed card to the selected hand order, free its location slot, and recenter the hand group on release in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
-- [ ] T054 [US3] Mark current-round placed cards as locked when End Turn advances the round in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
+- [ ] T054 [US3] Mark current-round placed cards as locked when End Round advances the round in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
 - [ ] T055 [US3] Update desktop and browser gesture verification notes for same-round return-to-hand and prior-round lock behavior in `specs/012-card-gestures/quickstart.md`
 
 ---

@@ -15,7 +15,7 @@ fn current_inventory_names_existing_card_state_axes() {
     assert!(
         inventory
             .iter()
-            .any(|axis| axis.values.contains(&"CurrentTurnHidden"))
+            .any(|axis| axis.values.contains(&"CurrentRoundHidden"))
     );
 }
 
@@ -45,9 +45,9 @@ fn card_instance_state_validates_single_zone_and_hidden_location_rule() {
             location_index: 0,
             side: CardSlotSide::LocalPlayer,
             slot_index: 0,
-            lock_state: LocationLockState::CurrentTurnMovable,
+            lock_state: LocationLockState::CurrentRoundMovable,
         },
-        CardRevealPolicy::CurrentTurnHiddenToOpponent,
+        CardRevealPolicy::CurrentRoundHiddenToOpponent,
     );
 
     assert_eq!(valid.validate(), Ok(()));
@@ -57,7 +57,7 @@ fn card_instance_state_validates_single_zone_and_hidden_location_rule() {
         "kage_ren",
         CardOwnerModel::near(),
         CardZoneModel::Hand { order_index: 0 },
-        CardRevealPolicy::CurrentTurnHiddenToOpponent,
+        CardRevealPolicy::CurrentRoundHiddenToOpponent,
     );
 
     assert_eq!(
@@ -92,7 +92,7 @@ fn reveal_policy_derives_front_for_owner_and_back_for_hidden_opponent() {
     let owner = MatchPlayerSide::Near;
 
     assert_eq!(
-        CardRevealPolicy::CurrentTurnHiddenToOpponent.visible_face(
+        CardRevealPolicy::CurrentRoundHiddenToOpponent.visible_face(
             MatchPlayerSide::Near,
             owner,
             CardFace::Front
@@ -100,7 +100,7 @@ fn reveal_policy_derives_front_for_owner_and_back_for_hidden_opponent() {
         CardFace::Front
     );
     assert_eq!(
-        CardRevealPolicy::CurrentTurnHiddenToOpponent.visible_face(
+        CardRevealPolicy::CurrentRoundHiddenToOpponent.visible_face(
             MatchPlayerSide::Far,
             owner,
             CardFace::Front
@@ -223,7 +223,7 @@ fn slot_occupancy_validation_requires_matching_location_zone() {
             location_index: 1,
             side: CardSlotSide::LocalPlayer,
             slot_index: 2,
-            lock_state: LocationLockState::CurrentTurnMovable,
+            lock_state: LocationLockState::CurrentRoundMovable,
         },
         CardRevealPolicy::OwnerVisible,
     );
@@ -235,7 +235,7 @@ fn slot_occupancy_validation_requires_matching_location_zone() {
             location_index: 1,
             side: CardSlotSide::LocalPlayer,
             slot_index: 2,
-            placed_turn: 1,
+            placed_round: 1,
         }),
         Ok(())
     );
@@ -245,7 +245,7 @@ fn slot_occupancy_validation_requires_matching_location_zone() {
             location_index: 1,
             side: CardSlotSide::LocalPlayer,
             slot_index: 3,
-            placed_turn: 1,
+            placed_round: 1,
         }),
         Err(CardStateValidationError::SlotMismatch {
             instance_id: CardInstanceId::new(1)
@@ -274,14 +274,20 @@ fn local_adapter_maps_hand_and_location_state_from_existing_models() {
             location_index: 1,
             side: CardSlotSide::LocalPlayer,
             slot_index: 2,
-            lock_state: LocationLockState::CurrentTurnMovable,
+            lock_state: LocationLockState::CurrentRoundMovable,
         }
     );
 }
 
 #[test]
 fn cpu_adapters_map_passive_hand_and_placed_reveal_semantics() {
-    let hand_view = CpuHandCardView::new(MatchPlayerSide::Far, 3, "kage_ren", CardFace::Back);
+    let hand_view = CpuHandCardView::new(
+        MatchPlayerSide::Far,
+        1_000_003,
+        3,
+        "kage_ren",
+        CardFace::Back,
+    );
     let hand_state = instance_from_cpu_hand_view(&hand_view);
 
     assert_eq!(hand_state.owner, CardOwnerModel::far());
@@ -296,11 +302,11 @@ fn cpu_adapters_map_passive_hand_and_placed_reveal_semantics() {
         CardFace::Back,
     );
     let placed_state =
-        instance_from_cpu_placed_view(&placed_view, Some(PlacementVisibility::CurrentTurnHidden));
+        instance_from_cpu_placed_view(&placed_view, Some(PlacementVisibility::CurrentRoundHidden));
 
     assert_eq!(
         placed_state.reveal_policy,
-        CardRevealPolicy::CurrentTurnHiddenToOpponent
+        CardRevealPolicy::CurrentRoundHiddenToOpponent
     );
     assert_eq!(
         CardViewStateModel::derive_for_viewer(&placed_state, MatchPlayerSide::Near, None)
@@ -315,7 +321,7 @@ fn placement_visibility_adapter_preserves_revealed_state() {
         owner: MatchPlayerSide::Far,
         location_index: 0,
         slot_index: 0,
-        placement_turn: 1,
+        placement_round: 1,
         visibility: PlacementVisibility::Revealed,
     };
 

@@ -88,7 +88,7 @@ Authoritative six-round progression and energy state.
 | `energy_available` | integer | Starts at the current round's maximum and decreases by placement cost |
 | `energy_maximum` | integer | Round schedule value: 1, 2, 3, 4, 5, 6 |
 | `requested_cards_to_deal` | integer | Round schedule value: 1, 2, 3, 1, 1, 1 |
-| `end_turn_resolved` | boolean | Allows End Turn on round 6 without dealing more cards |
+| `end_round_resolved` | boolean | Allows End Round on round 6 without dealing more cards |
 
 ## CurrentRoundMoveRecord
 
@@ -112,7 +112,7 @@ Presentation state for lower-left and lower-right controls.
 | `restart_enabled` | boolean | Always true during GameView play |
 | `undo_enabled` | boolean | True only when current-round move history is non-empty |
 | `undo_label` | string | `Energy current/max` newline `Undo` |
-| `end_turn_label` | string | Shows `End Turn` and current round fraction |
+| `end_round_label` | string | Shows `End Round` and current round fraction |
 
 ## State Transitions
 
@@ -125,5 +125,5 @@ Presentation state for lower-left and lower-right controls.
 | Fewer remaining deck cards than requested | Remaining deck cards | Hand | Deal only the cards that remain; do not create extra cards |
 | Place card | Hand | Location | Allowed only when energy is sufficient and slot is legal; open location ability applies immediately to the placed card's effective energy |
 | Undo | Current-round Location placements | Hand | Remove active location ability deltas, restore cards and their energy deductions, and clear current-round history |
-| End Turn rounds 1-5 | Round N | Round N+1 | Clear current-round history, deal next round, reset energy |
-| End Turn round 6 | Round 6 | Round 6 resolved | No additional deal |
+| End Round on rounds 1-5 | Round N | Round N+1 | Clear current-round history, deal next round, reset energy |
+| End Round on round 6 | Round 6 | Round 6 resolved | No additional deal |

@@ -33,10 +33,12 @@ use bevy_persistent::prelude::Persistent;
 pub mod card_gesture_animation_system;
 pub mod card_gesture_update_system;
 pub mod debug_drawing_update_system;
+pub mod visual_modifier_update_system;
 
 pub use card_gesture_animation_system::*;
 pub use card_gesture_update_system::*;
 pub use debug_drawing_update_system::*;
+pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
     CardViewBundle, LocationViewBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, POINT_VIEW_BUNDLE_FONT,
@@ -48,10 +50,12 @@ use crate::runtime::components::{
     CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer,
     CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSettingsSceneEntity,
     DebugSettingsSceneRoot, DeckBuilderSceneEntity, DeckBuilderSceneRoot, DropTargetHint,
-    EndTurnButton, GameControlAction, GameControlButton, GameControlLabel, GameLocation,
+    EndRoundButton, GameControlAction, GameControlButton, GameControlLabel, GameLocation,
     GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameViewEntity, GameViewRoot,
     HandCardGestureTarget, InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview,
-    LocationRevealState, MatchStatusText, Player, PrimaryViewCamera, TurnUi, WorldBackground,
+    LocationRevealState, MatchStatusText, Player, PointViewCircle, PointViewOutlineTreatment,
+    PrimaryViewCamera, RoundUi, VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget,
+    VisualModifier, WorldBackground,
 };
 #[cfg(test)]
 use crate::runtime::resources::CardState;
@@ -59,19 +63,19 @@ use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
     CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
     CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
-    CARD_SLOT_LOCATION_COUNT, CARD_SLOT_ROW_COUNT, CardFace, CardFlipState, CardGestureModel,
-    CardGestureState, CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry,
-    CardSettingsStore, CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel,
-    CardUiState, CostPointModel, CpuBrainModel, DEFAULT_DECK_NAME, DebugHudInputStore,
-    DebugHudState, DeckModel, FullscreenViewportTransitionState, GameDeckModel, GameHandModel,
-    GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel,
-    MatchModeModel, MatchModePreferenceStore, MatchPlayerSide, MatchWinnerModel,
+    CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
+    CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
+    CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
+    CpuBrainModel, DEFAULT_DECK_NAME, DebugHudInputStore, DebugHudState, DeckModel,
+    FullscreenViewportTransitionState, GameDeckModel, GameHandModel, GameLocationModel,
+    GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel, MatchModeModel,
+    MatchModePreferenceStore, MatchPlayerSide, MatchResolutionPhase, MatchWinnerModel,
     OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility, PlayerDeckCollectionModel,
     PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, WindowPlacement,
-    WindowPlacementState, WindowPlacementStore, WorldModelRegistry, choose_level1_move,
+    WindowPlacementState, WindowPlacementStore, WorldModelRegistry, choose_level1_moves,
     cpu_slot_hand_index, ensure_player_deck_collection_model, final_winner_from_slots,
     load_window_placement, random_shuffled_default_deck_cards, reset_two_player_match,
-    start_match_turn, sync_near_human_from_game_models, valid_window_placement,
+    start_match_round, sync_near_human_from_game_models, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -137,18 +141,20 @@ const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const DECK_BUILDER_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const DECK_BUILDER_CARD_HEIGHT_FRACTION: f32 = 0.9;
 const DEBUG_HUD_Z_INDEX: i32 = 100;
-const END_TURN_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
-const END_TURN_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
-const END_TURN_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95);
-const END_TURN_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
-const END_TURN_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
-const END_TURN_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
+const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
+const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
+const END_ROUND_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95);
+const END_ROUND_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
+const END_ROUND_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
+const END_ROUND_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
 const GAME_CONTROL_DISABLED_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.55);
 const GAME_CONTROL_DISABLED_BORDER_COLOR: Color = Color::srgb(0.28, 0.28, 0.28);
-const CPU_CARD_MOVE_SECONDS: f32 = 0.35;
-const CPU_CARD_FLIP_SECONDS: f32 = 0.25;
+const CPU_CARD_MOVE_SECONDS: f32 = 0.5;
+const CPU_HAND_SETTLED_PAUSE_SECONDS: f32 = 0.5;
+const CPU_CARD_FLIP_SECONDS: f32 = 0.5;
 const CPU_CARD_REVEAL_STAGGER_SECONDS: f32 = 0.25;
-const CPU_CARD_REVEAL_LOCATION_PAUSE_SECONDS: f32 = 0.5;
+const CPU_CARD_MOVING_FRONT_Z: f32 = 0.99;
+const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.5;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
@@ -625,6 +631,9 @@ pub fn setup_game_view(mut params: SetupGameViewParams) {
                 &mut *game_hand_model,
                 &mut *game_round_model,
                 &mut *game_location_model,
+                None,
+                None,
+                None,
                 player_deck_collection.primary_deck(),
             );
             card_states.reset_to_size(game_hand_model.len());
@@ -1208,7 +1217,9 @@ fn spawn_location_power_point_view(
         .with_children(|parent| {
             parent.spawn((
                 Name::new("PowerPointView Circle"),
+                PointViewCircle::new(VisualModificationTarget::LocationTotalPointCircle),
                 BackgroundColor(point_model.background_color()),
+                BorderColor::all(Color::NONE),
                 Node {
                     position_type: PositionType::Absolute,
                     left: Val::Px(0.0),
@@ -1239,6 +1250,7 @@ fn spawn_card_cost_point_view(
     model: CostPointModel,
     background_mesh: Handle<Mesh>,
     background_material: Handle<StandardMaterial>,
+    outline_material: Handle<StandardMaterial>,
     background_translation: Vec3,
     text_translation: Vec3,
     is_visible: bool,
@@ -1252,6 +1264,7 @@ fn spawn_card_cost_point_view(
         point_model,
         background_mesh,
         background_material,
+        outline_material,
         background_translation,
         text_translation,
         is_visible,
@@ -1265,6 +1278,7 @@ fn spawn_card_power_point_view(
     model: PowerPointModel,
     background_mesh: Handle<Mesh>,
     background_material: Handle<StandardMaterial>,
+    outline_material: Handle<StandardMaterial>,
     background_translation: Vec3,
     text_translation: Vec3,
     is_visible: bool,
@@ -1278,6 +1292,7 @@ fn spawn_card_power_point_view(
         point_model,
         background_mesh,
         background_material,
+        outline_material,
         background_translation,
         text_translation,
         is_visible,
@@ -1293,6 +1308,7 @@ pub fn update_location_power_points(
     card_model_registry: Res<CardModelRegistry>,
     game_location_model: Option<Res<GameLocationModel>>,
     game_hand_model: Option<Res<GameHandModel>>,
+    opponent_match_model: Option<Res<OpponentMatchModel>>,
     mut power_query: Query<(&PointLocationView, &mut PointView, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
@@ -1312,6 +1328,7 @@ pub fn update_location_power_points(
                 .map(|hand| hand.cards.as_slice())
                 .unwrap_or_default(),
             game_location_model.as_deref(),
+            opponent_match_model.as_deref(),
             location_power_view.location_index,
             location_power_view.side,
         );
@@ -1335,12 +1352,23 @@ fn location_side_power_total(
     card_model_registry: &CardModelRegistry,
     game_hand_cards: &[String],
     game_location_model: Option<&GameLocationModel>,
+    opponent_match_model: Option<&OpponentMatchModel>,
     location_index: usize,
     side: CardSlotSide,
 ) -> PowerPointModel {
     let total = slot_board
         .slots()
         .filter(|slot| slot.location_index == location_index && slot.side == side)
+        .filter(|slot| {
+            opponent_match_model.is_none_or(|match_model| {
+                let owner = match side {
+                    CardSlotSide::LocalPlayer => MatchPlayerSide::Near,
+                    CardSlotSide::Opponent => MatchPlayerSide::Far,
+                };
+                match_model.placement_visibility(owner, slot.location_index, slot.slot_index)
+                    == PlacementVisibility::Revealed
+            })
+        })
         .filter_map(|slot| match &slot.state {
             CardSlotState::Empty => None,
             CardSlotState::Populated {
@@ -1429,6 +1457,7 @@ fn spawn_card_point_view_world(
     point_model: PointModel,
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
+    outline_material: Handle<StandardMaterial>,
     background_translation: Vec3,
     text_translation: Vec3,
     is_visible: bool,
@@ -1450,8 +1479,29 @@ fn spawn_card_point_view_world(
     }
     point_entity
         .with_children(|parent| {
+            if point_model.point_type == PointType::CardPower {
+                parent.spawn((
+                    Name::new(format!("{name} AbilityOutline")),
+                    PointViewOutlineTreatment::new(VisualModifier::AbilityOutline),
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(outline_material),
+                    Transform {
+                        translation: Vec3::new(0.0, 0.0, -LAYER_RENDER_Z_STEP),
+                        scale: Vec3::splat(VISUAL_MODIFIER_CARD_OUTLINE_SCALE),
+                        ..Default::default()
+                    },
+                    RenderLayers::layer(CARD_RENDER_LAYER),
+                    Visibility::Hidden,
+                    NoCpuCulling,
+                    NoFrustumCulling,
+                ));
+            }
             parent.spawn((
                 Name::new(format!("{name} Circle")),
+                PointViewCircle::new(match point_model.point_type {
+                    PointType::LocationPower => VisualModificationTarget::LocationTotalPointCircle,
+                    _ => VisualModificationTarget::CardPowerPointCircle,
+                }),
                 Mesh3d(mesh),
                 MeshMaterial3d(material),
                 Transform::default(),
@@ -1765,8 +1815,8 @@ fn spawn_game_controls(
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_TURN_BUTTON_NORMAL_COLOR),
+            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
+            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
         ))
@@ -1808,8 +1858,8 @@ fn spawn_game_controls(
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_TURN_BUTTON_NORMAL_COLOR),
+            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
+            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
         ))
@@ -1844,12 +1894,12 @@ fn spawn_game_controls(
                 ..Default::default()
             },
             BorderColor::all(if round_model.has_undoable_moves() {
-                END_TURN_BUTTON_NORMAL_BORDER_COLOR
+                END_ROUND_BUTTON_NORMAL_BORDER_COLOR
             } else {
                 GAME_CONTROL_DISABLED_BORDER_COLOR
             }),
             BackgroundColor(if round_model.has_undoable_moves() {
-                END_TURN_BUTTON_NORMAL_COLOR
+                END_ROUND_BUTTON_NORMAL_COLOR
             } else {
                 GAME_CONTROL_DISABLED_COLOR
             }),
@@ -1878,11 +1928,11 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            Name::new("TurnUI"),
-            TurnUi,
+            Name::new("RoundUI"),
+            RoundUi,
             GameViewEntity,
             Button,
-            GameControlButton::new(GameControlAction::EndTurn),
+            GameControlButton::new(GameControlAction::EndRound),
             Node {
                 position_type: PositionType::Absolute,
                 right: Val::Percent(2.0),
@@ -1896,16 +1946,16 @@ fn spawn_game_controls(
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
-            BorderColor::all(END_TURN_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_TURN_BUTTON_NORMAL_COLOR),
+            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
+            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
-            EndTurnButton,
+            EndRoundButton,
         ))
         .with_children(|parent| {
             parent.spawn((
                 Text::new(format!(
-                    "Turn {}/{}",
+                    "Round {}/{}",
                     round_model.round, round_model.max_rounds
                 )),
                 TextFont {
@@ -1913,7 +1963,7 @@ fn spawn_game_controls(
                     ..Default::default()
                 },
                 TextColor(Color::WHITE),
-                GameControlLabel::new(GameControlAction::EndTurn),
+                GameControlLabel::new(GameControlAction::EndRound),
             ));
             parent.spawn((
                 Text::new("Next"),
@@ -2425,6 +2475,13 @@ fn spawn_card_structure_for_type(
         unlit: true,
         ..Default::default()
     });
+    let ability_outline_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.74, 0.18),
+        alpha_mode: AlphaMode::Opaque,
+        depth_bias: POINT_DEPTH_BIAS + 1.0,
+        unlit: true,
+        ..Default::default()
+    });
     let point_x =
         (card_defaults.width * 0.5) - (card_defaults.width * CARD_POINT_BADGE_INSET_RATIO);
     let cost_point_x = point_x + (CARD_POINT_BADGE_SIZE * 0.5);
@@ -2558,6 +2615,7 @@ fn spawn_card_structure_for_type(
             card_model.base_power,
             power_point_background_mesh,
             power_point_background_material,
+            ability_outline_material.clone(),
             Vec3::new(-cost_point_x, point_y, point_background_z),
             Vec3::new(-cost_point_x, point_y, point_text_z),
             visible_face == CardFace::Front,
@@ -2569,6 +2627,7 @@ fn spawn_card_structure_for_type(
             card_model.cost,
             cost_point_background_mesh,
             cost_point_background_material,
+            ability_outline_material,
             Vec3::new(power_point_x, -point_y, point_background_z),
             Vec3::new(power_point_x, -point_y, point_text_z),
             visible_face == CardFace::Front,
@@ -3265,6 +3324,10 @@ pub fn card_model_input_system(
             scene
                 .active_locations
                 .reroll(&scene.location_model_registry, &scene.active_world_model);
+            if let Some(game_location_model) = scene.game_location_model.as_deref_mut() {
+                game_location_model
+                    .reset_with_active_location_indices(&scene.active_locations.indices);
+            }
             scene.reload_active_view(&active_card_model, CardFace::Front, Quat::IDENTITY);
         }
         ActiveView::DeckBuilderScene | ActiveView::DebugSettingsScene => {
@@ -3339,6 +3402,9 @@ pub fn restart_app_scene(params: RestartAppSceneParams) {
         scene.game_hand_model.as_deref_mut(),
         scene.game_round_model.as_deref_mut(),
         scene.game_location_model.as_deref_mut(),
+        Some(&scene.location_model_registry),
+        Some(&mut scene.active_locations),
+        Some(&scene.active_world_model),
         opponent_match_model.as_deref_mut(),
         player_deck_collection.as_deref(),
     );
@@ -3357,6 +3423,9 @@ fn reset_game_model(
     game_hand_model: Option<&mut GameHandModel>,
     game_round_model: Option<&mut GameRoundModel>,
     game_location_model: Option<&mut GameLocationModel>,
+    location_model_registry: Option<&LocationModelRegistry>,
+    active_locations: Option<&mut ActiveLocations>,
+    active_world_model: Option<&ActiveWorldModel>,
     opponent_match_model: Option<&mut OpponentMatchModel>,
     player_deck_collection: Option<&PlayerDeckCollectionModel>,
 ) {
@@ -3373,6 +3442,9 @@ fn reset_game_model(
             Some(game_hand_model),
             Some(game_round_model),
             Some(game_location_model),
+            Some(location_model_registry),
+            Some(active_locations),
+            Some(active_world_model),
             Some(opponent_match_model),
             Some(player_deck_collection),
         ) = (
@@ -3380,6 +3452,9 @@ fn reset_game_model(
             game_hand_model,
             game_round_model,
             game_location_model,
+            location_model_registry,
+            active_locations,
+            active_world_model,
             opponent_match_model,
             player_deck_collection,
         ) {
@@ -3390,6 +3465,9 @@ fn reset_game_model(
                 game_hand_model,
                 game_round_model,
                 game_location_model,
+                Some(location_model_registry),
+                Some(active_locations),
+                Some(active_world_model),
                 player_deck_collection.primary_deck(),
             );
             card_states.reset_to_size(game_hand_model.len());
@@ -4309,7 +4387,7 @@ fn is_game_view_active(active_view: Option<&ActiveView>) -> bool {
     active_view.is_none_or(|active_view| *active_view == ActiveView::GameView)
 }
 
-pub fn update_end_turn_button(
+pub fn update_end_round_button(
     active_view: Option<Res<ActiveView>>,
     mut button_query: Query<
         (
@@ -4324,8 +4402,10 @@ pub fn update_end_turn_button(
     mut game_hand_model: Option<ResMut<GameHandModel>>,
     mut game_round_model: Option<ResMut<GameRoundModel>>,
     mut game_location_model: Option<ResMut<GameLocationModel>>,
+    location_model_registry: Option<Res<LocationModelRegistry>>,
+    mut active_locations: Option<ResMut<ActiveLocations>>,
+    active_world_model: Option<Res<ActiveWorldModel>>,
     mut opponent_match_model: Option<ResMut<OpponentMatchModel>>,
-    card_model_registry: Option<Res<CardModelRegistry>>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
     mut persistent_match_mode: Option<ResMut<Persistent<MatchModePreferenceStore>>>,
     mut slot_board: Option<ResMut<CardSlotBoardModel>>,
@@ -4383,6 +4463,9 @@ pub fn update_end_turn_button(
                                     game_hand_model,
                                     game_round_model,
                                     game_location_model,
+                                    location_model_registry.as_deref(),
+                                    active_locations.as_deref_mut(),
+                                    active_world_model.as_deref(),
                                     player_deck_collection
                                         .as_deref()
                                         .and_then(PlayerDeckCollectionModel::primary_deck),
@@ -4394,27 +4477,21 @@ pub fn update_end_turn_button(
                             }
                         }
                     }
-                    GameControlAction::EndTurn => {
+                    GameControlAction::EndRound => {
                         if let (
                             Some(game_deck_model),
                             Some(game_hand_model),
                             Some(game_round_model),
-                            Some(game_location_model),
                             Some(match_model),
-                            Some(card_states),
-                            Some(card_model_registry),
                             Some(slot_board),
                         ) = (
                             game_deck_model.as_deref_mut(),
                             game_hand_model.as_deref_mut(),
                             game_round_model.as_deref_mut(),
-                            game_location_model.as_deref_mut(),
                             opponent_match_model.as_deref_mut(),
-                            card_states.as_deref_mut(),
-                            card_model_registry.as_deref(),
                             slot_board.as_deref_mut(),
                         ) {
-                            if !game_round_model.can_end_turn() {
+                            if !game_round_model.can_end_round() {
                                 return;
                             }
                             sync_near_human_from_game_models(
@@ -4433,7 +4510,7 @@ pub fn update_end_turn_button(
                                     placement.owner == MatchPlayerSide::Near
                                         && placement.location_index == location_index
                                         && placement.slot_index == slot_index
-                                        && placement.placement_turn == match_model.turn.turn
+                                        && placement.placement_round == match_model.round.round
                                 }) {
                                     match_model.record_placement(
                                         MatchPlayerSide::Near,
@@ -4443,16 +4520,7 @@ pub fn update_end_turn_button(
                                 }
                             }
                             match_model.near.ready_for_next = true;
-                            resolve_match_readiness(
-                                match_model,
-                                game_round_model,
-                                game_location_model,
-                                game_deck_model,
-                                game_hand_model,
-                                card_states,
-                                slot_board,
-                                card_model_registry,
-                            );
+                            resolve_match_readiness(match_model, slot_board);
                         }
                     }
                     GameControlAction::Restart => {
@@ -4484,6 +4552,9 @@ pub fn update_end_turn_button(
                                 game_hand_model,
                                 game_round_model,
                                 game_location_model,
+                                location_model_registry.as_deref(),
+                                active_locations.as_deref_mut(),
+                                active_world_model.as_deref(),
                                 player_deck_collection
                                     .as_deref()
                                     .and_then(PlayerDeckCollectionModel::primary_deck),
@@ -4519,17 +4590,17 @@ pub fn update_end_turn_button(
                     }
                 }
                 (
-                    END_TURN_BUTTON_PRESSED_COLOR,
-                    END_TURN_BUTTON_PRESSED_BORDER_COLOR,
+                    END_ROUND_BUTTON_PRESSED_COLOR,
+                    END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
                 )
             }
             Interaction::Hovered => (
-                END_TURN_BUTTON_HOVER_COLOR,
-                END_TURN_BUTTON_HOVER_BORDER_COLOR,
+                END_ROUND_BUTTON_HOVER_COLOR,
+                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
             ),
             Interaction::None => (
-                END_TURN_BUTTON_NORMAL_COLOR,
-                END_TURN_BUTTON_NORMAL_BORDER_COLOR,
+                END_ROUND_BUTTON_NORMAL_COLOR,
+                END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
             ),
         };
         let is_disabled = game_control_action_is_disabled(
@@ -4593,9 +4664,9 @@ pub fn update_game_control_ui_system(
                 GameControlAction::Undo => {
                     text.0 = game_round_model.energy_label();
                 }
-                GameControlAction::EndTurn => {
+                GameControlAction::EndRound => {
                     text.0 = format!(
-                        "Turn {}/{}",
+                        "Round {}/{}",
                         game_round_model.round, game_round_model.max_rounds
                     );
                 }
@@ -4624,16 +4695,16 @@ pub fn update_game_control_ui_system(
 
         let (background_color, border_color) = match *interaction {
             Interaction::Pressed => (
-                END_TURN_BUTTON_PRESSED_COLOR,
-                END_TURN_BUTTON_PRESSED_BORDER_COLOR,
+                END_ROUND_BUTTON_PRESSED_COLOR,
+                END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
             ),
             Interaction::Hovered => (
-                END_TURN_BUTTON_HOVER_COLOR,
-                END_TURN_BUTTON_HOVER_BORDER_COLOR,
+                END_ROUND_BUTTON_HOVER_COLOR,
+                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
             ),
             Interaction::None => (
-                END_TURN_BUTTON_NORMAL_COLOR,
-                END_TURN_BUTTON_NORMAL_BORDER_COLOR,
+                END_ROUND_BUTTON_NORMAL_COLOR,
+                END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
             ),
         };
         background.0 = background_color;
@@ -4653,17 +4724,157 @@ fn game_control_action_is_disabled(
             opponent_match_model.is_some_and(|model| model.near.controller.is_cpu())
                 || game_round_model.is_some_and(|model| !model.has_undoable_moves())
         }
-        GameControlAction::EndTurn => {
+        GameControlAction::EndRound => {
             opponent_match_model
                 .is_some_and(|model| model.near.controller.is_cpu() || model.near.ready_for_next)
-                || game_round_model.is_some_and(|model| !model.can_end_turn())
+                || game_round_model.is_some_and(|model| !model.can_end_round())
         }
     }
 }
 
-/// HUMAN: Resolves turn readiness for the two-player match.
-/// AI: Reveal before advancing and always create exactly one final winner.
+/// HUMAN: Resolves round readiness for the two-player match.
+/// AI: Commit hidden CPU cards first; reveal and advance run after animations settle.
 pub fn resolve_match_readiness(
+    match_model: &mut OpponentMatchModel,
+    slot_board: &mut CardSlotBoardModel,
+) {
+    if !match_model.both_ready() || match_model.is_complete() {
+        return;
+    }
+
+    if match_model.resolution_phase != MatchResolutionPhase::Planning {
+        return;
+    }
+
+    if commit_pending_cpu_placements(match_model, slot_board) > 0 {
+        match_model.resolution_phase = MatchResolutionPhase::CpuPlacementsMoving;
+        return;
+    }
+
+    match_model.begin_current_round_reveal();
+    match_model.resolution_phase = MatchResolutionPhase::CpuPlacementsRevealing;
+}
+
+fn commit_pending_cpu_placements(
+    match_model: &mut OpponentMatchModel,
+    slot_board: &mut CardSlotBoardModel,
+) -> usize {
+    let pending_moves = std::mem::take(&mut match_model.pending_cpu_placements);
+    let mut committed_count = 0;
+    for pending_move in pending_moves {
+        let side = if match_model
+            .near
+            .hand_instance_ids
+            .contains(&pending_move.instance_id)
+        {
+            MatchPlayerSide::Near
+        } else {
+            MatchPlayerSide::Far
+        };
+        let player = match_model.player_mut(side);
+        if pending_move.energy_cost > player.energy_available {
+            continue;
+        }
+        let Some((_, card_id)) = player.remove_hand_card_by_instance_id(pending_move.instance_id)
+        else {
+            continue;
+        };
+        player.energy_available -= pending_move.energy_cost;
+        let slot_hand_index = cpu_slot_hand_index(side, player.next_slot_card_index());
+        if slot_board.place_for_side_with_card_id(
+            pending_move.location_index,
+            side.slot_side(),
+            pending_move.slot_index,
+            slot_hand_index,
+            card_id,
+        ) {
+            match_model.record_placement(
+                side,
+                pending_move.location_index,
+                pending_move.slot_index,
+            );
+            committed_count += 1;
+        }
+    }
+
+    committed_count
+}
+
+/// HUMAN: Advances the staged post-Next reveal flow once CPU card animations finish.
+/// AI: Keeps face-down placement, reveal, scoring, and new-round setup in separate frames.
+pub fn staged_match_resolution_system(
+    active_view: Option<Res<ActiveView>>,
+    time: Res<Time>,
+    card_model_registry: Res<CardModelRegistry>,
+    mut match_model: ResMut<OpponentMatchModel>,
+    mut game_round_model: ResMut<GameRoundModel>,
+    mut game_location_model: ResMut<GameLocationModel>,
+    mut game_deck_model: ResMut<GameDeckModel>,
+    mut game_hand_model: ResMut<GameHandModel>,
+    mut card_states: ResMut<CardStateModel>,
+    slot_board: Res<CardSlotBoardModel>,
+    animation_query: Query<&CpuPlacedCardAnimation>,
+    cpu_card_query: Query<&CpuPlacedCardView>,
+) {
+    if !is_game_view_active(active_view.as_deref()) || match_model.is_complete() {
+        return;
+    }
+
+    match match_model.resolution_phase {
+        MatchResolutionPhase::Planning => {}
+        MatchResolutionPhase::CpuPlacementsMoving => {
+            let cpu_cards_still_moving = animation_query.iter().any(|animation| {
+                matches!(
+                    animation.phase,
+                    CpuPlacedCardAnimationPhase::MovingToHand
+                        | CpuPlacedCardAnimationPhase::MovingToSlot
+                )
+            });
+            if cpu_cards_still_moving {
+                return;
+            }
+            match_model.begin_current_round_reveal();
+            match_model.resolution_phase = MatchResolutionPhase::CpuPlacementsRevealing;
+        }
+        MatchResolutionPhase::CpuPlacementsRevealing => {
+            let has_rendered_cpu_cards = cpu_card_query.iter().next().is_some();
+            if animation_query.iter().next().is_some() {
+                return;
+            }
+            if match_model.complete_revealing_current_round_placements() > 0 {
+                if has_rendered_cpu_cards
+                    && !match_model
+                        .current_round_reveal_targets(&slot_board)
+                        .is_empty()
+                {
+                    match_model.next_reveal_delay_seconds = CPU_CARD_REVEAL_STAGGER_SECONDS;
+                }
+                return;
+            }
+            if has_rendered_cpu_cards && match_model.tick_next_reveal_delay(time.delta_secs()) {
+                return;
+            }
+            if match_model
+                .start_next_current_round_reveal(&slot_board)
+                .is_some()
+            {
+                return;
+            }
+            finish_revealed_match_round(
+                &mut match_model,
+                &mut game_round_model,
+                &mut game_location_model,
+                &mut game_deck_model,
+                &mut game_hand_model,
+                &mut card_states,
+                &slot_board,
+                &card_model_registry,
+            );
+        }
+    }
+}
+
+fn finish_revealed_match_round(
     match_model: &mut OpponentMatchModel,
     game_round_model: &mut GameRoundModel,
     game_location_model: &mut GameLocationModel,
@@ -4673,27 +4884,23 @@ pub fn resolve_match_readiness(
     slot_board: &CardSlotBoardModel,
     card_model_registry: &CardModelRegistry,
 ) {
-    if !match_model.both_ready() || match_model.is_complete() {
-        return;
-    }
-
-    match_model.reveal_current_turn_placements();
     card_states.lock_location_cards();
     if game_round_model.round >= game_round_model.max_rounds {
         let winner_side =
             final_winner_from_slots(slot_board, card_model_registry, Some(game_location_model));
-        match_model.turn.winner = Some(MatchWinnerModel {
+        match_model.round.winner = Some(MatchWinnerModel {
             side: winner_side,
             controller: match_model.controller_for_winner_side(winner_side),
         });
-        game_round_model.end_turn_resolved = true;
+        game_round_model.end_round_resolved = true;
+        match_model.resolution_phase = MatchResolutionPhase::Planning;
         return;
     }
 
     if game_round_model.advance_round() {
-        match_model.turn.turn = game_round_model.round;
+        match_model.round.round = game_round_model.round;
         game_location_model.set_round(game_round_model.round);
-        start_match_turn(
+        start_match_round(
             match_model,
             game_round_model,
             game_deck_model,
@@ -4701,6 +4908,7 @@ pub fn resolve_match_readiness(
         );
         card_states.ensure_size(game_hand_model.len());
     }
+    match_model.resolution_phase = MatchResolutionPhase::Planning;
 }
 
 /// HUMAN: Runs paced CPU controller choices for any CPU-owned player.
@@ -4711,12 +4919,8 @@ pub fn cpu_brain_update_system(
     card_model_registry: Res<CardModelRegistry>,
     mut match_model: ResMut<OpponentMatchModel>,
     mut cpu_brain: ResMut<CpuBrainModel>,
-    mut game_round_model: ResMut<GameRoundModel>,
-    mut game_location_model: ResMut<GameLocationModel>,
-    mut game_deck_model: ResMut<GameDeckModel>,
-    mut game_hand_model: ResMut<GameHandModel>,
-    mut card_states: ResMut<CardStateModel>,
     mut slot_board: ResMut<CardSlotBoardModel>,
+    cpu_hand_query: Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
 ) {
     if !is_game_view_active(active_view.as_deref()) {
         return;
@@ -4731,12 +4935,15 @@ pub fn cpu_brain_update_system(
         {
             continue;
         }
-        if cpu_brain.wait_for_hand_presentation(
+        let hand_cards_are_settled =
+            cpu_hand_cards_are_settled_for_planning(side, &match_model, &cpu_hand_query);
+        if cpu_brain.wait_for_settled_hand_pause(
             side,
-            match_model.turn.turn,
+            match_model.round.round,
             match_model.player(side).hand.len(),
+            hand_cards_are_settled,
             time.delta_secs(),
-            CPU_CARD_MOVE_SECONDS,
+            CPU_HAND_SETTLED_PAUSE_SECONDS,
         ) {
             continue;
         }
@@ -4744,50 +4951,53 @@ pub fn cpu_brain_update_system(
             continue;
         }
 
-        if let Some(selected_move) = choose_level1_move(
+        let selected_moves = choose_level1_moves(
             &match_model,
             side,
             &slot_board,
             &card_model_registry,
             cpu_brain.seed,
-        ) {
-            let player = match_model.player_mut(side);
-            if selected_move.hand_index < player.hand.len()
-                && selected_move.energy_cost <= player.energy_available
-            {
-                player.energy_available -= selected_move.energy_cost;
-                player.hand.remove(selected_move.hand_index);
-                let slot_hand_index = cpu_slot_hand_index(side, player.next_slot_card_index());
-                if slot_board.place_for_side_with_card_id(
-                    selected_move.location_index,
-                    side.slot_side(),
-                    selected_move.slot_index,
-                    slot_hand_index,
-                    selected_move.card_id,
-                ) {
-                    match_model.record_placement(
-                        side,
-                        selected_move.location_index,
-                        selected_move.slot_index,
-                    );
-                }
-            }
+        );
+        if selected_moves.is_empty() {
+            match_model.player_mut(side).ready_for_next = true;
         } else {
+            match_model.queue_cpu_placements(selected_moves);
             match_model.player_mut(side).ready_for_next = true;
         }
         cpu_brain.schedule_next(side);
     }
 
-    resolve_match_readiness(
-        &mut match_model,
-        &mut game_round_model,
-        &mut game_location_model,
-        &mut game_deck_model,
-        &mut game_hand_model,
-        &mut card_states,
-        &slot_board,
-        &card_model_registry,
-    );
+    resolve_match_readiness(&mut match_model, &mut slot_board);
+}
+
+fn cpu_hand_cards_are_settled_for_planning(
+    side: MatchPlayerSide,
+    match_model: &OpponentMatchModel,
+    cpu_hand_query: &Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
+) -> bool {
+    let player = match_model.player(side);
+    if player.hand.is_empty() {
+        return true;
+    }
+
+    let expected_instance_ids: std::collections::HashSet<u64> =
+        player.hand_instance_ids.iter().copied().collect();
+    if expected_instance_ids.is_empty() {
+        return true;
+    }
+
+    let mut seen_instance_ids = std::collections::HashSet::new();
+    for (view, animation) in cpu_hand_query.iter() {
+        if view.owner != side || !expected_instance_ids.contains(&view.instance_id) {
+            continue;
+        }
+        if animation.is_some() {
+            return false;
+        }
+        seen_instance_ids.insert(view.instance_id);
+    }
+
+    seen_instance_ids.is_empty() || seen_instance_ids == expected_instance_ids
 }
 
 /// HUMAN: Keeps passive CPU hand cards visible while CPU players prepare moves.
@@ -4818,18 +5028,24 @@ pub fn sync_cpu_hand_card_entities_system(
         }
         let visible_face = cpu_card_hand_visible_face(owner);
         for (hand_index, card_id) in player.hand.iter().enumerate() {
-            expected.insert((owner, hand_index, card_id.clone()), visible_face);
+            let Some(instance_id) = player.hand_instance_id(hand_index) else {
+                continue;
+            };
+            expected.insert(
+                (owner, instance_id, card_id.clone()),
+                (hand_index, visible_face),
+            );
         }
     }
 
     for (entity, view) in &mut hand_query {
-        let key = (view.owner, view.hand_index, view.card_id.clone());
+        let key = (view.owner, view.instance_id, view.card_id.clone());
         if expected.remove(&key).is_none() {
             commands.entity(entity).despawn();
         }
     }
 
-    for ((owner, hand_index, card_id), visible_face) in expected {
+    for ((owner, instance_id, card_id), (hand_index, visible_face)) in expected {
         let Some(card_model) = card_model_registry.card_model_for_id(&card_id).cloned() else {
             continue;
         };
@@ -4850,12 +5066,8 @@ pub fn sync_cpu_hand_card_entities_system(
         );
         commands.entity(card).insert((
             GameViewEntity,
-            CpuHandCardView::new(owner, hand_index, card_id, visible_face),
-            CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
-                hand_transform,
-                hand_transform,
-                visible_face,
-            ),
+            CpuHandCardView::new(owner, instance_id, hand_index, card_id, visible_face),
+            CpuPlacedCardAnimation::move_to_hand(source_transform, hand_transform, visible_face),
         ));
     }
 }
@@ -4940,10 +5152,7 @@ pub fn sync_cpu_placed_card_entities_system(
             );
             commands
                 .entity(entity)
-                .insert(CpuPlacedCardAnimation::flip_to_front(
-                    slot_transform,
-                    cpu_card_reveal_delay_seconds(view.location_index, view.side, view.slot_index),
-                ));
+                .insert(CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.0));
         }
     }
 
@@ -4982,7 +5191,7 @@ pub fn sync_cpu_placed_card_entities_system(
                 card_id,
                 cpu_card_hand_visible_face(owner),
             ),
-            CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+            CpuPlacedCardAnimation::move_hand_to_slot(
                 hand_transform,
                 target_transform,
                 visible_face,
@@ -5019,8 +5228,10 @@ fn cpu_card_slot_visible_face(
     placement_visibility: PlacementVisibility,
 ) -> CardFace {
     match (owner, placement_visibility) {
-        (MatchPlayerSide::Near, _) | (_, PlacementVisibility::Revealed) => CardFace::Front,
-        (_, PlacementVisibility::CurrentTurnHidden) => CardFace::Back,
+        (MatchPlayerSide::Near, _)
+        | (_, PlacementVisibility::Revealing)
+        | (_, PlacementVisibility::Revealed) => CardFace::Front,
+        (_, PlacementVisibility::CurrentRoundHidden) => CardFace::Back,
     }
 }
 
@@ -5071,28 +5282,6 @@ fn cpu_card_move_source_hand_transform(
     }
 }
 
-fn cpu_card_reveal_delay_seconds(
-    location_index: usize,
-    side: CardSlotSide,
-    slot_index: usize,
-) -> f32 {
-    let slot_order = match (side, slot_index) {
-        (CardSlotSide::Opponent, 2) => 0,
-        (CardSlotSide::Opponent, 3) => 1,
-        (CardSlotSide::Opponent, 0) => 2,
-        (CardSlotSide::Opponent, 1) => 3,
-        (CardSlotSide::LocalPlayer, 0) => 4,
-        (CardSlotSide::LocalPlayer, 1) => 5,
-        (CardSlotSide::LocalPlayer, 2) => 6,
-        (CardSlotSide::LocalPlayer, 3) => 7,
-        (_, _) => 7,
-    };
-    let location_delay = location_index as f32
-        * ((CARD_SLOT_ROW_COUNT * 2) as f32 * CPU_CARD_REVEAL_STAGGER_SECONDS
-            + CPU_CARD_REVEAL_LOCATION_PAUSE_SECONDS);
-    location_delay + slot_order as f32 * CPU_CARD_REVEAL_STAGGER_SECONDS
-}
-
 /// HUMAN: Animates CPU-controlled cards as they move into slots and reveal.
 /// AI: Presentation-only tweening; slot ownership and winner logic stay in resources.
 pub fn cpu_placed_card_animation_system(
@@ -5127,21 +5316,33 @@ fn advance_cpu_placed_card_animation(
         animation.start_delay_seconds = 0.0;
     }
 
-    let move_blend = (active_delta_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
-    let max_flip_step = (std::f32::consts::PI / CPU_CARD_FLIP_SECONDS) * active_delta_seconds;
+    animation.phase_elapsed_seconds += active_delta_seconds;
 
-    transform.translation = transform
-        .translation
-        .lerp(animation.target_transform.translation, move_blend);
-    transform.scale = transform
-        .scale
-        .lerp(animation.target_transform.scale, move_blend);
-
-    let remaining = animation.target_y_rotation - animation.current_y_rotation;
-    if remaining.abs() <= max_flip_step {
-        animation.current_y_rotation = animation.target_y_rotation;
+    if animation.phase == CpuPlacedCardAnimationPhase::Revealing {
+        let progress = (animation.phase_elapsed_seconds / CPU_CARD_FLIP_SECONDS).clamp(0.0, 1.0);
+        let eased_progress = ease_out_cubic(progress);
+        animation.current_y_rotation =
+            std::f32::consts::PI.lerp(animation.target_y_rotation, eased_progress);
     } else {
-        animation.current_y_rotation += max_flip_step * remaining.signum();
+        let progress = (animation.phase_elapsed_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
+        let eased_progress = ease_out_cubic(progress);
+        let mut translation = animation
+            .phase_start_transform
+            .translation
+            .lerp(animation.target_transform.translation, eased_progress);
+        if progress < 1.0 {
+            translation.z = CPU_CARD_MOVING_FRONT_Z;
+        }
+        transform.translation = translation;
+        let base_scale = animation
+            .phase_start_transform
+            .scale
+            .lerp(animation.target_transform.scale, eased_progress);
+        transform.scale = if progress < 1.0 {
+            base_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER
+        } else {
+            animation.target_transform.scale
+        };
     }
     transform.rotation =
         animation.target_transform.rotation * Quat::from_rotation_y(animation.current_y_rotation);
@@ -5159,12 +5360,18 @@ fn advance_cpu_placed_card_animation(
         transform.rotation = animation.target_transform.rotation
             * Quat::from_rotation_y(animation.target_y_rotation);
         if animation.phase == CpuPlacedCardAnimationPhase::MovingToHand {
+            animation.phase_start_transform = *transform;
             animation.target_transform = animation.slot_transform;
+            animation.phase_elapsed_seconds = 0.0;
             animation.phase = CpuPlacedCardAnimationPhase::MovingToSlot;
             return false;
         }
     }
     is_settled
+}
+
+fn ease_out_cubic(progress: f32) -> f32 {
+    1.0 - (1.0 - progress.clamp(0.0, 1.0)).powi(3)
 }
 
 /// HUMAN: Shows CPU card fronts or backs according to each card's own reveal tween.
@@ -5295,6 +5502,9 @@ pub fn initialize_game_models(
     mut game_hand_model: ResMut<GameHandModel>,
     mut game_round_model: ResMut<GameRoundModel>,
     mut game_location_model: ResMut<GameLocationModel>,
+    location_model_registry: Res<LocationModelRegistry>,
+    mut active_locations: ResMut<ActiveLocations>,
+    active_world_model: Res<ActiveWorldModel>,
     mut opponent_match_model: ResMut<OpponentMatchModel>,
     mut card_states: ResMut<CardStateModel>,
 ) {
@@ -5305,6 +5515,9 @@ pub fn initialize_game_models(
         &mut game_hand_model,
         &mut game_round_model,
         &mut game_location_model,
+        Some(&location_model_registry),
+        Some(&mut active_locations),
+        Some(&active_world_model),
         player_deck_collection.primary_deck(),
     );
     card_states.reset_to_size(game_hand_model.len());
@@ -5375,7 +5588,7 @@ fn spawn_debug_hud(commands: &mut Commands) -> Entity {
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "T", KeyCode::KeyT, false);
             parent.spawn((TextSpan::new("\nKEYS: "), debug_hud_text_font()));
-            spawn_key_span(parent, "D", KeyCode::KeyD, true);
+            spawn_key_span(parent, "[D]", KeyCode::KeyD, true);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
             spawn_key_span(parent, "F", KeyCode::KeyF, true);
             parent.spawn((TextSpan::new(", "), debug_hud_text_font()));
@@ -5428,7 +5641,7 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     for (key_text, mut underline_color) in &mut params.key_text_query {
         let is_active = if key_text.is_toggle {
             match key_text.key_code {
-                KeyCode::KeyD => params.hud_state.is_debug_drawing_visible,
+                KeyCode::KeyD => params.hud_state.is_debug_drawing_visible(),
                 KeyCode::KeyF => params.hud_state.is_fullscreen,
                 KeyCode::KeyP => fps_on,
                 KeyCode::KeyI => inspector_on,
@@ -5523,7 +5736,12 @@ pub fn toggle_debug_hud_inputs(
     }
 
     if keys.just_pressed(KeyCode::KeyD) {
-        hud_state.is_debug_drawing_visible = !hud_state.is_debug_drawing_visible;
+        let shift_pressed = keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight);
+        hud_state.debug_draw_mode = if shift_pressed {
+            hud_state.debug_draw_mode.toggle_solo()
+        } else {
+            hud_state.debug_draw_mode.toggle_standard()
+        };
         changed = true;
     }
 

@@ -57,7 +57,7 @@ pub const CARD_DEPTH_FACTOR_MAX: f32 = 20.0;
 pub const CARD_LAYER_SCALE_DEFAULT: f32 = 1.0;
 pub const CARD_LAYER_SCALE_MIN: f32 = 0.0;
 pub const CARD_LAYER_SCALE_MAX: f32 = 2.0;
-pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.45;
+pub const CARD_FLIP_DURATION_SECONDS: f32 = 0.5;
 pub const CARD_BACK_TEXTURE_PATH: &str = "themes/theme_japan/cards/card_back.png";
 pub const CARD_SAFE_AREA_TEXTURE_PATH: &str = "themes/theme_japan/cards/safe_area.png";
 pub const KAGE_REN_CARD_MODEL_ID: &str = "kage_ren";
@@ -72,7 +72,7 @@ pub const BAMBOO_FOREST_WORLD_ID: &str = "bamboo_forest";
 pub const COASTAL_HARBOR_WORLD_ID: &str = "coastal_harbor";
 
 /// HUMAN: Frame counter shared by runtime systems.
-/// AI: Keep as the lightweight app tick resource; do not mix with gameplay turn state.
+/// AI: Keep as the lightweight app tick resource; do not mix with gameplay round state.
 #[derive(Resource, Debug, Default)]
 pub struct GameTicks(pub u64);
 
@@ -647,18 +647,16 @@ impl LocationModelRegistry {
     }
 }
 
+/// HUMAN: Three location registry indices currently active in the match.
+/// AI: Keep this aligned with GameLocationModel definitions whenever a match resets.
 #[derive(Clone, Debug, Resource)]
 pub struct ActiveLocations {
     pub indices: [usize; ACTIVE_LOCATION_COUNT],
-    generation: usize,
 }
 
 impl Default for ActiveLocations {
     fn default() -> Self {
-        Self {
-            indices: [0, 1, 2],
-            generation: 0,
-        }
+        Self { indices: [0, 1, 2] }
     }
 }
 
@@ -666,13 +664,16 @@ impl ActiveLocations {
     pub fn reroll(
         &mut self,
         registry: &LocationModelRegistry,
-        active_world_model: &ActiveWorldModel,
+        _active_world_model: &ActiveWorldModel,
     ) {
         let count = registry.len().max(1);
-        self.generation = self.generation.wrapping_add(1);
-        let start = (active_world_model.index + self.generation) % count;
-        for (offset, index) in self.indices.iter_mut().enumerate() {
-            *index = (start + offset) % count;
+        let mut available_indices: Vec<usize> = (0..count).collect();
+        fastrand::shuffle(&mut available_indices);
+        for (slot_index, index) in self.indices.iter_mut().enumerate() {
+            *index = available_indices
+                .get(slot_index)
+                .copied()
+                .unwrap_or(slot_index % count);
         }
     }
 }
@@ -705,16 +706,20 @@ pub enum CardFace {
 
 #[derive(Debug, Resource)]
 pub struct CardFlipState {
+    pub start_y_rotation: f32,
     pub current_y_rotation: f32,
     pub target_y_rotation: f32,
+    pub elapsed_seconds: f32,
     pub visible_face: CardFace,
 }
 
 impl Default for CardFlipState {
     fn default() -> Self {
         Self {
+            start_y_rotation: 0.0,
             current_y_rotation: 0.0,
             target_y_rotation: 0.0,
+            elapsed_seconds: 0.0,
             visible_face: CardFace::Front,
         }
     }
@@ -727,6 +732,8 @@ impl CardFlipState {
 
     pub fn request_flip(&mut self) {
         if self.is_animating() {
+            self.start_y_rotation = self.current_y_rotation;
+            self.elapsed_seconds = 0.0;
             if self.target_y_rotation > self.current_y_rotation {
                 self.target_y_rotation -= std::f32::consts::PI;
             } else {
@@ -735,6 +742,8 @@ impl CardFlipState {
             return;
         }
 
+        self.start_y_rotation = self.current_y_rotation;
+        self.elapsed_seconds = 0.0;
         match Self::face_for_angle(self.target_y_rotation) {
             CardFace::Front => self.target_y_rotation += std::f32::consts::PI,
             CardFace::Back => self.target_y_rotation -= std::f32::consts::PI,
@@ -745,15 +754,21 @@ impl CardFlipState {
         let remaining = self.target_y_rotation - self.current_y_rotation;
         if remaining.abs() <= f32::EPSILON {
             self.current_y_rotation = self.target_y_rotation;
+            self.start_y_rotation = self.target_y_rotation;
+            self.elapsed_seconds = 0.0;
             self.visible_face = Self::face_for_angle(self.current_y_rotation);
             return;
         }
 
-        let max_step = (std::f32::consts::PI / CARD_FLIP_DURATION_SECONDS) * delta_seconds.max(0.0);
-        if remaining.abs() <= max_step {
+        self.elapsed_seconds += delta_seconds.max(0.0);
+        let progress = (self.elapsed_seconds / CARD_FLIP_DURATION_SECONDS).clamp(0.0, 1.0);
+        if progress >= 1.0 {
             self.current_y_rotation = self.target_y_rotation;
         } else {
-            self.current_y_rotation += max_step * remaining.signum();
+            let eased_progress = ease_out_cubic(progress);
+            self.current_y_rotation = self
+                .start_y_rotation
+                .lerp(self.target_y_rotation, eased_progress);
         }
         self.visible_face = Self::face_for_angle(self.current_y_rotation);
     }
@@ -769,6 +784,10 @@ impl CardFlipState {
     pub fn rotation(&self) -> Quat {
         Quat::from_rotation_y(self.current_y_rotation)
     }
+}
+
+fn ease_out_cubic(progress: f32) -> f32 {
+    1.0 - (1.0 - progress.clamp(0.0, 1.0)).powi(3)
 }
 
 #[derive(Debug, Resource)]
@@ -886,16 +905,60 @@ impl CardSettingsStore {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum DebugDrawMode {
+    #[default]
+    Off,
+    On,
+    OnSolo,
+}
+
+impl DebugDrawMode {
+    pub const fn is_visible(self) -> bool {
+        !matches!(self, Self::Off)
+    }
+
+    pub const fn is_solo(self) -> bool {
+        matches!(self, Self::OnSolo)
+    }
+
+    pub const fn toggle_standard(self) -> Self {
+        if matches!(self, Self::On) {
+            Self::Off
+        } else {
+            Self::On
+        }
+    }
+
+    pub const fn toggle_solo(self) -> Self {
+        if matches!(self, Self::OnSolo) {
+            Self::Off
+        } else {
+            Self::OnSolo
+        }
+    }
+}
+
 #[derive(Resource, Debug, Default)]
 pub struct DebugHudState {
     pub is_fps_visible: bool,
     pub is_fullscreen: bool,
     pub is_inspector_visible: bool,
     pub is_hot_reload_autorestart_enabled: bool,
-    pub is_debug_drawing_visible: bool,
+    pub debug_draw_mode: DebugDrawMode,
     pub fps_accumulated_seconds: f32,
     pub fps_accumulated_frames: u32,
     pub fps_display_value: f32,
+}
+
+impl DebugHudState {
+    pub const fn is_debug_drawing_visible(&self) -> bool {
+        self.debug_draw_mode.is_visible()
+    }
+
+    pub const fn is_debug_drawing_solo(&self) -> bool {
+        self.debug_draw_mode.is_solo()
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Resource, Serialize)]
@@ -909,6 +972,8 @@ pub struct DebugHudInputStore {
     #[serde(default)]
     pub is_hot_reload_autorestart_enabled: bool,
     #[serde(default)]
+    pub debug_draw_mode: DebugDrawMode,
+    #[serde(default)]
     pub is_debug_drawing_visible: bool,
 }
 
@@ -919,7 +984,8 @@ impl DebugHudInputStore {
             is_fullscreen: state.is_fullscreen,
             is_inspector_visible: state.is_inspector_visible,
             is_hot_reload_autorestart_enabled: state.is_hot_reload_autorestart_enabled,
-            is_debug_drawing_visible: state.is_debug_drawing_visible,
+            debug_draw_mode: state.debug_draw_mode,
+            is_debug_drawing_visible: state.is_debug_drawing_visible(),
         }
     }
 
@@ -928,7 +994,12 @@ impl DebugHudInputStore {
         state.is_fullscreen = self.is_fullscreen;
         state.is_inspector_visible = self.is_inspector_visible;
         state.is_hot_reload_autorestart_enabled = self.is_hot_reload_autorestart_enabled;
-        state.is_debug_drawing_visible = self.is_debug_drawing_visible;
+        state.debug_draw_mode =
+            if self.debug_draw_mode == DebugDrawMode::Off && self.is_debug_drawing_visible {
+                DebugDrawMode::On
+            } else {
+                self.debug_draw_mode
+            };
     }
 }
 

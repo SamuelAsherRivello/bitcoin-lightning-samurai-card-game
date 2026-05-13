@@ -18,7 +18,7 @@ Define the card and location point model for the Bevy card game so card cost, ca
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Point totals, control, and match outcome are small deterministic calculations over three locations and up to four cards per player per location; recomputation should be frame-cheap and allocation-light |
-| Constraints | Keep Bevy runtime code under `bevy/crates/game/src/runtime/`; keep point data as `Model` concepts and point rendering as `View` concepts; keep top opponent total and bottom local total positioned from the aspect-ratio-safe `GameView`; do not implement full deckbuilding, draw, energy, CPU, complete turn rules, abilities, or production UI |
+| Constraints | Keep Bevy runtime code under `bevy/crates/game/src/runtime/`; keep point data as `Model` concepts and point rendering as `View` concepts; keep top opponent total and bottom local total positioned from the aspect-ratio-safe `GameView`; do not implement full deckbuilding, draw, energy, CPU, complete round rules, abilities, or production UI |
 | Scale/Scope | Three shared locations, two players, up to four cards per player per location, rounds 1 through 6, display contract for values from `-99` through `99`, deterministic control and match-outcome rules |
 
 ## Constitution Check

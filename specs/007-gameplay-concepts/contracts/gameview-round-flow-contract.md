@@ -6,7 +6,7 @@ This contract defines externally visible GameView behavior for the local near-pl
 
 | Event | Expected Behavior |
 | ----- | ----------------- |
-| GameView opens fresh | Round displays `1/6`; lower-right End Turn is visible; lower-left Restart and Undo are visible; left location is open; middle and right locations are closed; Undo is disabled until a current-round placement exists |
+| GameView opens fresh | Round displays `1/6`; lower-right End Round is visible; lower-left Restart and Undo are visible; left location is open; middle and right locations are closed; Undo is disabled until a current-round placement exists |
 | Restart pressed | Active GameView play state is cleared; a new randomized 12-card deck is created; round returns to `1/6`; energy returns to `1/1`; location open/closed state resets to round 1; current-round history is empty |
 | Restart during animation | Final visible and model state is a clean fresh game with no old cards, energy, or move history mixed in |
 
@@ -61,7 +61,7 @@ This contract defines externally visible GameView behavior for the local near-pl
 
 | Control | Position | Enabled Rule | Label Rule |
 | ------- | -------- | ------------ | ---------- |
-| End Turn | Lower right safe-area HUD | Enabled through round 6 | Shows `End Turn` and the current round fraction |
+| End Round | Lower right safe-area HUD | Enabled through round 6 | Shows `End Round` and the current round fraction |
 | Restart | Lower left safe-area HUD, above Undo | Always enabled during GameView play | Shows `Restart` |
 | Undo | Lower left safe-area HUD, below Restart | Enabled only when current-round move history is non-empty | Shows `Energy current/max` newline `Undo` |
 
@@ -73,7 +73,7 @@ This contract defines externally visible GameView behavior for the local near-pl
 | Place unaffordable card | Card remains in hand; energy is unchanged; current-round history is unchanged |
 | Undo with current-round moves | Only current-round moved cards return to hand; active location ability effects are removed from those cards; energy spent by those moves is restored; hand group recenters |
 | Undo with no current-round moves | Button is disabled or visually greyed out and performs no state change |
-| End Turn | Current-round undo history clears; prior-round placed cards remain placed |
+| End Round | Current-round undo history clears; prior-round placed cards remain placed |
 
 ## Hand Layout And Dealing
 

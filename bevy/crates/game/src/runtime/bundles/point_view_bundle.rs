@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::runtime::components::PointViewVisualModifiers;
 use crate::runtime::resources::{CardSlotSide, GameFont, POINT_VIEW_FONT};
 use crate::runtime::resources::{CostPointModel, PowerPointModel};
 
@@ -118,6 +119,7 @@ impl PointLocationView {
 pub struct PointViewBundle {
     pub name: Name,
     pub view: PointView,
+    pub visual_modifiers: PointViewVisualModifiers,
 }
 
 impl PointViewBundle {
@@ -125,6 +127,7 @@ impl PointViewBundle {
         Self {
             name: Name::new(name.into()),
             view: PointView::new(model),
+            visual_modifiers: PointViewVisualModifiers::default(),
         }
     }
 }

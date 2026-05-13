@@ -5,7 +5,7 @@
 
 ## Summary
 
-Extend the current `GameView` from a static gameplay-facing scene into a local six-round play loop. The implementation should preserve the persistent `AppScene` and current `GameView` layout, keep the lower-right End Turn button, add lower-left Restart and energy-aware Undo controls, introduce runtime models for the near player's 12-card deck, start-of-round deck-to-hand dealing on every round, hand, round energy, current-round move history, restart state, same-round placed-card mobility, locked prior-round placed cards, and three open/closed locations with text and effective-energy abilities, and integrate those models with existing card gesture placement so energy, undo, manual return-to-hand, location effects, and hand recentering stay deterministic.
+Extend the current `GameView` from a static gameplay-facing scene into a local six-round play loop. The implementation should preserve the persistent `AppScene` and current `GameView` layout, keep the lower-right End Round button, add lower-left Restart and energy-aware Undo controls, introduce runtime models for the near player's 12-card deck, start-of-round deck-to-hand dealing on every round, hand, round energy, current-round move history, restart state, same-round placed-card mobility, locked prior-round placed cards, and three open/closed locations with text and effective-energy abilities, and integrate those models with existing card gesture placement so energy, undo, manual return-to-hand, location effects, and hand recentering stay deterministic.
 
 ## Technical Context
 
@@ -18,7 +18,7 @@ Extend the current `GameView` from a static gameplay-facing scene into a local s
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Frame-cheap over a fixed local loop: 12 deck cards, ordered deck-to-hand deal selection over remaining cards, 9 dealt cards with the initial deck across rounds 1 through 6, 3 locations, and 12 local placement slots |
-| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; use `bevy/crates/template-crate` as the local reference; derive visible 2D and 3D positions from the aspect-ratio-safe `GameView`; keep `AppScene` persistent; preserve `DeckBuilderScene`; do not implement CPU turns, scoring, card abilities, full location ownership, or additional location ability types beyond the defined effective-energy modifiers |
+| Constraints | Keep runtime work under `bevy/crates/game/src/runtime/`; use `bevy/crates/template-crate` as the local reference; derive visible 2D and 3D positions from the aspect-ratio-safe `GameView`; keep `AppScene` persistent; preserve `DeckBuilderScene`; do not implement CPU rounds, scoring, card abilities, full location ownership, or additional location ability types beyond the defined effective-energy modifiers |
 | Scale/Scope | One near human player, one randomized 12-card deck, six rounds, fixed requested deal and energy schedules, deck-to-hand dealing at the start of every round 1 through 6 without energy-match gating, current-round undo, manual return-to-hand for cards placed this round, prior-round placed-card lock, restart, three open/closed locations, Fortress Gate and Bamboo Crossing effective-energy modifiers, and existing local hand-to-location gesture path |
 
 ## Constitution Check
@@ -36,7 +36,7 @@ Extend the current `GameView` from a static gameplay-facing scene into a local s
 | Theme asset organization | ✅ | No new theme-owned assets are required; existing world/location/card assets stay where already defined |
 | Visible user feedback | ✅ | Card deal animation at the start of every round, energy text, disabled Undo state, hand recentering, hand insertion gap shifts, location open/closed text, location ability text, locked placed-card behavior, and restart state provide visible feedback |
 | Desktop and browser WebGPU parity | ✅ | Quickstart includes desktop and browser verification paths; unsupported target blockers must be documented if encountered |
-| Aspect-ratio-safe layout | ✅ | Lower-left controls, lower-right End Turn, hand cards, and deal origins derive from the aspect-ratio-safe `GameView` |
+| Aspect-ratio-safe layout | ✅ | Lower-left controls, lower-right End Round, hand cards, and deal origins derive from the aspect-ratio-safe `GameView` |
 | Framework-specific constraints documented | ✅ | Bevy UI, pointer gestures, resource-driven runtime state, and animation ownership are documented in research |
 
 ## Project Structure

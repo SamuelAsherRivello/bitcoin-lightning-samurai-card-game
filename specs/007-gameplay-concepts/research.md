@@ -32,7 +32,7 @@
 
 ## Decision: Undo Stores Current-Round Move Records
 
-**Rationale**: Undo must only return cards moved during the current round and restore related energy deductions. A current-round move history can record hand index, location, slot, and energy cost, then clear when End Turn advances or Restart runs.
+**Rationale**: Undo must only return cards moved during the current round and restore related energy deductions. A current-round move history can record hand index, location, slot, and energy cost, then clear when End Round advances or Restart runs.
 
 **Alternatives considered**: Inferring current-round cards from board state cannot distinguish current-round and prior-round placements. A full command history is broader than required.
 
@@ -50,9 +50,9 @@
 
 ## Decision: UI Controls Use Bevy UI Under The Hud Root
 
-**Rationale**: The spec selects built-in Bevy UI and repo guidance requires persistent overlays inside the aspect-ratio safe area under `bevy_aspect_ratio_mask::Hud`. Lower-left controls and lower-right End Turn should share this system.
+**Rationale**: The spec selects built-in Bevy UI and repo guidance requires persistent overlays inside the aspect-ratio safe area under `bevy_aspect_ratio_mask::Hud`. Lower-left controls and lower-right End Round should share this system.
 
-**Alternatives considered**: Egui is unnecessary for this fixed game HUD. 3D mesh buttons add hit-testing complexity and do not match the existing TurnUI requirement.
+**Alternatives considered**: Egui is unnecessary for this fixed game HUD. 3D mesh buttons add hit-testing complexity and do not match the existing RoundUI requirement.
 
 ## Decision: Restart Cancels In-Flight Animations By Resetting Authoritative Models
 

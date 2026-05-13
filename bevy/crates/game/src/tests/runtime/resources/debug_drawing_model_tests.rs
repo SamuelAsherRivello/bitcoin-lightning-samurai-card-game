@@ -38,7 +38,7 @@ fn replacing_target_updates_generation() {
 fn default_model_requests_reference_debug_drawing_layout() {
     let model = DebugDrawingModel::default();
 
-    assert_eq!(model.requests().len(), 29);
+    assert_eq!(model.requests().len(), 11);
     assert_eq!(
         model
             .request_for(DebugDrawingTarget::LocationAreaTwo)
@@ -88,10 +88,10 @@ fn default_model_requests_reference_debug_drawing_layout() {
     );
     assert_eq!(
         model
-            .request_for(DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft)
+            .request_for(DebugDrawingTarget::LocationCardSlotsTopCenter)
             .unwrap()
             .label,
-        ""
+        "Slots Area"
     );
     assert_eq!(
         model
@@ -130,24 +130,40 @@ fn default_model_requests_reference_debug_drawing_layout() {
     );
     assert_eq!(
         model
-            .request_for(DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft)
+            .request_for(DebugDrawingTarget::LocationCardSlotsTopCenter)
             .unwrap()
             .rect,
-        DebugDrawingRect::new(548.0, 44.0, 92.0, 90.0)
+        DebugDrawingRect::new(548.0, 44.0, 184.0, 180.0)
     );
     assert_eq!(
         model
-            .request_for(DebugDrawingTarget::LocationCardSlotTopCenterLowerRight)
+            .request_for(DebugDrawingTarget::LocationCardSlotsBottomCenter)
             .unwrap()
             .rect,
-        DebugDrawingRect::new(640.0, 134.0, 92.0, 90.0)
+        DebugDrawingRect::new(548.0, 432.0, 184.0, 180.0)
     );
     assert_eq!(
         model
-            .request_for(DebugDrawingTarget::LocationCardSlotTopCenterLowerRight)
+            .request_for(DebugDrawingTarget::LocationCardSlotsBottomCenter)
             .unwrap()
             .color,
         DebugDrawingColor::blue()
+    );
+    assert_eq!(
+        model
+            .request_for(DebugDrawingTarget::LocationCardSlotsBottomCenter)
+            .unwrap()
+            .color
+            .alpha,
+        0.9
+    );
+    assert_eq!(
+        model
+            .request_for(DebugDrawingTarget::LocationCardSlotsBottomCenter)
+            .unwrap()
+            .color
+            .fill_alpha,
+        0.1
     );
 }
 
@@ -156,7 +172,7 @@ fn location_slot_debug_targets_read_runtime_slot_rects() {
     let board = CardSlotBoardModel::default();
 
     assert_eq!(
-        DebugDrawingTarget::LocationCardSlotBottomRightLowerRight.runtime_rect(&board),
-        Some(DebugDrawingRect::new(824.0, 522.0, 92.0, 90.0))
+        DebugDrawingTarget::LocationCardSlotsBottomRight.runtime_rect(&board),
+        Some(DebugDrawingRect::new(732.0, 432.0, 184.0, 180.0))
     );
 }

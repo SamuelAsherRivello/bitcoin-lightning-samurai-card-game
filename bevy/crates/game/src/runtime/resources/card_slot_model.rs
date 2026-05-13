@@ -136,7 +136,7 @@ impl CardSlotModel {
 }
 
 /// HUMAN: Runtime board-slot state for the three shared locations.
-/// AI: Use this for gesture legality before later gameplay turn rules are introduced.
+/// AI: Use this for gesture legality before later gameplay round rules are introduced.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CardSlotBoardModel {
     slots: Vec<CardSlotModel>,
@@ -388,7 +388,7 @@ impl CardSlotBoardModel {
 }
 
 /// HUMAN: Runtime gameplay state for hand cards as they move between hand and board.
-/// AI: This is intentionally small until full deck/turn models exist.
+/// AI: This is intentionally small until full deck/round models exist.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CardStateModel {
     states: Vec<CardState>,

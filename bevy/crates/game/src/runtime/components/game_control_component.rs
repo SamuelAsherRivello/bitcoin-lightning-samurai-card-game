@@ -7,7 +7,7 @@ pub enum GameControlAction {
     Mode,
     Restart,
     Undo,
-    EndTurn,
+    EndRound,
 }
 
 /// HUMAN: Marker for a clickable gameplay control button.

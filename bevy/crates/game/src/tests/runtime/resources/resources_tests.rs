@@ -78,6 +78,7 @@ fn debug_hud_input_defaults_all_toggles_off() {
     assert!(!store.is_fullscreen);
     assert!(!store.is_inspector_visible);
     assert!(!store.is_hot_reload_autorestart_enabled);
+    assert_eq!(store.debug_draw_mode, DebugDrawMode::Off);
     assert!(!store.is_debug_drawing_visible);
 }
 
@@ -156,7 +157,7 @@ fn game_deck_deal_to_hand_deals_only_remaining_cards() {
 #[test]
 fn debug_hud_input_store_persists_debug_drawing_toggle() {
     let state = DebugHudState {
-        is_debug_drawing_visible: true,
+        debug_draw_mode: DebugDrawMode::OnSolo,
         ..Default::default()
     };
 
@@ -164,8 +165,24 @@ fn debug_hud_input_store_persists_debug_drawing_toggle() {
     let mut restored_state = DebugHudState::default();
     store.apply_to_state(&mut restored_state);
 
+    assert_eq!(store.debug_draw_mode, DebugDrawMode::OnSolo);
     assert!(store.is_debug_drawing_visible);
-    assert!(restored_state.is_debug_drawing_visible);
+    assert_eq!(restored_state.debug_draw_mode, DebugDrawMode::OnSolo);
+    assert!(restored_state.is_debug_drawing_visible());
+    assert!(restored_state.is_debug_drawing_solo());
+}
+
+#[test]
+fn debug_hud_input_store_migrates_legacy_debug_drawing_bool() {
+    let store = DebugHudInputStore {
+        is_debug_drawing_visible: true,
+        ..Default::default()
+    };
+    let mut restored_state = DebugHudState::default();
+
+    store.apply_to_state(&mut restored_state);
+
+    assert_eq!(restored_state.debug_draw_mode, DebugDrawMode::On);
 }
 
 #[test]
@@ -453,6 +470,7 @@ fn card_flip_state_defaults_to_front_idle() {
 
     assert_eq!(state.current_y_rotation, 0.0);
     assert_eq!(state.target_y_rotation, 0.0);
+    assert_eq!(state.elapsed_seconds, 0.0);
     assert_eq!(state.visible_face, CardFace::Front);
     assert!(!state.is_animating());
 }
@@ -493,6 +511,22 @@ fn card_flip_state_reverses_mid_animation_from_current_progress() {
     state.request_flip();
 
     assert_eq!(state.target_y_rotation, 0.0);
+}
+
+#[test]
+fn card_flip_state_uses_half_second_ease_out() {
+    let mut state = CardFlipState::default();
+
+    state.request_flip();
+    state.advance(CARD_FLIP_DURATION_SECONDS * 0.5);
+
+    assert!(state.current_y_rotation > std::f32::consts::PI * 0.5);
+    assert!(state.is_animating());
+
+    state.advance(CARD_FLIP_DURATION_SECONDS * 0.5);
+
+    assert_eq!(state.current_y_rotation, std::f32::consts::PI);
+    assert!(!state.is_animating());
 }
 
 #[test]
@@ -552,6 +586,12 @@ fn active_locations_selects_three_locations_from_six() {
             .iter()
             .all(|index| *index < LOCATION_MODEL_COUNT)
     );
+    for (position, index) in active_locations.indices.iter().enumerate() {
+        assert!(
+            !active_locations.indices[(position + 1)..].contains(index),
+            "active location index {index} should appear only once"
+        );
+    }
 }
 
 #[test]

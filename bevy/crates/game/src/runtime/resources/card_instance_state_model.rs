@@ -54,7 +54,7 @@ impl CardStateAxisModel {
             Self {
                 axis: "reveal",
                 owner: "PlacementVisibilityModel/PlacementVisibility",
-                values: &["CurrentTurnHidden", "Revealed"],
+                values: &["CurrentRoundHidden", "Revealed"],
             },
             Self {
                 axis: "cpu_presentation",
@@ -112,10 +112,10 @@ impl CardOwnerModel {
 }
 
 /// HUMAN: Movement lock state for a card already assigned to a location slot.
-/// AI: CurrentTurnMovable maps the existing CardState::Location behavior before end turn.
+/// AI: CurrentRoundMovable maps the existing CardState::Location behavior before end round.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum LocationLockState {
-    CurrentTurnMovable,
+    CurrentRoundMovable,
     Locked,
 }
 
@@ -144,7 +144,7 @@ impl CardZoneModel {
             self,
             Self::Hand { .. }
                 | Self::Location {
-                    lock_state: LocationLockState::CurrentTurnMovable,
+                    lock_state: LocationLockState::CurrentRoundMovable,
                     ..
                 }
         )
@@ -172,14 +172,16 @@ impl CardZoneModel {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CardRevealPolicy {
     OwnerVisible,
-    CurrentTurnHiddenToOpponent,
+    CurrentRoundHiddenToOpponent,
     RevealedToAll,
 }
 
 impl CardRevealPolicy {
     pub fn from_placement_visibility(visibility: PlacementVisibility) -> Self {
         match visibility {
-            PlacementVisibility::CurrentTurnHidden => Self::CurrentTurnHiddenToOpponent,
+            PlacementVisibility::CurrentRoundHidden | PlacementVisibility::Revealing => {
+                Self::CurrentRoundHiddenToOpponent
+            }
             PlacementVisibility::Revealed => Self::RevealedToAll,
         }
     }
@@ -191,7 +193,7 @@ impl CardRevealPolicy {
         front_face: CardFace,
     ) -> CardFace {
         let may_see_front = match self {
-            Self::OwnerVisible | Self::CurrentTurnHiddenToOpponent => viewer == owner,
+            Self::OwnerVisible | Self::CurrentRoundHiddenToOpponent => viewer == owner,
             Self::RevealedToAll => true,
         };
         if may_see_front {
@@ -236,7 +238,7 @@ impl CardInstanceStateModel {
                 instance_id: self.instance_id,
             });
         }
-        if self.reveal_policy == CardRevealPolicy::CurrentTurnHiddenToOpponent
+        if self.reveal_policy == CardRevealPolicy::CurrentRoundHiddenToOpponent
             && !matches!(self.zone, CardZoneModel::Location { .. })
         {
             return Err(CardStateValidationError::HiddenCardOutsideLocation {
@@ -430,7 +432,7 @@ impl CardInteractionModel {
 
 /// HUMAN: Query-friendly collection of card instance states for one active match.
 /// AI: Use helpers as the lookup/index strategy before replacing existing hand-index state.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Resource, Clone, Debug, Default, Eq, PartialEq)]
 pub struct CardInstanceStateCollectionModel {
     pub cards: Vec<CardInstanceStateModel>,
 }
@@ -539,7 +541,7 @@ pub struct CardPlacementModel {
     pub location_index: usize,
     pub side: CardSlotSide,
     pub slot_index: usize,
-    pub placed_turn: u8,
+    pub placed_round: u8,
 }
 
 /// HUMAN: Validation failures for proposed card instance state.
@@ -626,7 +628,7 @@ pub fn instance_from_cpu_placed_view(
         .map(CardRevealPolicy::from_placement_visibility)
         .unwrap_or(CardRevealPolicy::RevealedToAll);
     let lock_state = match placement_visibility {
-        Some(PlacementVisibility::CurrentTurnHidden) => LocationLockState::CurrentTurnMovable,
+        Some(PlacementVisibility::CurrentRoundHidden) => LocationLockState::CurrentRoundMovable,
         _ => LocationLockState::Locked,
     };
     CardInstanceStateModel::new(
@@ -661,7 +663,7 @@ fn local_zone_from_existing_state(
                 side: CardSlotSide::LocalPlayer,
                 slot_index,
                 lock_state: match card_states.state(hand_index)? {
-                    CardState::Location => LocationLockState::CurrentTurnMovable,
+                    CardState::Location => LocationLockState::CurrentRoundMovable,
                     CardState::LocationLocked => LocationLockState::Locked,
                     _ => return None,
                 },

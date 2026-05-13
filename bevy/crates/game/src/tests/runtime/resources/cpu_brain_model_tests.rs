@@ -30,6 +30,31 @@ fn level1_brain_selects_affordable_legal_move_with_seeded_choice() {
 }
 
 #[test]
+fn level1_brain_can_plan_multiple_moves_without_mutating_match_or_slots() {
+    let mut match_model = OpponentMatchModel::new(
+        MatchModeModel::HumanVersusCpu,
+        vec!["kage_ren".to_string(); STARTING_DECK_CARD_COUNT],
+    );
+    match_model.far.hand = vec![
+        "kage_ren".to_string(),
+        "kage_ren".to_string(),
+        "lord_daichi".to_string(),
+    ];
+    match_model.far.hand_instance_ids = vec![21, 22, 23];
+    match_model.far.energy_available = 4;
+    let slots = CardSlotBoardModel::default();
+    let registry = CardModelRegistry::default();
+
+    let moves = choose_level1_moves(&match_model, MatchPlayerSide::Far, &slots, &registry, 123);
+
+    assert_eq!(moves.len(), 3);
+    assert_eq!(match_model.far.hand.len(), 3);
+    assert_eq!(match_model.far.energy_available, 4);
+    assert_eq!(slots.populated_count(), 0);
+    assert_ne!(moves[0].instance_id, moves[1].instance_id);
+}
+
+#[test]
 fn brain_pacing_stays_inside_human_like_delay_bounds() {
     let mut brain = CpuBrainModel::default();
 
@@ -37,4 +62,13 @@ fn brain_pacing_stays_inside_human_like_delay_bounds() {
 
     assert!(brain.far_next_decision_seconds >= minimum_cpu_decision_delay_seconds());
     assert!(brain.far_next_decision_seconds <= maximum_cpu_decision_delay_seconds());
+}
+
+#[test]
+fn hand_ready_gate_waits_for_settle_then_pause() {
+    let mut brain = CpuBrainModel::default();
+
+    assert!(brain.wait_for_settled_hand_pause(MatchPlayerSide::Far, 1, 1, false, 10.0, 0.5));
+    assert!(brain.wait_for_settled_hand_pause(MatchPlayerSide::Far, 1, 1, true, 0.49, 0.5));
+    assert!(!brain.wait_for_settled_hand_pause(MatchPlayerSide::Far, 1, 1, true, 0.02, 0.5));
 }

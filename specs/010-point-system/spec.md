@@ -63,7 +63,7 @@ A player can tell which player is currently winning each shared location based o
 
 A player can understand who is winning or who won the match by comparing controlled locations, with a clear tiebreaker.
 
-**Why this priority**: A point system needs a complete outcome rule so later turn, ability, CPU, and end-game work can integrate against one model.
+**Why this priority**: A point system needs a complete outcome rule so later round, ability, CPU, and end-game work can integrate against one model.
 
 **Independent Test**: Review or simulate end-of-match states with different controlled-location counts and ties; verify the expected winner or draw.
 
@@ -118,9 +118,9 @@ A player can understand who is winning or who won the match by comparing control
 - **FR-026**: The match winner MUST be the player controlling more locations after final scoring.
 - **FR-027**: If controlled-location count is tied after final scoring, the match winner MUST be the player with higher total power across all locations.
 - **FR-028**: If controlled-location count and total power across all locations are both tied after final scoring, the match result MUST be a draw.
-- **FR-029**: The point system MUST support rounds 1 through 6 as the current match pacing model, while keeping concrete energy, draw, and turn-resolution rules out of this feature unless later clarified.
+- **FR-029**: The point system MUST support rounds 1 through 6 as the current match pacing model, while keeping concrete energy, draw, and round-resolution rules out of this feature unless later clarified.
 - **FR-030**: The point system MUST preserve the separation between CardDefinition base data, CardInstance match state, shared Location state, point models, point views, and future ability or modifier rules.
-- **FR-031**: The point system MUST NOT require implementation of full deckbuilding, card drawing, CPU strategy, complete turn rules, card abilities, or final production UI in this feature.
+- **FR-031**: The point system MUST NOT require implementation of full deckbuilding, card drawing, CPU strategy, complete round rules, card abilities, or final production UI in this feature.
 - **FR-032**: Future location and card abilities MAY modify effective card power, location totals, card capacity, or control checks, but those modifiers MUST resolve into the same total and control model defined by this spec.
 
 ### Key Entities

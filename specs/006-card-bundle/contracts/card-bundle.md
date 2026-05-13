@@ -57,7 +57,7 @@
 
 | Area | Contract |
 | ---- | -------- |
-| Gameplay | No scoring, turns, targeting, rules, tabletop placement, or reveal gameplay is introduced |
+| Gameplay | No scoring, rounds, targeting, rules, tabletop placement, or reveal gameplay is introduced |
 | Deck browsing | No collection browser or multi-card deck UI is introduced |
 | Front-specific backs | CardBack does not vary by active CardFront in this feature phase |
 | CardBack content | CardBack contains no words, readable letters, characters, logos, or clear icon-like symbols |

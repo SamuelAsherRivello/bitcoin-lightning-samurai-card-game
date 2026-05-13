@@ -38,7 +38,7 @@
 - [ ] T010 [P] Create `GameHandModel` with hand card ordering and centered safe-view layout data in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T011 [P] Add tests for hand append, return, removal, and centered layout overflow behavior in `bevy/crates/game/src/runtime/resources/game_hand_model.rs`
 - [ ] T012 [P] Create `GameRoundModel`, round schedule helpers, and current-round move history records in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
-- [ ] T013 [P] Add tests for six-round energy, requested deal counts, round-6 End Turn, and move-history clearing in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
+- [ ] T013 [P] Add tests for six-round energy, requested deal counts, round-6 End Round, and move-history clearing in `bevy/crates/game/src/runtime/resources/game_round_model.rs`
 - [ ] T014 [P] Create `GameControlAction`, `GameControlButton`, and `GameControlView` components with required `HUMAN:`/`AI:` comments in `bevy/crates/game/src/runtime/components/game_control_component.rs`
 - [ ] T015 Add resource reset helpers that reset deck, hand, locations, slots, card gesture state, card states, round state, and control state in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
@@ -48,9 +48,9 @@
 
 ## Phase 3: User Story 5 - Play Local Round Progression (Priority: P1) MVP
 
-**Goal**: The near human player can play through six local rounds with cards dealt from deck to hand every round, energy spending, undo, End Turn, and Restart.
+**Goal**: The near human player can play through six local rounds with cards dealt from deck to hand every round, energy spending, undo, End Round, and Restart.
 
-**Independent Test**: Launch or inspect GameView and verify lower-right End Turn remains present, lower-left Restart and Undo are present, cards deal from deck to hand at the start of every round 1 through 6, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
+**Independent Test**: Launch or inspect GameView and verify lower-right End Round remains present, lower-left Restart and Undo are present, cards deal from deck to hand at the start of every round 1 through 6, energy progresses `1/1` through `6/6`, Undo affects only current-round placements, and Restart returns to a fresh round `1/6`.
 
 ### Tests for User Story 5
 
@@ -66,8 +66,8 @@
 - [ ] T022 [US5] Spawn or update visible hand card entities from `GameHandModel` in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
 - [ ] T023 [US5] Animate dealt cards from below safe-view screen center into centered hand positions in `bevy/crates/game/src/runtime/systems/game_deck_deal_system.rs`
 - [ ] T024 [US5] Add lower-left Restart and Undo controls under the aspect-ratio-safe HUD root in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T025 [US5] Preserve and update the lower-right End Turn control and round fraction in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
-- [ ] T026 [US5] Implement End Turn advancement, current-round history clearing, round energy reset, round-6 allowed End Turn, and next-round deal triggering in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
+- [ ] T025 [US5] Preserve and update the lower-right End Round control and round fraction in `bevy/crates/game/src/runtime/scenes/game_view_scene.rs`
+- [ ] T026 [US5] Implement End Round advancement, current-round history clearing, round energy reset, round-6 allowed End Round, and next-round deal triggering in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
 - [ ] T027 [US5] Integrate card placement energy validation before slot placement in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T028 [US5] Record current-round move history, placement energy cost, and applied location energy delta after successful hand-to-location placement in `bevy/crates/game/src/runtime/systems/card_gesture_update_system.rs`
 - [ ] T029 [US5] Implement Undo to return only current-round placed cards to hand, remove active location energy deltas, restore their energy spend, clear current-round history, free slots, and recenter hand in `bevy/crates/game/src/runtime/systems/game_undo_update_system.rs`
@@ -133,9 +133,9 @@
 
 ## Phase 7: User Story 4 - Introduce Game Scene Table Top (Priority: P2)
 
-**Goal**: GameView continues to show DesertWorld, three locations, hand area, TurnUI, and hybrid 2D/3D card presentation while supporting the new round loop.
+**Goal**: GameView continues to show DesertWorld, three locations, hand area, RoundUI, and hybrid 2D/3D card presentation while supporting the new round loop.
 
-**Independent Test**: Launch or inspect GameView and verify the DesertWorld background, exactly three locations, location open/closed outlines, centered title/body text, local hand area, End Turn, Restart, Undo, and 3D hand cards all appear within the safe area.
+**Independent Test**: Launch or inspect GameView and verify the DesertWorld background, exactly three locations, location open/closed outlines, centered title/body text, local hand area, End Round, Restart, Undo, and 3D hand cards all appear within the safe area.
 
 ### Tests for User Story 4
 
@@ -164,7 +164,7 @@
 - [ ] T053 [US5] Apply open location effective-energy deltas immediately after successful card placement in `bevy/crates/game/src/runtime/systems/game_location_effect_system.rs`
 - [ ] T054 [P] [US5] Add tests for Fortress Gate `+2`, Bamboo Crossing `-2`, Normal no-op, and closed-location no-op effects in `bevy/crates/game/src/runtime/systems/game_location_effect_system.rs`
 - [ ] T055 [US5] Remove active location effective-energy deltas when Undo returns current-round cards to hand in `bevy/crates/game/src/runtime/systems/game_undo_update_system.rs`
-- [ ] T056 [US5] Recompute open/closed location state on End Turn round advancement and apply newly opened location effects to cards already there in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
+- [ ] T056 [US5] Recompute open/closed location state on End Round advancement and apply newly opened location effects to cards already there in `bevy/crates/game/src/runtime/systems/game_round_update_system.rs`
 - [ ] T057 [US5] Reset all location state, title/body display, placed-card lists, and card effective-energy deltas on Restart in `bevy/crates/game/src/runtime/systems/game_restart_update_system.rs`
 
 **Checkpoint**: Locations display the requested state text and apply only the defined open-location effective-energy effects.
@@ -277,5 +277,5 @@ Task: "T044 [P] [US4] Add or update tests that hand card transforms derive from 
 - `[US#]` labels map tasks to user stories for traceability.
 - Keep all visible layout derived from the aspect-ratio-safe `GameView`.
 - Keep runtime source organized around one primary concept per file.
-- Do not add CPU turns, scoring, card abilities, full location control, persistence, production mobile layout, reveal-resolution behavior, or additional location ability types in this feature.
+- Do not add CPU rounds, scoring, card abilities, full location control, persistence, production mobile layout, reveal-resolution behavior, or additional location ability types in this feature.
 - Avoid reverting unrelated modified runtime files already present in the working tree.

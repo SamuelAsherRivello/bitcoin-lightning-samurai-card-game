@@ -152,7 +152,7 @@ A player clicks or taps one of the four permanent game-scene cards to enter a fo
 - **FR-054**: The visual direction MAY draw tonal inspiration from grounded cinematic Japanese warrior media such as Ghost of Tsushima, Shogun, 13 Assassins, and Seven Samurai without directly copying protected characters, shots, marks, or compositions.
 - **FR-055**: Completing this proof-of-concept MUST permanently change the game scene to use the four-card bottom lineup and selected-card Deck Builder flow.
 - **FR-056**: Completing this proof-of-concept MUST permanently replace the existing game cards and world background with newly created Japan Realism theme art.
-- **FR-057**: The proof-of-concept MUST stay scoped to theme presentation and interaction validation; it MUST NOT require combat resolution, deckbuilding, economy, AI turns, scoring, or full match rules.
+- **FR-057**: The proof-of-concept MUST stay scoped to theme presentation and interaction validation; it MUST NOT require combat resolution, deckbuilding, economy, AI rounds, scoring, or full match rules.
 
 ### Key Entities
 

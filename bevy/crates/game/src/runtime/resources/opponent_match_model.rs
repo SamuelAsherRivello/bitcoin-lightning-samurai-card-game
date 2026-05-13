@@ -2,9 +2,11 @@ use bevy::prelude::*;
 use bevy_persistent::{error::PersistenceError, prelude::*};
 use serde::{Deserialize, Serialize};
 
+use super::CpuBrainMoveModel;
 use super::{
-    CARD_SLOT_LOCATION_COUNT, CardModelRegistry, CardSlotBoardModel, CardSlotSide, CardSlotState,
-    DeckModel, GameDeckModel, GameHandModel, GameLocationModel, GameRoundModel, PlayerSide,
+    ActiveLocations, ActiveWorldModel, CARD_SLOT_LOCATION_COUNT, CardInstanceId, CardModelRegistry,
+    CardOwnerModel, CardSlotBoardModel, CardSlotSide, CardSlotState, DeckModel, GameDeckModel,
+    GameHandModel, GameLocationModel, GameRoundModel, LocationModelRegistry, PlayerSide,
     PowerPointModel, STARTING_DECK_CARD_COUNT, STARTING_HAND_CARD_COUNT,
     random_shuffled_default_deck_cards,
 };
@@ -116,10 +118,11 @@ pub enum CpuBrainLevel {
 }
 
 /// HUMAN: Current hidden/revealed state for a placed card.
-/// AI: Opposing controllers cannot inspect current-turn hidden card identity.
+/// AI: Opposing controllers cannot inspect current-round hidden card identity.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlacementVisibility {
-    CurrentTurnHidden,
+    CurrentRoundHidden,
+    Revealing,
     Revealed,
 }
 
@@ -130,8 +133,17 @@ pub struct PlacementVisibilityModel {
     pub owner: MatchPlayerSide,
     pub location_index: usize,
     pub slot_index: usize,
-    pub placement_turn: u8,
+    pub placement_round: u8,
     pub visibility: PlacementVisibility,
+}
+
+/// HUMAN: One occupied current-round card waiting for reveal resolution.
+/// AI: Keeps reveal order explicit so empty slots never add animation delay.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PlacementRevealTarget {
+    pub owner: MatchPlayerSide,
+    pub location_index: usize,
+    pub slot_index: usize,
 }
 
 /// HUMAN: Per-player transient match state for one game.
@@ -141,7 +153,9 @@ pub struct MatchPlayerModel {
     pub side: MatchPlayerSide,
     pub controller: PlayerControllerModel,
     pub deck: Vec<String>,
+    pub deck_instance_ids: Vec<u64>,
     pub hand: Vec<String>,
+    pub hand_instance_ids: Vec<u64>,
     pub energy_available: i32,
     pub ready_for_next: bool,
     next_slot_card_index: usize,
@@ -156,8 +170,12 @@ impl MatchPlayerModel {
         Self {
             side,
             controller,
+            deck_instance_ids: (0..deck.len())
+                .map(|index| CardInstanceId::from_owner_index(CardOwnerModel::new(side), index).0)
+                .collect(),
             deck,
             hand: Vec::new(),
+            hand_instance_ids: Vec::new(),
             energy_available: 0,
             ready_for_next: false,
             next_slot_card_index: 0,
@@ -167,8 +185,33 @@ impl MatchPlayerModel {
     pub fn draw(&mut self, count: usize) -> Vec<String> {
         let draw_count = count.min(self.deck.len());
         let cards: Vec<String> = self.deck.drain(0..draw_count).collect();
+        let instance_ids: Vec<u64> = self.deck_instance_ids.drain(0..draw_count).collect();
         self.hand.extend(cards.iter().cloned());
+        self.hand_instance_ids.extend(instance_ids);
         cards
+    }
+
+    pub fn hand_instance_id(&self, hand_index: usize) -> Option<u64> {
+        self.hand_instance_ids.get(hand_index).copied()
+    }
+
+    pub fn remove_hand_card(&mut self, hand_index: usize) -> Option<(u64, String)> {
+        if hand_index >= self.hand.len() || hand_index >= self.hand_instance_ids.len() {
+            return None;
+        }
+
+        let instance_id = self.hand_instance_ids.remove(hand_index);
+        let card_id = self.hand.remove(hand_index);
+        Some((instance_id, card_id))
+    }
+
+    pub fn remove_hand_card_by_instance_id(&mut self, instance_id: u64) -> Option<(usize, String)> {
+        let hand_index = self
+            .hand_instance_ids
+            .iter()
+            .position(|candidate| *candidate == instance_id)?;
+        let (_, card_id) = self.remove_hand_card(hand_index)?;
+        Some((hand_index, card_id))
     }
 
     pub fn next_slot_card_index(&mut self) -> usize {
@@ -178,7 +221,7 @@ impl MatchPlayerModel {
     }
 }
 
-/// HUMAN: Match winner state after turn six resolves.
+/// HUMAN: Match winner state after round six resolves.
 /// AI: Store presentation-ready data without exposing CPU Brain labels.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MatchWinnerModel {
@@ -196,20 +239,30 @@ impl MatchWinnerModel {
     }
 }
 
-/// HUMAN: Two-player turn and winner state for the active match.
+/// HUMAN: Two-player round and winner state for the active match.
 /// AI: Keep this as the source for readiness gating and final status.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MatchTurnModel {
-    pub turn: u8,
-    pub max_turns: u8,
+pub struct MatchRoundModel {
+    pub round: u8,
+    pub max_rounds: u8,
     pub winner: Option<MatchWinnerModel>,
 }
 
-impl Default for MatchTurnModel {
+/// HUMAN: Current round resolution stage after both players press Next.
+/// AI: Separates hidden CPU placement motion from reveal and next-round setup.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum MatchResolutionPhase {
+    #[default]
+    Planning,
+    CpuPlacementsMoving,
+    CpuPlacementsRevealing,
+}
+
+impl Default for MatchRoundModel {
     fn default() -> Self {
         Self {
-            turn: 1,
-            max_turns: 6,
+            round: 1,
+            max_rounds: 6,
             winner: None,
         }
     }
@@ -217,13 +270,16 @@ impl Default for MatchTurnModel {
 
 /// HUMAN: Runtime two-player match model for opponent modes.
 /// AI: Bridge existing single-player hand/slot state into two-controller gameplay.
-#[derive(Resource, Clone, Debug, Eq, PartialEq)]
+#[derive(Resource, Clone, Debug, PartialEq)]
 pub struct OpponentMatchModel {
     pub mode: MatchModeModel,
     pub near: MatchPlayerModel,
     pub far: MatchPlayerModel,
-    pub turn: MatchTurnModel,
+    pub round: MatchRoundModel,
     pub placements: Vec<PlacementVisibilityModel>,
+    pub pending_cpu_placements: Vec<CpuBrainMoveModel>,
+    pub resolution_phase: MatchResolutionPhase,
+    pub next_reveal_delay_seconds: f32,
 }
 
 impl Default for OpponentMatchModel {
@@ -247,8 +303,11 @@ impl OpponentMatchModel {
                 master_deck.clone(),
             ),
             far: MatchPlayerModel::new(MatchPlayerSide::Far, far_controller, master_deck),
-            turn: MatchTurnModel::default(),
+            round: MatchRoundModel::default(),
             placements: Vec::new(),
+            pending_cpu_placements: Vec::new(),
+            resolution_phase: MatchResolutionPhase::Planning,
+            next_reveal_delay_seconds: 0.0,
         }
     }
 
@@ -274,12 +333,20 @@ impl OpponentMatchModel {
         self.near.ready_for_next && self.far.ready_for_next
     }
 
+    pub fn queue_cpu_placements(&mut self, moves: Vec<CpuBrainMoveModel>) {
+        self.pending_cpu_placements.extend(moves);
+    }
+
+    pub fn has_pending_cpu_placements(&self) -> bool {
+        !self.pending_cpu_placements.is_empty()
+    }
+
     pub fn is_complete(&self) -> bool {
-        self.turn.winner.is_some()
+        self.round.winner.is_some()
     }
 
     pub fn status_text(&self) -> String {
-        self.turn
+        self.round
             .winner
             .map(MatchWinnerModel::status_text)
             .unwrap_or_else(|| "Status: Playing".to_string())
@@ -295,17 +362,97 @@ impl OpponentMatchModel {
             owner,
             location_index,
             slot_index,
-            placement_turn: self.turn.turn,
-            visibility: PlacementVisibility::CurrentTurnHidden,
+            placement_round: self.round.round,
+            visibility: PlacementVisibility::CurrentRoundHidden,
         });
     }
 
-    pub fn reveal_current_turn_placements(&mut self) {
+    pub fn reveal_current_round_placements(&mut self) {
         for placement in &mut self.placements {
-            if placement.placement_turn == self.turn.turn {
+            if placement.placement_round == self.round.round {
                 placement.visibility = PlacementVisibility::Revealed;
             }
         }
+    }
+
+    pub fn begin_current_round_reveal(&mut self) {
+        self.next_reveal_delay_seconds = 0.0;
+    }
+
+    pub fn tick_next_reveal_delay(&mut self, delta_seconds: f32) -> bool {
+        if self.next_reveal_delay_seconds <= 0.0 {
+            return false;
+        }
+
+        self.next_reveal_delay_seconds =
+            (self.next_reveal_delay_seconds - delta_seconds.max(0.0)).max(0.0);
+        self.next_reveal_delay_seconds > 0.0
+    }
+
+    pub fn current_round_reveal_targets(
+        &self,
+        slot_board: &CardSlotBoardModel,
+    ) -> Vec<PlacementRevealTarget> {
+        let mut targets = self
+            .placements
+            .iter()
+            .filter(|placement| {
+                placement.placement_round == self.round.round
+                    && placement.visibility == PlacementVisibility::CurrentRoundHidden
+                    && slot_board
+                        .slot(
+                            placement.location_index,
+                            placement.owner.slot_side(),
+                            placement.slot_index,
+                        )
+                        .is_some_and(|slot| !slot.state.is_empty())
+            })
+            .map(|placement| PlacementRevealTarget {
+                owner: placement.owner,
+                location_index: placement.location_index,
+                slot_index: placement.slot_index,
+            })
+            .collect::<Vec<_>>();
+        targets.sort_by_key(|target| {
+            (
+                target.location_index,
+                reveal_side_order(target.owner),
+                reveal_slot_order(target.owner, target.slot_index),
+            )
+        });
+        targets
+    }
+
+    pub fn start_next_current_round_reveal(
+        &mut self,
+        slot_board: &CardSlotBoardModel,
+    ) -> Option<PlacementRevealTarget> {
+        let target = self
+            .current_round_reveal_targets(slot_board)
+            .into_iter()
+            .next()?;
+        if let Some(placement) = self.placements.iter_mut().find(|placement| {
+            placement.owner == target.owner
+                && placement.location_index == target.location_index
+                && placement.slot_index == target.slot_index
+                && placement.placement_round == self.round.round
+        }) {
+            placement.visibility = PlacementVisibility::Revealing;
+        }
+        Some(target)
+    }
+
+    pub fn complete_revealing_current_round_placements(&mut self) -> usize {
+        let mut completed_count = 0;
+        for placement in &mut self.placements {
+            if placement.placement_round == self.round.round
+                && placement.visibility == PlacementVisibility::Revealing
+            {
+                placement.visibility = PlacementVisibility::Revealed;
+                completed_count += 1;
+            }
+        }
+        completed_count
     }
 
     pub fn revealed_to_controller(
@@ -347,6 +494,27 @@ impl OpponentMatchModel {
 
     pub fn controller_for_winner_side(&self, side: MatchPlayerSide) -> PlayerControllerModel {
         self.player(side).controller
+    }
+}
+
+fn reveal_side_order(owner: MatchPlayerSide) -> usize {
+    match owner {
+        MatchPlayerSide::Far => 0,
+        MatchPlayerSide::Near => 1,
+    }
+}
+
+fn reveal_slot_order(owner: MatchPlayerSide, slot_index: usize) -> usize {
+    match (owner, slot_index) {
+        (MatchPlayerSide::Near, 0) => 0,
+        (MatchPlayerSide::Near, 1) => 1,
+        (MatchPlayerSide::Near, 2) => 2,
+        (MatchPlayerSide::Near, 3) => 3,
+        (MatchPlayerSide::Far, 2) => 0,
+        (MatchPlayerSide::Far, 3) => 1,
+        (MatchPlayerSide::Far, 0) => 2,
+        (MatchPlayerSide::Far, 1) => 3,
+        (_, _) => usize::MAX,
     }
 }
 
@@ -396,7 +564,7 @@ pub fn master_deck_from_deck_model(deck: Option<&DeckModel>) -> Vec<String> {
     }
 }
 
-pub fn start_match_turn(
+pub fn start_match_round(
     match_model: &mut OpponentMatchModel,
     game_round_model: &GameRoundModel,
     game_deck_model: &mut GameDeckModel,
@@ -404,6 +572,8 @@ pub fn start_match_turn(
 ) {
     match_model.near.ready_for_next = false;
     match_model.far.ready_for_next = false;
+    match_model.pending_cpu_placements.clear();
+    match_model.resolution_phase = MatchResolutionPhase::Planning;
     match_model.near.energy_available = game_round_model.energy_available;
     match_model.far.energy_available = game_round_model.energy_available;
     match_model
@@ -429,15 +599,27 @@ pub fn reset_two_player_match(
     game_hand_model: &mut GameHandModel,
     game_round_model: &mut GameRoundModel,
     game_location_model: &mut GameLocationModel,
+    location_model_registry: Option<&LocationModelRegistry>,
+    active_locations: Option<&mut ActiveLocations>,
+    active_world_model: Option<&ActiveWorldModel>,
     player_deck: Option<&DeckModel>,
 ) {
     let master_deck = master_deck_from_deck_model(player_deck);
     match_model.reset_for_mode(mode, master_deck);
     game_round_model.reset();
-    game_location_model.reset();
+    if let (Some(location_model_registry), Some(active_locations), Some(active_world_model)) = (
+        location_model_registry,
+        active_locations,
+        active_world_model,
+    ) {
+        active_locations.reroll(location_model_registry, active_world_model);
+        game_location_model.reset_with_active_location_indices(&active_locations.indices);
+    } else {
+        game_location_model.reset();
+    }
     game_hand_model.cards.clear();
     game_deck_model.cards.clear();
-    start_match_turn(
+    start_match_round(
         match_model,
         game_round_model,
         game_deck_model,
@@ -535,7 +717,7 @@ pub fn cpu_slot_hand_index(side: MatchPlayerSide, sequence: usize) -> usize {
     }
 }
 
-pub fn default_turn_hand_size() -> usize {
+pub fn default_round_hand_size() -> usize {
     STARTING_HAND_CARD_COUNT
 }
 

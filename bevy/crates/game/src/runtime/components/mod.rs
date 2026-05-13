@@ -7,11 +7,13 @@ pub mod card_gesture_component;
 pub mod card_ui_component;
 pub mod debug_drawing_component;
 pub mod game_control_component;
+pub mod point_view_visual_modifier_component;
 
 pub use card_gesture_component::*;
 pub use card_ui_component::*;
 pub use debug_drawing_component::*;
 pub use game_control_component::*;
+pub use point_view_visual_modifier_component::*;
 
 /// HUMAN: Player marker for the local game participant.
 /// AI: Keep player state separate from card, scene, and view markers.
@@ -73,10 +75,10 @@ pub struct LocalPlayerHand;
 pub struct LocalPlayerHandCardPreview;
 
 #[derive(Component, Debug, Default)]
-pub struct TurnUi;
+pub struct RoundUi;
 
 #[derive(Component, Debug, Default)]
-pub struct EndTurnButton;
+pub struct EndRoundButton;
 
 /// HUMAN: Status text for the active two-player match result.
 /// AI: Keep final winner presentation separate from the mode button label.
@@ -84,10 +86,11 @@ pub struct EndTurnButton;
 pub struct MatchStatusText;
 
 /// HUMAN: Render marker for a passive CPU-controlled hand card.
-/// AI: CPU hand cards show turn setup only and never receive gesture/cursor markers.
+/// AI: CPU hand cards show round setup only and never receive gesture/cursor markers.
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub struct CpuHandCardView {
     pub owner: MatchPlayerSide,
+    pub instance_id: u64,
     pub hand_index: usize,
     pub card_id: String,
     pub visible_face: CardFace,
@@ -96,12 +99,14 @@ pub struct CpuHandCardView {
 impl CpuHandCardView {
     pub fn new(
         owner: MatchPlayerSide,
+        instance_id: u64,
         hand_index: usize,
         card_id: impl Into<String>,
         visible_face: CardFace,
     ) -> Self {
         Self {
             owner,
+            instance_id,
             hand_index,
             card_id: card_id.into(),
             visible_face,
@@ -125,10 +130,12 @@ pub struct CpuPlacedCardView {
 /// AI: Keeps CPU move and reveal animation separate from gameplay slot state.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct CpuPlacedCardAnimation {
+    pub phase_start_transform: Transform,
     pub target_transform: Transform,
     pub slot_transform: Transform,
     pub current_y_rotation: f32,
     pub target_y_rotation: f32,
+    pub phase_elapsed_seconds: f32,
     pub start_delay_seconds: f32,
     pub phase: CpuPlacedCardAnimationPhase,
 }
@@ -141,7 +148,28 @@ pub enum CpuPlacedCardAnimationPhase {
 }
 
 impl CpuPlacedCardAnimation {
-    pub fn move_deck_to_hand_to_slot(
+    pub fn move_to_hand(
+        source_transform: Transform,
+        hand_transform: Transform,
+        visible_face: CardFace,
+    ) -> Self {
+        let y_rotation = match visible_face {
+            CardFace::Front => 0.0,
+            CardFace::Back => std::f32::consts::PI,
+        };
+        Self {
+            phase_start_transform: source_transform,
+            target_transform: hand_transform,
+            slot_transform: hand_transform,
+            current_y_rotation: y_rotation,
+            target_y_rotation: y_rotation,
+            phase_elapsed_seconds: 0.0,
+            start_delay_seconds: 0.0,
+            phase: CpuPlacedCardAnimationPhase::MovingToHand,
+        }
+    }
+
+    pub fn move_hand_to_slot(
         hand_transform: Transform,
         slot_transform: Transform,
         visible_face: CardFace,
@@ -151,21 +179,36 @@ impl CpuPlacedCardAnimation {
             CardFace::Back => std::f32::consts::PI,
         };
         Self {
-            target_transform: hand_transform,
+            phase_start_transform: hand_transform,
+            target_transform: slot_transform,
             slot_transform,
             current_y_rotation: y_rotation,
             target_y_rotation: y_rotation,
+            phase_elapsed_seconds: 0.0,
             start_delay_seconds: 0.0,
-            phase: CpuPlacedCardAnimationPhase::MovingToHand,
+            phase: CpuPlacedCardAnimationPhase::MovingToSlot,
         }
+    }
+
+    pub fn move_deck_to_hand_to_slot(
+        source_transform: Transform,
+        hand_transform: Transform,
+        slot_transform: Transform,
+        visible_face: CardFace,
+    ) -> Self {
+        let mut animation = Self::move_to_hand(source_transform, hand_transform, visible_face);
+        animation.slot_transform = slot_transform;
+        animation
     }
 
     pub fn flip_to_front(slot_transform: Transform, start_delay_seconds: f32) -> Self {
         Self {
+            phase_start_transform: slot_transform,
             target_transform: slot_transform,
             slot_transform,
             current_y_rotation: std::f32::consts::PI,
             target_y_rotation: 0.0,
+            phase_elapsed_seconds: 0.0,
             start_delay_seconds,
             phase: CpuPlacedCardAnimationPhase::Revealing,
         }

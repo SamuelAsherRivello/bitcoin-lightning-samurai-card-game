@@ -21,7 +21,7 @@ As a developer, I need a proposed model that separates where a card is, which fa
 
 ### User Story 3 - Preserve Existing Behavior While Enabling Cleanup (Priority: P2)
 
-As a developer, I need a migration path that preserves current hand, location, selected, dragging, returning, placed, current-turn hidden, and revealed behavior.
+As a developer, I need a migration path that preserves current hand, location, selected, dragging, returning, placed, current-round hidden, and revealed behavior.
 
 **Independent Test**: Existing gesture and opponent-mode tests can be ported to the new model without changing user-visible behavior.
 
@@ -35,8 +35,8 @@ As a developer, I need a migration path that preserves current hand, location, s
 | FR-004 | The analysis MUST document transient interaction states for idle, pressed, selected, dragging, returning, and placed animation. |
 | FR-005 | The proposed model MUST distinguish durable card instance state from render-facing view state. |
 | FR-006 | The proposed model MUST support local player and opponent/CPU cards without separate parallel state machines. |
-| FR-007 | The proposed model MUST represent same-turn movable location cards separately from locked location cards. |
-| FR-008 | The proposed model MUST represent current-turn hidden opponent placements and revealed placements without coupling them to card front/back rendering internals. |
+| FR-007 | The proposed model MUST represent same-round movable location cards separately from locked location cards. |
+| FR-008 | The proposed model MUST represent current-round hidden opponent placements and revealed placements without coupling them to card front/back rendering internals. |
 | FR-009 | The proposed model MUST define validation rules for illegal state combinations such as a deck card being selected or a locked location card being dragged. |
 | FR-010 | The proposed model MUST fit the existing Bevy ECS runtime organization under `bevy/crates/game/src/runtime/`. |
 

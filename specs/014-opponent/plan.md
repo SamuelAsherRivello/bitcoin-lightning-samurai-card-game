@@ -5,7 +5,7 @@
 
 ## Summary
 
-Introduce two-player GameView state with a user-facing mode button, final `Status:` text above that mode button, per-player controllers, independent 12-card copies of the same master deck, per-player hands/readiness, hidden CPU Brain controllers for CPU players, hidden current-turn placements, end-of-turn reveal, top and bottom location slots, CPU-vs-CPU autoplay from turn `1/6` through final winner status, and final three-location winner resolution after turn `6/6`. The implementation should extend the current Bevy ECS runtime models (`GameRoundModel`, `GameDeckModel`, `GameHandModel`, `CardSlotBoardModel`, `PointModel`) rather than create a parallel gameplay stack.
+Introduce two-player GameView state with a user-facing mode button, final `Status:` text above that mode button, per-player controllers, independent 12-card copies of the same master deck, per-player hands/readiness, hidden CPU Brain controllers for CPU players, hidden current-round placements, end-of-round reveal, top and bottom location slots, CPU-vs-CPU autoplay from round `1/6` through final winner status, and final three-location winner resolution after round `6/6`. The implementation should extend the current Bevy ECS runtime models (`GameRoundModel`, `GameDeckModel`, `GameHandModel`, `CardSlotBoardModel`, `PointModel`) rather than create a parallel gameplay stack.
 
 ## Technical Context
 
@@ -15,9 +15,9 @@ Introduce two-player GameView state with a user-facing mode button, final `Statu
 **Testing**: `scripts/other/RunTests.ps1`; targeted Rust tests under `bevy/crates/game/src/tests/runtime/`  
 **Target Platform**: Windows desktop and browser WebGPU parity  
 **Project Type**: Bevy ECS game runtime within `bevy/crates/game`  
-**Performance Goals**: CPU Brain moves and readiness decisions are paced by 0.5 to 1 second delays; seeded CPU Brain tests are deterministic; human turns have no timer  
+**Performance Goals**: CPU Brain moves and readiness decisions are paced by 0.5 to 1 second delays; seeded CPU Brain tests are deterministic; human rounds have no timer  
 **Constraints**: Keep CPU Brain hidden from user-facing labels; use existing labels `Human versus CPU` and `CPU versus CPU`; keep GameView controls and card slots inside the aspect-ratio-safe HUD/game view; keep CPU-owned cards passive to mouse hover, drag affordance, and cursor-facing rotation effects  
-**Scale/Scope**: Exactly two players, exactly two modes, exactly one controller per player (`PlayerController` or `CpuController`), exactly one CPU Brain level (`CpuBrainLevel = 1`), three shared locations, six-turn match flow, current-turn placement reveal at end of turn
+**Scale/Scope**: Exactly two players, exactly two modes, exactly one controller per player (`PlayerController` or `CpuController`), exactly one CPU Brain level (`CpuBrainLevel = 1`), three shared locations, six-round match flow, current-round placement reveal at end of round
 
 ## Constitution Check
 
@@ -96,9 +96,9 @@ Research is complete in [research.md](./research.md). Key decisions:
 | Controller split | Each player has one controller; `PlayerController` dispatches human input choices and `CpuController` dispatches CPU Brain choices to shared game logic. |
 | CPU Brain level | Support only `CpuBrainLevel = 1`; future levels can extend the model without changing visible mode labels. |
 | CPU move policy | Level 1 attempts to win, prefers evaluated moves that improve victory chances, uses seeded randomness when multiple acceptable legal moves are available, and paces every move or readiness decision by 0.5 to 1 second. |
-| CPU Brain knowledge | Brain may know its hand, open locations and abilities, and revealed slots on both sides; it cannot inspect unrevealed deck cards or opposing current-turn hidden placements. |
-| Readiness | A turn advances only after both players mark Next; human has no timer. |
-| Hidden placements | Current-turn placed cards are hidden to the opposing controller/player until both players mark Next; then they reveal and stay face up. |
+| CPU Brain knowledge | Brain may know its hand, open locations and abilities, and revealed slots on both sides; it cannot inspect unrevealed deck cards or opposing current-round hidden placements. |
+| Readiness | A round advances only after both players mark Next; human has no timer. |
+| Hidden placements | Current-round placed cards are hidden to the opposing controller/player until both players mark Next; then they reveal and stay face up. |
 | Winner ties | Final match result cannot be a draw; use deterministic tiebreaking where existing scoring can draw. |
 
 ## Phase 1 Design
@@ -121,11 +121,11 @@ Design artifacts are complete:
 | Controllers | Route human input and CPU choices through `PlayerController` and `CpuController` into shared game logic rather than separate rule paths. |
 | Slots | Reuse `CardSlotSide::LocalPlayer` and `CardSlotSide::Opponent`; generalize placement helpers so CPU Brain can place into opponent/top slots and CPU-versus-CPU can place for both sides. |
 | CPU Brain | Add hidden CPU Brain model/controller state with `CpuBrainLevel::Level1` and injectable random seed; schedule a system that chooses legal affordable moves from the permitted knowledge view with the goal of winning, uses seeded randomness among acceptable moves, paces each move or readiness decision by 0.5 to 1 second, never dispatches Undo, and marks readiness when exhausted. |
-| Visibility | Add placement visibility state so current-turn placements are private/face down to opponents, reveal at turn end, and remain revealed afterward. CPU-owned rendered cards remain passive and do not respond to mouse hover, drag affordance, or cursor-facing rotation. |
-| Turn flow | Change End Turn/Next handling from immediate round advance to near-player readiness; advance only when both player readiness flags are set, then reveal current-turn placements before the next turn. In `CPU versus CPU`, both controllers must continue paced choices and readiness automatically until final winner status without human input. |
+| Visibility | Add placement visibility state so current-round placements are private/face down to opponents, reveal at round end, and remain revealed afterward. CPU-owned rendered cards remain passive and do not respond to mouse hover, drag affordance, or cursor-facing rotation. |
+| Round flow | Change End Round/Next handling from immediate round advance to near-player readiness; advance only when both player readiness flags are set, then reveal current-round placements before the next round. In `CPU versus CPU`, both controllers must continue paced choices and readiness automatically until final winner status without human input. |
 | Restart/mode change | Reset both players' transient decks, hands, slots, readiness, pending CPU Brain actions, round, and winner state. |
 | Winner resolution | Extend existing `point_model` scoring or a match result model so round-six resolution always returns near or far winner, never draw. |
-| UI feedback | Show visible mode, turn/readiness, and final `Status:` winner text above the mode button while keeping CPU Brain details hidden. |
+| UI feedback | Show visible mode, round/readiness, and final `Status:` winner text above the mode button while keeping CPU Brain details hidden. |
 
 ## Post-Design Constitution Check
 

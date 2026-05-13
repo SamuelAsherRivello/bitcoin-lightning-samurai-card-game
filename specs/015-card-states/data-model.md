@@ -11,7 +11,7 @@
 | Durable slot occupancy | `CardSlotBoardModel` / `CardSlotState` | Empty, populated with `hand_index` and `card_id` | Tracks location/side/slot occupancy and layout rect. |
 | Active interaction | `CardGestureModel` | `Idle`, `Pressed`, `SelectedInspecting`, `Dragging`, `Returning`, `Placed` | One active local card interaction overlay at a time. |
 | Hand identity/order | `GameHandModel`, `HandCardGestureTarget` | Card IDs and hand indices | Provides rendered hand cards and gesture targets. |
-| Opponent reveal | `PlacementVisibilityModel` | `CurrentTurnHidden`, `Revealed` | Determines whether non-owner viewers know a placed card. |
+| Opponent reveal | `PlacementVisibilityModel` | `CurrentRoundHidden`, `Revealed` | Determines whether non-owner viewers know a placed card. |
 | CPU presentation | `CpuHandCardView`, `CpuPlacedCardView`, `CpuPlacedCardAnimation` | Passive hand/placed card, visible face, animation phase | Parallel render path for CPU-owned cards. |
 
 ## Current Legal Combinations
@@ -20,7 +20,7 @@
 | ------------- | ---- | ----------- | ------ | ----- |
 | Deck | Back or none | None | ✅ | Deck cards are usually model-only and not `CardGestureView` roots. |
 | Hand | Front for local, often back for opponent/CPU | Idle, pressed, selected, dragging, returning | ✅ | Local hand cards are gesture targets; CPU hand cards are passive. |
-| Location current turn | Front for owner, back if hidden to non-owner | Idle, selected, dragging, returning, placed animation | ✅ | Current implementation names this `CardState::Location`. |
+| Location current round | Front for owner, back if hidden to non-owner | Idle, selected, dragging, returning, placed animation | ✅ | Current implementation names this `CardState::Location`. |
 | Location locked | Front when revealed, back when hidden | Idle or selected only | ✅ | Locked cards cannot begin drag. |
 | Deck | Any | Selected or dragging | ❌ | Deck cards are not interactive card views. |
 | Location locked | Any | Dragging | ❌ | Prior-round/locked placements are not draggable. |
@@ -32,13 +32,13 @@
 | ------ | ------ | ------------- | ---------- |
 | `CardInstanceId` | Stable numeric or compact string ID | Primary key for runtime card instance state, views, slots, and gestures | Must be unique within an active match. |
 | `CardInstanceStateModel` | `instance_id`, `card_model_id`, `owner`, `zone`, `reveal_policy` | Durable card truth independent of render entity | A card has exactly one zone at a time. |
-| `CardZoneModel` | `Deck { deck_index }`, `Hand { order_index }`, `Location { location_index, side, slot_index, lock_state }`, `OutOfPlay` | Replaces overloaded hand-index state | Only `Hand` and same-turn `Location` may start local drag. |
-| `LocationLockState` | `CurrentTurnMovable`, `Locked` | Detail inside `CardZoneModel::Location` | End turn changes current-turn movable cards to locked after reveal/turn resolution. |
-| `CardRevealPolicy` | `OwnerVisible`, `CurrentTurnHiddenToOpponent`, `RevealedToAll` | Derives per-viewer knowledge and desired face | Hidden-to-opponent is valid only for location placements. |
+| `CardZoneModel` | `Deck { deck_index }`, `Hand { order_index }`, `Location { location_index, side, slot_index, lock_state }`, `OutOfPlay` | Replaces overloaded hand-index state | Only `Hand` and same-round `Location` may start local drag. |
+| `LocationLockState` | `CurrentRoundMovable`, `Locked` | Detail inside `CardZoneModel::Location` | End round changes current-round movable cards to locked after reveal/round resolution. |
+| `CardRevealPolicy` | `OwnerVisible`, `CurrentRoundHiddenToOpponent`, `RevealedToAll` | Derives per-viewer knowledge and desired face | Hidden-to-opponent is valid only for location placements. |
 | `CardInteractionModel` | `state`, `instance_id`, `pointer`, `source_pose`, `target_pose`, `resolved_destination` | Replaces active-hand-index focus with instance focus | At most one active interaction; selected and dragging are overlays, not zones. |
 | `CardInteractionState` | `Idle`, `Pressed`, `SelectedInspecting`, `Dragging`, `Returning`, `SettlingPlaced` | Temporary input/animation state | `Dragging` requires a draggable durable zone. |
 | `CardViewStateModel` | `instance_id`, `visible_face`, `pose`, `z_band`, `is_input_enabled`, `layer_visibility` | Derived by systems and applied to `CardView` entities | Does not decide gameplay legality. |
-| `CardPlacementModel` | `instance_id`, `location_index`, `side`, `slot_index`, `placed_turn` | Slot occupancy by instance ID | Slot may contain zero or one card instance. |
+| `CardPlacementModel` | `instance_id`, `location_index`, `side`, `slot_index`, `placed_round` | Slot occupancy by instance ID | Slot may contain zero or one card instance. |
 | `HandOrderModel` | Ordered `CardInstanceId` list by owner | Replaces hand order embedded in `CardStateModel` | Contains only cards whose zone is `Hand`. |
 
 ## Proposed State Axes
@@ -47,8 +47,8 @@
 | ---- | ------ | ------------------- |
 | Identity | `CardInstanceId`, `card_model_id`, owner side | `CardInstanceStateModel` |
 | Zone | Deck, hand, location, out of play | `CardZoneModel` |
-| Location detail | Location index, side, slot index, current-turn movable/locked | `CardZoneModel::Location` |
-| Reveal | Owner-visible, current-turn hidden to opponent, revealed to all | `CardRevealPolicy` |
+| Location detail | Location index, side, slot index, current-round movable/locked | `CardZoneModel::Location` |
+| Reveal | Owner-visible, current-round hidden to opponent, revealed to all | `CardRevealPolicy` |
 | Interaction | Idle, pressed, selected, dragging, returning, settling placed | `CardInteractionModel` |
 | Face | Front, back | `CardViewStateModel.visible_face`, derived from reveal/viewer/animation |
 | Pose | Deck, hand slot, selected inspection, drag preview, location slot, return target | `CardViewStateModel.pose`, derived from zone plus interaction |
@@ -59,14 +59,14 @@
 | Transition | From | To | Rule |
 | ---------- | ---- | -- | ---- |
 | Draw card | `Deck` | `Hand { order_index }` | Removes from deck order and appends to hand order. |
-| Press card | `Hand` or `Location(CurrentTurnMovable)` | Interaction `Pressed` | Requires no active interaction and local human control. |
+| Press card | `Hand` or `Location(CurrentRoundMovable)` | Interaction `Pressed` | Requires no active interaction and local human control. |
 | Select card | Interaction `Pressed` | Interaction `SelectedInspecting` | Durable zone does not change. |
 | Begin drag | Interaction `Pressed` | Interaction `Dragging` | Durable zone must be draggable. |
-| Place card | `Hand` + dragging | `Location(CurrentTurnMovable)` + `SettlingPlaced` | Requires empty legal local slot and energy/rule success. |
-| Return current-turn card | `Location(CurrentTurnMovable)` + dragging | `Hand { order_index }` + `Returning` | Frees slot and restores hand order/energy. |
+| Place card | `Hand` + dragging | `Location(CurrentRoundMovable)` + `SettlingPlaced` | Requires empty legal local slot and energy/rule success. |
+| Return current-round card | `Location(CurrentRoundMovable)` + dragging | `Hand { order_index }` + `Returning` | Frees slot and restores hand order/energy. |
 | Reject drag | Dragging | Original durable zone + `Returning` | Durable state returns to captured source. |
-| End turn reveal | `Location(CurrentTurnMovable)` | `Location(Locked)` | Reveal policy becomes `RevealedToAll` after end-turn reveal. |
-| CPU place hidden | CPU hand | `Location(CurrentTurnMovable)` with `CurrentTurnHiddenToOpponent` | Visible face is back for non-owner until reveal. |
+| End round reveal | `Location(CurrentRoundMovable)` | `Location(Locked)` | Reveal policy becomes `RevealedToAll` after end-round reveal. |
+| CPU place hidden | CPU hand | `Location(CurrentRoundMovable)` with `CurrentRoundHiddenToOpponent` | Visible face is back for non-owner until reveal. |
 
 ## Migration Notes
 
@@ -86,7 +86,7 @@
 | ------ | ------------ | ------ | ----- |
 | `local_instances_from_existing_state` | `GameHandModel`, `CardStateModel`, `CardSlotBoardModel` | `CardInstanceStateCollectionModel` | Maps current `hand_index` identity into stable `CardInstanceId` values while preserving hand order and local slot placement. |
 | `instance_from_cpu_hand_view` | `CpuHandCardView` | `CardInstanceStateModel` | Keeps CPU hand cards passive by representing ownership and hand zone without gesture state. |
-| `instance_from_cpu_placed_view` | `CpuPlacedCardView` plus optional `PlacementVisibility` | `CardInstanceStateModel` | Maps hidden current-turn placements to `CurrentTurnHiddenToOpponent` and revealed placements to `RevealedToAll`. |
+| `instance_from_cpu_placed_view` | `CpuPlacedCardView` plus optional `PlacementVisibility` | `CardInstanceStateModel` | Maps hidden current-round placements to `CurrentRoundHiddenToOpponent` and revealed placements to `RevealedToAll`. |
 | `reveal_policy_from_placement` | `PlacementVisibilityModel` | `CardRevealPolicy` | Provides a bridge while opponent-mode reveal state remains in the current match model. |
 
 ## Slot Occupancy Migration Path

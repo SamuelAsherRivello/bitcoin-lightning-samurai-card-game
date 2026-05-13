@@ -39,6 +39,6 @@
 | Card drawing | Excluded |
 | Energy/play-budget rules | Future integration only |
 | CPU strategy | Excluded |
-| Complete turn resolution | Excluded |
+| Complete round resolution | Excluded |
 | Card/location ability authoring | Excluded except for compatibility with resolved modifiers |
 | Final production UI | Excluded |

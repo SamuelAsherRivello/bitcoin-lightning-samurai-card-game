@@ -319,7 +319,7 @@ impl MatchScoreModel {
 }
 
 /// HUMAN: Final match result after location control and total-power tiebreaking.
-/// AI: This is the stable integration point for later turn, CPU, and end-game flows.
+/// AI: This is the stable integration point for later round, CPU, and end-game flows.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MatchOutcomeModel {
     pub result: MatchOutcome,

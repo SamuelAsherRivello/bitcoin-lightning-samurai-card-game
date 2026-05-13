@@ -9,7 +9,7 @@
 
 ### Session 2026-05-10
 
-- Q: Which GameScene details should the concept focus on first? → A: DesertWorld background, three UI locations, local player hand, and TurnUI.
+- Q: Which GameScene details should the concept focus on first? → A: DesertWorld background, three UI locations, local player hand, and RoundUI.
 - Q: Which UI framework should GameScene use for the initial HUD and overlays? → A: Built-in Bevy UI.
 - Q: What is the scene hierarchy? → A: App has one AppScene, and AppScene dynamically owns either GameScene, DeckBuilderScene, or DebugSettingsScene.
 - Q: What dimensional model should GameScene use? → A: GameScene mixes 2D/UI overlays with 3D Card instances rendered in front of the local player hand.
@@ -18,9 +18,9 @@
 
 ### Session 2026-05-12
 
-- Q: Which lower-right GameView control should be preserved? → A: Keep the existing lower-right `End Turn` button.
+- Q: Which lower-right GameView control should be preserved? → A: Keep the existing lower-right `End Round` button.
 - Q: Which lower-left GameView controls should be added? → A: Add `Restart` above `Undo`, with the Undo button also showing current energy as `Energy current/max`.
-- Q: How does the local player's round flow work? → A: A 12-card deck deals a fixed number of cards each round, the player may move hand cards to locations by spending card energy, and `End Turn` advances through round `6/6`.
+- Q: How does the local player's round flow work? → A: A 12-card deck deals a fixed number of cards each round, the player may move hand cards to locations by spending card energy, and `End Round` advances through round `6/6`.
 - Q: What does Undo restore? → A: Undo only returns cards moved from hand to locations during the current round; it does not undo previous rounds or card deals.
 - Q: What does Restart restore? → A: Restart clears the active GameView play state and starts a fresh game at round `1/6`.
 - Q: When does the local player receive cards? → A: At the start of every round 1 through 6, GameView deals the requested number of cards from the near player's remaining deck into the near player's hand; deal eligibility is not gated by card energy.
@@ -51,7 +51,7 @@ A designer can describe how cards move from deck to hand to shared board locatio
 
 **Why this priority**: Card flipping in `006` is a visual proof of future hidden information and reveal behavior.
 
-**Independent Test**: Review the concept relationships and confirm they describe hidden placement and reveal timing at a high level without specifying turn rules.
+**Independent Test**: Review the concept relationships and confirm they describe hidden placement and reveal timing at a high level without specifying round rules.
 
 **Acceptance Scenarios**:
 
@@ -84,7 +84,7 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 
 **Why this priority**: GameScene is the first bridge from the Deck Builder prototype toward actual game presentation without implementing full card play yet.
 
-**Independent Test**: Launch or inspect GameScene and verify it has its own camera, a DesertWorld world background that fills the scene view, three visible UI locations with open/closed text, a local player hand area, and TurnUI.
+**Independent Test**: Launch or inspect GameScene and verify it has its own camera, a DesertWorld world background that fills the scene view, three visible UI locations with open/closed text, a local player hand area, and RoundUI.
 
 **Acceptance Scenarios**:
 
@@ -93,8 +93,8 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 3. **Given** locations are inspected, **When** their state is described, **Then** each location supports closed and open states with distinct text and visual treatment.
 4. **Given** round flow is described, **When** rounds advance from 1 through 6, **Then** the left, middle, and right locations open on rounds 1, 2, and 3 respectively, and no new locations open on rounds 4, 5, or 6.
 5. **Given** GameScene is active, **When** the player HUD is inspected, **Then** a local player hand area is reserved near the bottom of the screen.
-6. **Given** GameScene is active, **When** TurnUI is inspected, **Then** it dynamically displays `End Turn` and the current round as `1/6`.
-7. **Given** GameScene is active, **When** the scene structure is inspected, **Then** the World Background, locations, hand area, and TurnUI are built from 2D/UI elements while a 3D card front is rendered centered in the local player hand area.
+6. **Given** GameScene is active, **When** RoundUI is inspected, **Then** it dynamically displays `End Round` and the current round as `1/6`.
+7. **Given** GameScene is active, **When** the scene structure is inspected, **Then** the World Background, locations, hand area, and RoundUI are built from 2D/UI elements while a 3D card front is rendered centered in the local player hand area.
 8. **Given** a location is closed, **When** it is displayed, **Then** its title text reads `Closed Until Round X` and its body text is blank.
 9. **Given** a location is open, **When** it is displayed, **Then** its two-line title and three-line body are centered horizontally and show that location's title and ability text.
 
@@ -102,11 +102,11 @@ A designer or developer can see the first gameplay-facing scene concept: a world
 
 ### User Story 5 - Play Local Round Progression (Priority: P1)
 
-A human near player can play through six local rounds by receiving cards from a 12-card deck, spending round energy to move hand cards to locations, undoing only current-round placements, ending turns, and restarting the game from a clean state.
+A human near player can play through six local rounds by receiving cards from a 12-card deck, spending round energy to move hand cards to locations, undoing only current-round placements, ending rounds, and restarting the game from a clean state.
 
 **Why this priority**: GameView needs a complete local interaction loop before future CPU behavior, scoring, or advanced card effects can be evaluated.
 
-**Independent Test**: Launch or inspect GameView and verify the lower-right End Turn button remains present, lower-left Restart and Undo controls are present, cards deal from the near player's deck into the local hand at the start of every round 1 through 6 according to the round schedule, energy increases according to the round schedule, Undo only affects current-round placements, and Restart returns the game to round `1/6`.
+**Independent Test**: Launch or inspect GameView and verify the lower-right End Round button remains present, lower-left Restart and Undo controls are present, cards deal from the near player's deck into the local hand at the start of every round 1 through 6 according to the round schedule, energy increases according to the round schedule, Undo only affects current-round placements, and Restart returns the game to round `1/6`.
 
 **Acceptance Scenarios**:
 
@@ -120,15 +120,15 @@ A human near player can play through six local rounds by receiving cards from a 
 8. **Given** a card was moved from hand to a location during the current round, **When** the player drags that card back to the player hand area, **Then** the card may return to hand during that same round.
 9. **Given** a current-round placed card is dragged over the hand area, **When** the player moves it before, between, or after existing hand cards, **Then** the hand cards shift on the x axis to show the insertion gap and the player may release it into that hand order.
 10. **Given** a card remained placed when the round ended, **When** a later round begins, **Then** that placed card can no longer be moved by drag.
-11. **Given** the player presses End Turn on rounds 1 through 5, **When** the next round starts, **Then** the round indicator advances, current-round placed cards lock, the next round's requested cards are dealt from deck to hand, and the next round's energy is granted.
-12. **Given** the player presses End Turn on round `6/6`, **When** the turn resolves, **Then** no additional cards are dealt.
+11. **Given** the player presses End Round on rounds 1 through 5, **When** the next round starts, **Then** the round indicator advances, current-round placed cards lock, the next round's requested cards are dealt from deck to hand, and the next round's energy is granted.
+12. **Given** the player presses End Round on round `6/6`, **When** the round resolves, **Then** no additional cards are dealt.
 13. **Given** the player presses Restart at any time, **When** the restart completes, **Then** locations, hand, round, energy, deck state, and lower-left control state reset to a fresh round `1/6` game.
 14. **Given** rounds 1 through 6 begin, **When** the near player's deck has enough remaining cards for the Round Progression count, **Then** GameView deals that many cards from the deck to the hand regardless of those cards' energy values.
 
 ### Edge Cases
 
 - If this spec mentions future systems, it should not imply they are part of the current `006-card-bundle` implementation.
-- If behavior outside the local near-player round loop is required, such as CPU turns, scoring, location ownership, or card abilities, it should be defined by a later spec.
+- If behavior outside the local near-player round loop is required, such as CPU rounds, scoring, location ownership, or card abilities, it should be defined by a later spec.
 - If future card fronts include non-character content, the CardDefinition concept should still apply.
 - If future scenes need different cameras, each scene should own its own camera rather than relying on AppScene for scene-specific presentation.
 - If scene switching is inspected, AppScene should have exactly one active child scene: GameScene, DeckBuilderScene, or DebugSettingsScene.
@@ -142,7 +142,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - If a player manually drags a current-round placed card back to hand, the card's location ability effect and placement energy deduction should be removed just as they are during Undo.
 - If a current-round placed card is dragged over the hand area but released without a clear insertion gap, it should return to its current location slot and remain undoable for the current round.
 - If a card is placed in a closed location, no location ability should be applied until the location opens; when that location opens, its ability should apply immediately to cards already there.
-- If End Turn advances the round, every current-round placed card still in a location should become locked and no longer draggable.
+- If End Round advances the round, every current-round placed card still in a location should become locked and no longer draggable.
 - If Restart is pressed while card movement or deal animation is in progress, the completed state should be a clean fresh game, not a partial mix of old and new state.
 
 ## Requirements *(mandatory)*
@@ -177,19 +177,19 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-026**: Round location flow MUST open the left location on round 1, middle location on round 2, and right location on round 3, with no new location opening on rounds 4, 5, or 6.
 - **FR-027**: The initial world MUST be `DesertWorld`.
 - **FR-028**: DesertWorld MUST be represented by the generated top-down desert World Background image at `bevy/crates/game/assets/worlds/desert_world/world_background.png`, leaving usable screen space for GameScene UI overlays.
-- **FR-029**: GameScene location, hand, and TurnUI overlays MUST use built-in Bevy UI unless a later requirement exceeds built-in Bevy UI capabilities.
+- **FR-029**: GameScene location, hand, and RoundUI overlays MUST use built-in Bevy UI unless a later requirement exceeds built-in Bevy UI capabilities.
 - **FR-030**: GameScene MUST create three location UI instances from the Location Definition Values table.
 - **FR-031**: GameScene locations MUST use a shared generated location image for the initial location art, with title and body text overlaid dynamically in UI.
 - **FR-032**: Closed locations MUST render a dynamic red outline, and open locations MUST render a dynamic green outline.
 - **FR-033**: GameScene MUST reserve a local player hand UI area near the bottom of the screen.
-- **FR-034**: GameScene MUST include TurnUI that dynamically renders `End Turn` and the current round fraction, starting at `1/6`.
-- **FR-035**: World Background MAY vary by world, but locations, local player hand, and TurnUI MUST NOT vary by world.
-- **FR-036**: GameScene MUST support hybrid 2D/3D rendering: World Background, locations, hand area, and TurnUI are 2D/UI elements, while 3D Card instances render in front of the local player hand area.
+- **FR-034**: GameScene MUST include RoundUI that dynamically renders `End Round` and the current round fraction, starting at `1/6`.
+- **FR-035**: World Background MAY vary by world, but locations, local player hand, and RoundUI MUST NOT vary by world.
+- **FR-036**: GameScene MUST support hybrid 2D/3D rendering: World Background, locations, hand area, and RoundUI are 2D/UI elements, while 3D Card instances render in front of the local player hand area.
 - **FR-037**: The initial GameScene layout MUST target landscape screens.
 - **FR-038**: Portrait/mobile layout MAY be deferred to a future feature.
 - **FR-039**: GameScene MUST render one 3D card front centered within the local player hand area as the initial hybrid rendering proof.
 - **FR-040**: Each dynamic subscene, GameScene, DeckBuilderScene, or DebugSettingsScene, MUST own exactly one scene light.
-- **FR-041**: GameView MUST keep the lower-right End Turn button.
+- **FR-041**: GameView MUST keep the lower-right End Round button.
 - **FR-042**: GameView MUST add two lower-left controls: `Restart` above `Undo`.
 - **FR-043**: The Undo control MUST show current and maximum energy above its action text, formatted as `Energy current/max` on one line and `Undo` on the next line.
 - **FR-044**: A fresh near-player game MUST start at round `1/6`.
@@ -208,8 +208,8 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-057**: Undo MUST return only cards moved from hand to locations during the current round.
 - **FR-058**: Undo MUST NOT return cards moved during previous rounds.
 - **FR-059**: Undo MUST be disabled or visually greyed out when no cards have moved from hand to locations during the current round.
-- **FR-060**: Pressing End Turn on rounds 1 through 5 MUST advance to the next round and trigger that round's card deal and energy grant.
-- **FR-061**: Pressing End Turn on round `6/6` MUST be allowed and MUST NOT deal additional cards afterward.
+- **FR-060**: Pressing End Round on rounds 1 through 5 MUST advance to the next round and trigger that round's card deal and energy grant.
+- **FR-061**: Pressing End Round on round `6/6` MUST be allowed and MUST NOT deal additional cards afterward.
 - **FR-062**: Restart MUST be available at any time during GameView play.
 - **FR-063**: Restart MUST clear the active GameView play state, including hand cards, placed cards, current-round move history, deck progress, round, energy, and control enablement.
 - **FR-064**: After Restart completes, GameView MUST be in a fresh round `1/6` state with a newly randomized 12-card near-player deck.
@@ -230,7 +230,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **FR-079**: `Bamboo Crossing` MUST add `-2 Energy` to each card placed there while it is open.
 - **FR-080**: Location ability effects MUST update the affected card's effective energy value without changing the card definition's base energy value.
 - **FR-081**: A card moved from hand to a location during the current round MUST remain manually movable back to the player hand area until the round ends.
-- **FR-082**: A card that remains placed when End Turn advances the round MUST become locked and MUST NOT be movable by drag in later rounds.
+- **FR-082**: A card that remains placed when End Round advances the round MUST become locked and MUST NOT be movable by drag in later rounds.
 - **FR-083**: While a current-round placed card is dragged over the hand area, existing hand cards MUST shift on the x axis to show the candidate insertion gap before, between, or after hand cards.
 - **FR-084**: Releasing a current-round placed card over a valid hand insertion gap MUST return it to hand at that selected hand order and recenter the full hand group.
 - **FR-085**: Returning a current-round placed card to hand by manual drag MUST remove that card's location ability effect and restore the energy spent by that placement.
@@ -267,7 +267,7 @@ A human near player can play through six local rounds by receiving cards from a 
 ### Key Entities
 
 - **AppScene**: The persistent app-level scene loaded at startup for debug UI and cross-scene debug support; dynamically owns exactly one active child scene.
-- **GameScene**: The default gameplay-facing child scene owned by AppScene; owns its 2D/UI World Background, three location placeholders, local player hand area, and TurnUI.
+- **GameScene**: The default gameplay-facing child scene owned by AppScene; owns its 2D/UI World Background, three location placeholders, local player hand area, and RoundUI.
 - **GameView**: The active gameplay presentation within GameScene where the near human player's hand, locations, round controls, energy, undo, restart, and card dealing are visible.
 - **DeckBuilderScene**: A toggleable prototype scene; owns the Deck Builder camera, card presentation, and card-facing presentation UI.
 - **World Background**: A full-scene image or placeholder plane facing the GameScene camera, representing the table top/world.
@@ -280,8 +280,8 @@ A human near player can play through six local rounds by receiving cards from a 
 - **Bamboo Crossing**: The middle location, opened on round 2, with `-2 Energy to each card here`.
 - **Normal Location**: The right location, opened on round 3, with `(No Ability)`.
 - **Local Player Hand**: A bottom-screen GameScene UI area where 3D Card instances can render in front of the 2D UI.
-- **TurnUI**: A GameScene UI element that shows `End Turn` and the current round fraction.
-- **End Turn Button**: The lower-right GameView control that advances round progression.
+- **RoundUI**: A GameScene UI element that shows `End Round` and the current round fraction.
+- **End Round Button**: The lower-right GameView control that advances round progression.
 - **Restart Button**: The upper lower-left GameView control that resets the active play state to a fresh round `1/6` game.
 - **Undo Button**: The lower lower-left GameView control that displays energy and returns only current-round moved cards from locations to hand.
 - **Energy**: The near player's round resource, with available and maximum values reset by round and spent when cards move from hand to locations.
@@ -300,8 +300,8 @@ A human near player can play through six local rounds by receiving cards from a 
 - **CardFront**: The specific visible front content for a CardDefinition.
 - **CardBack**: The shared back visual for a CardSeries.
 - **Current-Round Move History**: The set of cards moved from hand to locations since the current round began, used as the only scope of Undo.
-- **Current-Round Placed Card**: A card moved from hand to a location during the current round; it remains eligible to drag back to the hand area until End Turn.
-- **Locked Placed Card**: A card that remained placed after End Turn advanced the round; it is no longer movable by drag.
+- **Current-Round Placed Card**: A card moved from hand to a location during the current round; it remains eligible to drag back to the hand area until End Round.
+- **Locked Placed Card**: A card that remained placed after End Round advanced the round; it is no longer movable by drag.
 - **Hand Insertion Gap**: The temporary space shown before, between, or after hand cards while a current-round placed card is being returned to hand.
 
 ## Success Criteria *(mandatory)*
@@ -319,7 +319,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **SC-009**: A reviewer can identify that built-in Bevy UI is the selected UI layer for GameScene overlays.
 - **SC-010**: A reviewer can identify that the initial GameScene layout targets landscape and defers portrait/mobile layout.
 - **SC-011**: A reviewer can verify that GameScene renders one 3D card front centered over the 2D local player hand area.
-- **SC-012**: A reviewer can verify that GameView has one lower-right End Turn control and two lower-left controls ordered Restart above Undo.
+- **SC-012**: A reviewer can verify that GameView has one lower-right End Round control and two lower-left controls ordered Restart above Undo.
 - **SC-013**: A reviewer can verify that a fresh game deals cards from the near player's deck to the near player's hand at the start of every round; with the initial 12-card deck this yields 1 card on round 1, 2 cards on round 2, 3 cards on round 3, and 1 card on each of rounds 4, 5, and 6.
 - **SC-014**: A reviewer can verify that round-start energy maximums and available values progress as `1, 2, 3, 4, 5, 6`.
 - **SC-015**: A reviewer can verify that Undo is disabled before any current-round placement and only returns current-round placements after cards have been moved.
@@ -329,7 +329,7 @@ A human near player can play through six local rounds by receiving cards from a 
 - **SC-019**: A reviewer can verify that Fortress Gate adds +2 effective energy to cards placed there while open, Bamboo Crossing adds -2 effective energy to cards placed there while open, and Normal applies no ability.
 - **SC-020**: A reviewer can verify that Undo removes current-round location ability effects from returned cards.
 - **SC-021**: A reviewer can verify that a card placed during the current round can be dragged back to hand, inserted before, between, or after existing hand cards, and has its energy/location effect restored or removed appropriately.
-- **SC-022**: A reviewer can verify that cards still placed when End Turn advances become locked and cannot be dragged in later rounds.
+- **SC-022**: A reviewer can verify that cards still placed when End Round advances become locked and cannot be dragged in later rounds.
 
 ## Assumptions
 
@@ -339,11 +339,11 @@ A human near player can play through six local rounds by receiving cards from a 
 - DeckBuilderScene may be reloaded independently during prototype iteration.
 - DeckBuilderScene remains available as a prototype view even though it is no longer the startup scene.
 - The first World Background art target is DesertWorld, a top-down desert surface.
-- Location, local player hand, and TurnUI should be implemented as world-independent UI overlays, with 3D Card instances layered in front of the local player hand.
+- Location, local player hand, and RoundUI should be implemented as world-independent UI overlays, with 3D Card instances layered in front of the local player hand.
 - Current GameScene layout targets landscape screens.
 - The game is inspired by Marvel Snap pacing and structure, but this spec does not clone or define exact Marvel Snap rules.
 - Future gameplay specs may refine or replace these concepts when concrete mechanics are designed.
-- The lower-right button referenced by the user is the existing End Turn button.
+- The lower-right button referenced by the user is the existing End Round button.
 - The near player is the local human player for this round progression.
 - Undo restores cards and energy for current-round placements because the move being undone includes the related energy deduction.
 - Manual same-round return to hand restores the same placement energy and location effect as Undo, but only for the card being returned.

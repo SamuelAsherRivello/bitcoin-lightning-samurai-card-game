@@ -20,7 +20,7 @@ pub struct GameRoundModel {
     pub energy_maximum: i32,
     pub requested_cards_to_deal: usize,
     pub current_round_moves: Vec<CurrentRoundMoveRecord>,
-    pub end_turn_resolved: bool,
+    pub end_round_resolved: bool,
 }
 
 impl Default for GameRoundModel {
@@ -40,7 +40,7 @@ impl GameRoundModel {
             energy_maximum: energy,
             requested_cards_to_deal: requested_cards_for_round(round),
             current_round_moves: Vec::new(),
-            end_turn_resolved: false,
+            end_round_resolved: false,
         }
     }
 
@@ -83,17 +83,17 @@ impl GameRoundModel {
         !self.current_round_moves.is_empty()
     }
 
-    pub fn can_end_turn(&self) -> bool {
-        !self.end_turn_resolved
+    pub fn can_end_round(&self) -> bool {
+        !self.end_round_resolved
     }
 
     pub fn advance_round(&mut self) -> bool {
-        if self.end_turn_resolved {
+        if self.end_round_resolved {
             return false;
         }
         self.current_round_moves.clear();
         if self.round >= self.max_rounds {
-            self.end_turn_resolved = true;
+            self.end_round_resolved = true;
             return false;
         }
 

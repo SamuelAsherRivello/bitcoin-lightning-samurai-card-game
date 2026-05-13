@@ -134,7 +134,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **FR-021**: A dragged hand card released outside a valid empty local-player slot MUST return to its source position and source size.
 - **FR-022**: A card gesture MUST maintain a single clear active card focus so click, selected inspection, and drag states do not conflict.
 - **FR-023**: Card gestures MUST remain inside the aspect-ratio safe game view area for visible hand cards, selected inspection, and local slot placement.
-- **FR-024**: This feature MUST NOT require full turn rules, energy costs, CPU placement, opponent interaction, card reveal rules, scoring changes, or completed gameplay resolution.
+- **FR-024**: This feature MUST NOT require full round rules, energy costs, CPU placement, opponent interaction, card reveal rules, scoring changes, or completed gameplay resolution.
 - **FR-025**: This feature MUST leave the existing Deck Builder view implementation unchanged, even though users will no longer have a GameView gesture path to reach it after this feature.
 - **FR-026**: When a hand-card drag begins, the card MUST animate to 150% of its hand size over 0.25 seconds with ease-out motion.
 - **FR-027**: While dragging, each location with at least one empty local-player slot MUST show a user-facing light blue DropTargetHint rectangle over its entire local-player slots area.
@@ -164,7 +164,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | **Opponent-Side Slot** | One of four slots above a location area; not a valid direct placement target for the local human player in this feature. |
 | **Local-Player Slot** | One of four slots below a location area; a valid direct placement target only when empty. |
 | **Location Card Slot** | The destination local-player slot assigned after a successful drag release. |
-| **Current-Round Placed Card** | A card moved from hand to a location during the current round; it may still be dragged back to the player hand area before End Turn locks it. |
+| **Current-Round Placed Card** | A card moved from hand to a location during the current round; it may still be dragged back to the player hand area before End Round locks it. |
 | **Locked Placed Card** | A card in a location from a previous round; it cannot be moved by drag. |
 | **Hand Insertion Gap** | The temporary visual gap shown between, before, or after hand cards while returning a current-round placed card to the hand. |
 | **Slot State** | Whether a slot is empty and can accept a card, or populated and cannot accept another directly dragged card. |
@@ -184,7 +184,7 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 - **SC-007**: In all selected, dragged, and placed presentations, card aspect ratio remains visibly consistent with the source card.
 - **SC-008**: A reviewer can identify which of the twenty-four board slots are valid for local human direct placement in under 10 seconds after seeing the board.
 - **SC-009**: In current-round return tests, reviewers can drag a card placed this round back to the hand area, choose an insertion gap, and see the hand recenter after release.
-- **SC-010**: In prior-round lock tests, reviewers cannot drag a card that remained placed after End Turn.
+- **SC-010**: In prior-round lock tests, reviewers cannot drag a card that remained placed after End Round.
 
 ## Assumptions
 
@@ -195,6 +195,6 @@ A player cannot place a card into opponent slots, populated slots, or empty spac
 | The valid direct placement slots are the four bottom slots for each of the three locations, totaling twelve slots. | The request identifies three location areas and four closest slots per location. |
 | The center inspection position should match the already approved Deck Builder inspection pose as closely as the game view layout allows. | The request wants the exact same position as the Deck Builder scene while staying in the game view. |
 | Invalid drag drops return the card to its source position. | This preserves the card and follows common card-game drag behavior when a target cannot accept a card. |
-| Full gameplay legality beyond slot emptiness and local-player ownership is outside this feature. | The request is focused on gestures and slot allocation, not turn, cost, reveal, or scoring rules. |
+| Full gameplay legality beyond slot emptiness and local-player ownership is outside this feature. | The request is focused on gestures and slot allocation, not round, cost, reveal, or scoring rules. |
 | Desktop-only iteration is acceptable, but the gesture vocabulary must be designed so touch/mobile pointer input can use the same behavior. | The user emphasized mobile-compatible meaning for mouse input without asking for a complete mobile platform release. |
 | Deck Builder view behavior remains as-is. | The feature removes user reachability from GameView hand-card gestures, but does not modify the existing Deck Builder view itself. |

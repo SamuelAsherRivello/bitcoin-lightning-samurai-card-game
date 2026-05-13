@@ -1,20 +1,23 @@
 # Contract: Visual Modifier System
 
-## Modifier Contract
+## Rule Contract
 
-| Modifier | Input Surface | Activation Rule | Visual Output |
-| -------- | ------------- | --------------- | ------------- |
-| `abilityoutline` | Card `PowerPointView` | Card point value includes an active non-zero ability delta | Gold outline around the point circle behind the number |
-| `leadingscoreoutline` | Location total `PowerPointView` | This location total is strictly greater than the paired total in the same location | White outline around the point circle behind the number |
+| Rule | Condition | Target | Treatment |
+| ---- | --------- | ------ | --------- |
+| `abilityoutline` | Card `PowerPointView` is linked to a `CardInstanceId` whose `CardInstanceStateModel.zone` is a location with an active non-zero ability delta affecting displayed power | The linked card power point view's circle/background child | Gold outline around the target |
+| `leadingscoreoutline` | A location total `PowerPointView` value is strictly greater than the paired total in the same location | The leading location total point view's circle/background child | White outline around the target |
 
 ## Update Contract
 
 | Operation | Inputs | Required Behavior |
 | --------- | ------ | ----------------- |
-| Update card ability modifiers | Card point view, card placement, active location ability delta | Sets `abilityoutline` only when the card power point is actively modified by a non-zero ability |
-| Update location leading modifiers | Paired local/opponent location total point views | Sets `leadingscoreoutline` on the higher value and clears both on ties |
-| Sync outline presentation | Active modifier set and point circle/background child | Updates only the circle/background outline, not the text or the whole card/location |
+| Evaluate Conditions | Rule list plus card, point, score, and location state | Produces active or inactive rule decisions without mutating presentation |
+| Resolve Targets | Active rule decisions plus point view roots and target markers | Produces target entities such as point circle/background children |
+| Apply Treatments | Active rule decisions plus resolved targets | Updates only the target's visual treatment, not point text or gameplay value |
+| Update card ability modifiers | Card point view, `CardInstanceId`, `CardInstanceStateModel`, active location ability delta | Activates `abilityoutline` only when the linked card power point is actively modified by a non-zero ability |
+| Update location leading modifiers | Paired local/opponent location total point views | Activates `leadingscoreoutline` on the higher value and clears both on ties |
 | Clear stale modifiers | Missing placement, removed ability, equal totals, hidden/despawned children | Removes inactive modifier presentation without panics |
+| Adapter bridge | Existing hand-index point view data plus 015 adapter helpers | Produces equivalent modifier decisions until card point views carry direct `CardInstanceId` links |
 
 ## Acceptance Samples
 

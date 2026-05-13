@@ -33,10 +33,10 @@ fn energy_spend_restore_and_move_history_are_round_scoped() {
 }
 
 #[test]
-fn round_six_end_turn_resolves_without_advancing() {
+fn round_six_end_round_resolves_without_advancing() {
     let mut model = GameRoundModel::for_round(6);
 
     assert!(!model.advance_round());
     assert_eq!(model.round, 6);
-    assert!(model.end_turn_resolved);
+    assert!(model.end_round_resolved);
 }

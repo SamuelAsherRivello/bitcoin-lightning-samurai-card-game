@@ -17,9 +17,9 @@
 | Deck | N/A | Owner-visible or hidden by absence | None | Back or no view |
 | Hand, local human | N/A | OwnerVisible | Idle, pressed, selected, dragging, returning | Front |
 | Hand, CPU/opponent | N/A | OwnerVisible to owner | Idle/passive animation | Back or front by viewer policy |
-| Location, current turn | CurrentTurnMovable | OwnerVisible or CurrentTurnHiddenToOpponent | Idle, selected, dragging, returning, settling placed | Front to owner; back to hidden opponent |
+| Location, current round | CurrentRoundMovable | OwnerVisible or CurrentRoundHiddenToOpponent | Idle, selected, dragging, returning, settling placed | Front to owner; back to hidden opponent |
 | Location, locked | Locked | RevealedToAll | Idle or selected | Front |
-| Location, locked | Locked | CurrentTurnHiddenToOpponent | Idle/passive | Back to non-owner until reveal event |
+| Location, locked | Locked | CurrentRoundHiddenToOpponent | Idle/passive | Back to non-owner until reveal event |
 
 ## Invalid Combination Contract
 
@@ -37,9 +37,9 @@
 
 | Derived Output | Inputs | Rule |
 | -------------- | ------ | ---- |
-| `visible_face` | `CardRevealPolicy`, viewer side, flip/animation state | Owner and revealed cards may show front; hidden current-turn opposing cards show back. |
+| `visible_face` | `CardRevealPolicy`, viewer side, flip/animation state | Owner and revealed cards may show front; hidden current-round opposing cards show back. |
 | `pose` | `CardZoneModel`, `CardInteractionModel`, safe GameView layout | Interaction pose wins while active; otherwise zone pose wins. |
-| `is_draggable` | Owner/controller, zone, lock state, interaction | Local human hand and current-turn movable location cards are draggable when no other interaction blocks them. |
+| `is_draggable` | Owner/controller, zone, lock state, interaction | Local human hand and current-round movable location cards are draggable when no other interaction blocks them. |
 | `is_selectable` | Owner/controller, zone, reveal policy | Local hand and location cards are selectable when visible to the local player. |
 | Slot occupancy | `CardPlacementModel` and `CardZoneModel::Location` | Occupancy and card zone must agree on location, side, and slot. |
 
@@ -50,8 +50,8 @@
 | Hand click selects inside `GameView` | ✅ |
 | Drag threshold suppresses click inspection | ✅ |
 | Drag from hand to first empty local slot | ✅ |
-| Same-turn placed card can return to hand | ✅ |
+| Same-round placed card can return to hand | ✅ |
 | Locked placed card cannot be dragged | ✅ |
-| Current-turn hidden opponent card renders face down to opponent | ✅ |
+| Current-round hidden opponent card renders face down to opponent | ✅ |
 | CPU-owned cards are passive to local drag/hover | ✅ |
 | `CardViewBundle` creates front/back layers and point layers | ✅ |

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::card_slot_model::{CardSlotBoardModel, CardSlotRect, CardSlotSide};
+use super::card_slot_model::{CARD_SLOT_ROW_COUNT, CardSlotBoardModel, CardSlotRect, CardSlotSide};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DebugDrawingTarget {
@@ -8,30 +8,12 @@ pub enum DebugDrawingTarget {
     LocationAreaTwo,
     LocationAreaThree,
     LocationAreaFour,
-    LocationCardSlotTopLeftUpperLeft,
-    LocationCardSlotTopLeftUpperRight,
-    LocationCardSlotTopLeftLowerLeft,
-    LocationCardSlotTopLeftLowerRight,
-    LocationCardSlotTopCenterUpperLeft,
-    LocationCardSlotTopCenterUpperRight,
-    LocationCardSlotTopCenterLowerLeft,
-    LocationCardSlotTopCenterLowerRight,
-    LocationCardSlotTopRightUpperLeft,
-    LocationCardSlotTopRightUpperRight,
-    LocationCardSlotTopRightLowerLeft,
-    LocationCardSlotTopRightLowerRight,
-    LocationCardSlotBottomLeftUpperLeft,
-    LocationCardSlotBottomLeftUpperRight,
-    LocationCardSlotBottomLeftLowerLeft,
-    LocationCardSlotBottomLeftLowerRight,
-    LocationCardSlotBottomCenterUpperLeft,
-    LocationCardSlotBottomCenterUpperRight,
-    LocationCardSlotBottomCenterLowerLeft,
-    LocationCardSlotBottomCenterLowerRight,
-    LocationCardSlotBottomRightUpperLeft,
-    LocationCardSlotBottomRightUpperRight,
-    LocationCardSlotBottomRightLowerLeft,
-    LocationCardSlotBottomRightLowerRight,
+    LocationCardSlotsTopLeft,
+    LocationCardSlotsTopCenter,
+    LocationCardSlotsTopRight,
+    LocationCardSlotsBottomLeft,
+    LocationCardSlotsBottomCenter,
+    LocationCardSlotsBottomRight,
     HandArea,
 }
 
@@ -64,6 +46,7 @@ pub struct DebugDrawingColor {
     pub green: f32,
     pub blue: f32,
     pub alpha: f32,
+    pub fill_alpha: f32,
 }
 
 impl DebugDrawingColor {
@@ -73,6 +56,23 @@ impl DebugDrawingColor {
             green,
             blue,
             alpha,
+            fill_alpha: 0.06,
+        }
+    }
+
+    pub const fn new_with_fill_alpha(
+        red: f32,
+        green: f32,
+        blue: f32,
+        alpha: f32,
+        fill_alpha: f32,
+    ) -> Self {
+        Self {
+            red,
+            green,
+            blue,
+            alpha,
+            fill_alpha,
         }
     }
 
@@ -81,7 +81,7 @@ impl DebugDrawingColor {
     }
 
     pub const fn blue() -> Self {
-        Self::new(0.0, 0.32, 1.0, 1.0)
+        Self::new_with_fill_alpha(0.0, 0.32, 1.0, 0.9, 0.1)
     }
 
     pub fn border_color(self) -> Color {
@@ -89,7 +89,7 @@ impl DebugDrawingColor {
     }
 
     pub fn fill_color(self) -> Color {
-        Color::srgba(self.red, self.green, self.blue, 0.06)
+        Color::srgba(self.red, self.green, self.blue, self.fill_alpha)
     }
 }
 
@@ -142,10 +142,10 @@ impl DebugDrawingModel {
                 .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0));
             self.replace(target, label, rect);
         }
-        for target in LOCATION_CARD_SLOT_QUADRANT_TARGETS {
+        for target in LOCATION_CARD_SLOT_AREA_TARGETS {
             self.replace_with_color(
                 target,
-                "",
+                "Slots Area",
                 target.quantized_rect(),
                 DebugDrawingColor::blue(),
             );
@@ -216,31 +216,13 @@ impl DebugDrawingModel {
     }
 }
 
-const LOCATION_CARD_SLOT_QUADRANT_TARGETS: [DebugDrawingTarget; 24] = [
-    DebugDrawingTarget::LocationCardSlotTopLeftUpperLeft,
-    DebugDrawingTarget::LocationCardSlotTopLeftUpperRight,
-    DebugDrawingTarget::LocationCardSlotTopLeftLowerLeft,
-    DebugDrawingTarget::LocationCardSlotTopLeftLowerRight,
-    DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft,
-    DebugDrawingTarget::LocationCardSlotTopCenterUpperRight,
-    DebugDrawingTarget::LocationCardSlotTopCenterLowerLeft,
-    DebugDrawingTarget::LocationCardSlotTopCenterLowerRight,
-    DebugDrawingTarget::LocationCardSlotTopRightUpperLeft,
-    DebugDrawingTarget::LocationCardSlotTopRightUpperRight,
-    DebugDrawingTarget::LocationCardSlotTopRightLowerLeft,
-    DebugDrawingTarget::LocationCardSlotTopRightLowerRight,
-    DebugDrawingTarget::LocationCardSlotBottomLeftUpperLeft,
-    DebugDrawingTarget::LocationCardSlotBottomLeftUpperRight,
-    DebugDrawingTarget::LocationCardSlotBottomLeftLowerLeft,
-    DebugDrawingTarget::LocationCardSlotBottomLeftLowerRight,
-    DebugDrawingTarget::LocationCardSlotBottomCenterUpperLeft,
-    DebugDrawingTarget::LocationCardSlotBottomCenterUpperRight,
-    DebugDrawingTarget::LocationCardSlotBottomCenterLowerLeft,
-    DebugDrawingTarget::LocationCardSlotBottomCenterLowerRight,
-    DebugDrawingTarget::LocationCardSlotBottomRightUpperLeft,
-    DebugDrawingTarget::LocationCardSlotBottomRightUpperRight,
-    DebugDrawingTarget::LocationCardSlotBottomRightLowerLeft,
-    DebugDrawingTarget::LocationCardSlotBottomRightLowerRight,
+const LOCATION_CARD_SLOT_AREA_TARGETS: [DebugDrawingTarget; 6] = [
+    DebugDrawingTarget::LocationCardSlotsTopLeft,
+    DebugDrawingTarget::LocationCardSlotsTopCenter,
+    DebugDrawingTarget::LocationCardSlotsTopRight,
+    DebugDrawingTarget::LocationCardSlotsBottomLeft,
+    DebugDrawingTarget::LocationCardSlotsBottomCenter,
+    DebugDrawingTarget::LocationCardSlotsBottomRight,
 ];
 
 impl DebugDrawingTarget {
@@ -252,30 +234,12 @@ impl DebugDrawingTarget {
             | DebugDrawingTarget::LocationAreaFour => self
                 .runtime_rect(&CardSlotBoardModel::default())
                 .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0)),
-            DebugDrawingTarget::LocationCardSlotTopLeftUpperLeft
-            | DebugDrawingTarget::LocationCardSlotTopLeftUpperRight
-            | DebugDrawingTarget::LocationCardSlotTopLeftLowerLeft
-            | DebugDrawingTarget::LocationCardSlotTopLeftLowerRight
-            | DebugDrawingTarget::LocationCardSlotTopCenterUpperLeft
-            | DebugDrawingTarget::LocationCardSlotTopCenterUpperRight
-            | DebugDrawingTarget::LocationCardSlotTopCenterLowerLeft
-            | DebugDrawingTarget::LocationCardSlotTopCenterLowerRight
-            | DebugDrawingTarget::LocationCardSlotTopRightUpperLeft
-            | DebugDrawingTarget::LocationCardSlotTopRightUpperRight
-            | DebugDrawingTarget::LocationCardSlotTopRightLowerLeft
-            | DebugDrawingTarget::LocationCardSlotTopRightLowerRight
-            | DebugDrawingTarget::LocationCardSlotBottomLeftUpperLeft
-            | DebugDrawingTarget::LocationCardSlotBottomLeftUpperRight
-            | DebugDrawingTarget::LocationCardSlotBottomLeftLowerLeft
-            | DebugDrawingTarget::LocationCardSlotBottomLeftLowerRight
-            | DebugDrawingTarget::LocationCardSlotBottomCenterUpperLeft
-            | DebugDrawingTarget::LocationCardSlotBottomCenterUpperRight
-            | DebugDrawingTarget::LocationCardSlotBottomCenterLowerLeft
-            | DebugDrawingTarget::LocationCardSlotBottomCenterLowerRight
-            | DebugDrawingTarget::LocationCardSlotBottomRightUpperLeft
-            | DebugDrawingTarget::LocationCardSlotBottomRightUpperRight
-            | DebugDrawingTarget::LocationCardSlotBottomRightLowerLeft
-            | DebugDrawingTarget::LocationCardSlotBottomRightLowerRight => self
+            DebugDrawingTarget::LocationCardSlotsTopLeft
+            | DebugDrawingTarget::LocationCardSlotsTopCenter
+            | DebugDrawingTarget::LocationCardSlotsTopRight
+            | DebugDrawingTarget::LocationCardSlotsBottomLeft
+            | DebugDrawingTarget::LocationCardSlotsBottomCenter
+            | DebugDrawingTarget::LocationCardSlotsBottomRight => self
                 .runtime_rect(&CardSlotBoardModel::default())
                 .unwrap_or(DebugDrawingRect::new(0.0, 0.0, 0.0, 0.0)),
             DebugDrawingTarget::HandArea => DebugDrawingRect::new(364.0, 612.0, 552.0, 188.0),
@@ -288,10 +252,22 @@ impl DebugDrawingTarget {
                 .location_area_rect(location_index)
                 .map(DebugDrawingRect::from_card_slot_rect);
         }
-        let (location_index, side, slot_index) = self.card_slot_identity()?;
-        slot_board
-            .slot_rect(location_index, side, slot_index)
-            .map(DebugDrawingRect::from_card_slot_rect)
+        let (location_index, side) = self.card_slot_area_identity()?;
+        let mut rects = (0..CARD_SLOT_ROW_COUNT).filter_map(|slot_index| {
+            slot_board
+                .slot_rect(location_index, side, slot_index)
+                .map(DebugDrawingRect::from_card_slot_rect)
+        });
+        let first = rects.next()?;
+
+        Some(rects.fold(first, |area, rect| {
+            let left = area.left.min(rect.left);
+            let top = area.top.min(rect.top);
+            let right = (area.left + area.width).max(rect.left + rect.width);
+            let bottom = (area.top + area.height).max(rect.top + rect.height);
+
+            DebugDrawingRect::new(left, top, right - left, bottom - top)
+        }))
     }
 
     fn location_area_index(self) -> Option<usize> {
@@ -303,20 +279,18 @@ impl DebugDrawingTarget {
         }
     }
 
-    fn card_slot_identity(self) -> Option<(usize, CardSlotSide, usize)> {
-        let index = LOCATION_CARD_SLOT_QUADRANT_TARGETS
+    fn card_slot_area_identity(self) -> Option<(usize, CardSlotSide)> {
+        let index = LOCATION_CARD_SLOT_AREA_TARGETS
             .iter()
             .position(|target| *target == self)?;
-        let side = if index < 12 {
+        let side = if index < 3 {
             CardSlotSide::Opponent
         } else {
             CardSlotSide::LocalPlayer
         };
-        let side_index = index % 12;
-        let location_index = side_index / 4;
-        let slot_index = side_index % 4;
+        let location_index = index % 3;
 
-        Some((location_index, side, slot_index))
+        Some((location_index, side))
     }
 }
 

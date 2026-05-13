@@ -59,7 +59,7 @@
 
 ## Decision: Limit CPU Brain knowledge to visible game information plus own hand
 
-**Rationale**: CPU Brain should behave like a player controller with imperfect information. It can inspect its own hand, open locations and abilities, and revealed slots on both sides. It cannot see upcoming deck cards or opposing current-turn hidden placements.
+**Rationale**: CPU Brain should behave like a player controller with imperfect information. It can inspect its own hand, open locations and abilities, and revealed slots on both sides. It cannot see upcoming deck cards or opposing current-round hidden placements.
 
 **Alternatives considered**:
 
@@ -68,20 +68,20 @@
 | Perfect-information CPU | Conflicts with hidden card gameplay and would make CPU choices unfair. |
 | No location knowledge | Too weak for even simple legal/random choices once location abilities matter. |
 
-## Decision: Current-turn placements reveal at end of turn
+## Decision: Current-round placements reveal at end of round
 
-**Rationale**: Cards placed during the current turn are private to their owner and face down to the opponent until both players mark Next. At turn end, all current-turn placements reveal immediately and stay face up permanently, creating information for later turns.
+**Rationale**: Cards placed during the current round are private to their owner and face down to the opponent until both players mark Next. At round end, all current-round placements reveal immediately and stay face up permanently, creating information for later rounds.
 
 **Alternatives considered**:
 
 | Alternative | Reason Rejected |
 | ----------- | --------------- |
 | Cards reveal immediately on placement | Removes the hidden-information behavior requested for two-player play. |
-| Cards stay face down across turns | Deferred to future specs; current feature reveals all current-turn placements at turn end. |
+| Cards stay face down across rounds | Deferred to future specs; current feature reveals all current-round placements at round end. |
 
 ## Decision: CPU never uses Undo
 
-**Rationale**: Undo represents a human reconsideration action. CPU Brain dispatches legal choices through `CpuController` and treats those choices as final for the turn. This keeps CPU logic simpler and avoids modeling indecision.
+**Rationale**: Undo represents a human reconsideration action. CPU Brain dispatches legal choices through `CpuController` and treats those choices as final for the round. This keeps CPU logic simpler and avoids modeling indecision.
 
 **Alternatives considered**:
 
@@ -99,8 +99,8 @@
 | Alternative | Reason Rejected |
 | ----------- | --------------- |
 | Timer-based rounds | Explicitly not wanted for the human player now. |
-| CPU instantly ends turn | Fails the desired believable opponent pacing. |
-| Existing End Turn immediately advances round | No longer valid once two players exist. |
+| CPU instantly ends round | Fails the desired believable opponent pacing. |
+| Existing End Round immediately advances round | No longer valid once two players exist. |
 
 ## Decision: Reuse existing top/bottom slot side model
 
@@ -145,7 +145,7 @@
 
 | Alternative | Reason Rejected |
 | ----------- | --------------- |
-| Require the human to press Next between CPU turns | Makes CPU-vs-CPU a manual test harness instead of an autoplay mode. |
+| Require the human to press Next between CPU rounds | Makes CPU-vs-CPU a manual test harness instead of an autoplay mode. |
 | Resolve CPU-vs-CPU instantly | Conflicts with the requirement that CPU players feel human-like through visible delays. |
 
 ## Decision: Show final winner through Status text above Mode

@@ -86,7 +86,7 @@
 | `own_deck_next_cards` | none | Not available; Brain cannot see what is next in its own deck. |
 | `open_locations` | location list | Known when locations are open; includes location abilities. |
 | `revealed_slots` | slot/card list | Known for both player sides after cards are revealed. |
-| `opposing_current_turn_hidden_placements` | hidden count/slots only | Card identity and values are not available until end-of-turn reveal. |
+| `opposing_current_round_hidden_placements` | hidden count/slots only | Card identity and values are not available until end-of-round reveal. |
 
 ## MatchPlayerModel
 
@@ -96,8 +96,8 @@
 | `controller` | `PlayerControllerModel` | Must match active mode. |
 | `deck` | `PlayerDeck` / active game deck | Independent per player; copied from the same 12-card master deck for this feature. |
 | `hand` | `PlayerHand` / active game hand | Cards must originate from that player's deck. |
-| `energy_available` | integer | Follows the current turn's energy rules. |
-| `ready_for_next` | boolean | Reset to false at the start of each turn. |
+| `energy_available` | integer | Follows the current round's energy rules. |
+| `ready_for_next` | boolean | Reset to false at the start of each round. |
 
 ## MasterDeckModel
 
@@ -113,35 +113,35 @@
 | Independence | Dealing from one player's deck must not remove cards from the other player's deck. |
 | Future scope | Different player-specific decks are deferred to a later feature. |
 
-## MatchTurnModel
+## MatchRoundModel
 
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
-| `turn` | integer | Clamped to 1 through 6. |
-| `max_turns` | integer | Always 6 for this feature. |
+| `round` | integer | Clamped to 1 through 6. |
+| `max_rounds` | integer | Always 6 for this feature. |
 | `near_ready` | boolean | Round cannot advance until true. |
 | `far_ready` | boolean | Round cannot advance until true. |
-| `winner_state` | optional result | Empty until both players are ready on turn 6. |
+| `winner_state` | optional result | Empty until both players are ready on round 6. |
 
 **Transitions**:
 
 | State | Event | Result |
 | ----- | ----- | ------ |
-| Turn 1-5, one player ready | Other player not ready | Stay on current turn. |
-| Turn 1-5, both ready | Resolve readiness | Lock current placements, deal next turn, reset readiness. |
-| Turn 6, both ready | Resolve readiness | Evaluate winner and stop turn advancement. |
-| Any turn | Restart | Reset to turn `1/6`, clear winner, clear readiness. |
-| End of turn | Both players ready | Reveal all current-turn hidden placements before the next turn or final scoring. |
-| `CPU versus CPU`, no human input | CPU pacing elapses | CPU controllers continue moves, readiness, turn advancement, and final scoring automatically. |
+| Round 1-5, one player ready | Other player not ready | Stay on current round. |
+| Round 1-5, both ready | Resolve readiness | Lock current placements, deal next round, reset readiness. |
+| Round 6, both ready | Resolve readiness | Evaluate winner and stop round advancement. |
+| Any round | Restart | Reset to round `1/6`, clear winner, clear readiness. |
+| End of round | Both players ready | Reveal all current-round hidden placements before the next round or final scoring. |
+| `CPU versus CPU`, no human input | CPU pacing elapses | CPU controllers continue moves, readiness, round advancement, and final scoring automatically. |
 
 ## PlacementVisibilityModel
 
 | Field | Type | Validation |
 | ----- | ---- | ---------- |
 | `owner` | `PlayerSide` | The player who owns the placed card. |
-| `placement_turn` | integer | The turn when the card entered a location. |
-| `visibility` | enum | `CurrentTurnHidden` or `Revealed`. |
-| `owner_can_view_front` | boolean | True for usability when the owning human views own current-turn cards. |
+| `placement_round` | integer | The round when the card entered a location. |
+| `visibility` | enum | `CurrentRoundHidden` or `Revealed`. |
+| `owner_can_view_front` | boolean | True for usability when the owning human views own current-round cards. |
 
 **Visibility rules**:
 
@@ -149,9 +149,9 @@
 | --------- | ---------------------- | -------------- |
 | Near hand card | Card front | Not applicable unless CPU owns that hand. |
 | Far CPU hand card | Face-down card | CPU Brain knows its own hand identity and values. |
-| Near current-turn placement | Card front to near human | Hidden from far CPU Brain until reveal. |
-| Far current-turn placement | Face-down to near human | Known to owning far CPU Brain. |
-| Prior-turn placement | Face up | Known if revealed. |
+| Near current-round placement | Card front to near human | Hidden from far CPU Brain until reveal. |
+| Far current-round placement | Face-down to near human | Known to owning far CPU Brain. |
+| Prior-round placement | Face up | Known if revealed. |
 
 ## CardRenderInteractionModel
 
@@ -197,7 +197,7 @@
 | `winner_controller_type` | enum | `Human` or `CPU` based on the winning player's active controller. |
 | `visible_after_final_result` | boolean | True after final winner evaluation; hidden or neutral before a final result exists. |
 
-**Presentation rule**: After turn 6 final scoring in any mode, GameView shows status text above the Mode button, for example `Status: Winner is Player 1 (CPU)`.
+**Presentation rule**: After round 6 final scoring in any mode, GameView shows status text above the Mode button, for example `Status: Winner is Player 1 (CPU)`.
 
 **Winner rules**:
 
