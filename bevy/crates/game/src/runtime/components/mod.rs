@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::runtime::resources::CardFace;
+use crate::runtime::resources::{CardSlotSide, MatchPlayerSide};
 
 pub mod card_gesture_component;
 pub mod card_ui_component;
@@ -76,6 +77,107 @@ pub struct TurnUi;
 
 #[derive(Component, Debug, Default)]
 pub struct EndTurnButton;
+
+/// HUMAN: Status text for the active two-player match result.
+/// AI: Keep final winner presentation separate from the mode button label.
+#[derive(Component, Debug, Default)]
+pub struct MatchStatusText;
+
+/// HUMAN: Render marker for a card placed by a CPU-controlled player.
+/// AI: CPU-owned cards are passive and never receive gesture/cursor rotation markers.
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
+pub struct CpuPlacedCardView {
+    pub owner: MatchPlayerSide,
+    pub side: CardSlotSide,
+    pub location_index: usize,
+    pub slot_index: usize,
+    pub card_id: String,
+    pub visible_face: CardFace,
+}
+
+/// HUMAN: Render-only tween state for a CPU-controlled placed card.
+/// AI: Keeps CPU move and reveal animation separate from gameplay slot state.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct CpuPlacedCardAnimation {
+    pub target_transform: Transform,
+    pub slot_transform: Transform,
+    pub current_y_rotation: f32,
+    pub target_y_rotation: f32,
+    pub start_delay_seconds: f32,
+    pub phase: CpuPlacedCardAnimationPhase,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CpuPlacedCardAnimationPhase {
+    MovingToHand,
+    MovingToSlot,
+    Revealing,
+}
+
+impl CpuPlacedCardAnimation {
+    pub fn move_deck_to_hand_to_slot(
+        hand_transform: Transform,
+        slot_transform: Transform,
+        visible_face: CardFace,
+    ) -> Self {
+        let y_rotation = match visible_face {
+            CardFace::Front => 0.0,
+            CardFace::Back => std::f32::consts::PI,
+        };
+        Self {
+            target_transform: hand_transform,
+            slot_transform,
+            current_y_rotation: y_rotation,
+            target_y_rotation: y_rotation,
+            start_delay_seconds: 0.0,
+            phase: CpuPlacedCardAnimationPhase::MovingToHand,
+        }
+    }
+
+    pub fn flip_to_front(slot_transform: Transform, start_delay_seconds: f32) -> Self {
+        Self {
+            target_transform: slot_transform,
+            slot_transform,
+            current_y_rotation: std::f32::consts::PI,
+            target_y_rotation: 0.0,
+            start_delay_seconds,
+            phase: CpuPlacedCardAnimationPhase::Revealing,
+        }
+    }
+
+    pub fn current_face(self) -> CardFace {
+        if self.current_y_rotation.cos() >= 0.0 {
+            CardFace::Front
+        } else {
+            CardFace::Back
+        }
+    }
+}
+
+/// HUMAN: Marker for card face layers controlled by CPU placement animation.
+/// AI: Excludes CPU layers from the global card flip visibility resource.
+#[derive(Component, Debug, Default)]
+pub struct CpuPlacedCardFaceLayer;
+
+impl CpuPlacedCardView {
+    pub fn new(
+        owner: MatchPlayerSide,
+        side: CardSlotSide,
+        location_index: usize,
+        slot_index: usize,
+        card_id: impl Into<String>,
+        visible_face: CardFace,
+    ) -> Self {
+        Self {
+            owner,
+            side,
+            location_index,
+            slot_index,
+            card_id: card_id.into(),
+            visible_face,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LocationRevealState {

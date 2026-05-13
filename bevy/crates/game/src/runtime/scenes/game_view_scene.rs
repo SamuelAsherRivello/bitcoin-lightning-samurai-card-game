@@ -5,7 +5,7 @@ use crate::runtime::components::AppSceneRoot;
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveWorldModel, CardInspectionDefaults, CardModelRegistry,
     CardSlotBoardModel, GameLocationModel, GameRoundModel, LocationModelRegistry,
-    PrimaryCameraDefaults, WorldModelRegistry,
+    OpponentMatchModel, PrimaryCameraDefaults, WorldModelRegistry,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 use crate::runtime::systems::SetupGameViewParams;
@@ -28,6 +28,7 @@ pub fn setup_game_view(
     active_locations: Res<ActiveLocations>,
     game_round_model: Option<ResMut<GameRoundModel>>,
     game_location_model: Option<ResMut<GameLocationModel>>,
+    opponent_match_model: Option<ResMut<OpponentMatchModel>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -51,6 +52,7 @@ pub fn setup_game_view(
         game_hand_model: None,
         game_round_model,
         game_location_model,
+        opponent_match_model,
         card_states: None,
         meshes,
         materials,

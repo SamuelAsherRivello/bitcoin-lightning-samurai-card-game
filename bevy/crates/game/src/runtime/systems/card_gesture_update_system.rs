@@ -8,7 +8,7 @@ use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardGestureModel, CardGestureSlotTarget,
     CardGestureState, CardInspectionDefaults, CardModelRegistry, CardSlotBoardModel, CardSlotSide,
     CardState, CardStateModel, CurrentRoundMoveRecord, GameHandModel, GameLocationModel,
-    GameRoundModel,
+    GameRoundModel, OpponentMatchModel,
 };
 
 use super::{
@@ -34,6 +34,7 @@ pub fn card_gesture_update_system(
     card_model_registry: Option<Res<CardModelRegistry>>,
     game_hand_model: Option<Res<GameHandModel>>,
     game_location_model: Option<Res<GameLocationModel>>,
+    opponent_match_model: Option<Res<OpponentMatchModel>>,
     mut game_round_model: Option<ResMut<GameRoundModel>>,
     mut gesture_model: ResMut<CardGestureModel>,
     mut slot_board: ResMut<CardSlotBoardModel>,
@@ -41,6 +42,12 @@ pub fn card_gesture_update_system(
     mut card_query: Query<(&HandCardGestureTarget, &mut Visibility), With<CardGestureView>>,
 ) {
     if *active_view != ActiveView::GameView {
+        return;
+    }
+    if opponent_match_model
+        .as_deref()
+        .is_some_and(|model| model.near.controller.is_cpu())
+    {
         return;
     }
 

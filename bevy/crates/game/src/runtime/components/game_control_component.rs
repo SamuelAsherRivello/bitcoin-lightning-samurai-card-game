@@ -4,6 +4,7 @@ use bevy::prelude::*;
 /// AI: Button systems route through this enum instead of relying on text labels.
 #[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
 pub enum GameControlAction {
+    Mode,
     Restart,
     Undo,
     EndTurn,

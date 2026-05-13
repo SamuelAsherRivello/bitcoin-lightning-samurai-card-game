@@ -1169,6 +1169,60 @@ fn fortress_gate_location_power_total_uses_effective_card_power() {
 }
 
 #[test]
+fn bamboo_crossing_location_power_total_uses_effective_card_power() {
+    let mut app = App::new();
+    app.init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<GameLocationModel>()
+        .add_systems(Update, update_location_power_points);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .set_round(2);
+    let power_view = app
+        .world_mut()
+        .spawn((
+            PointView::new(PointModel::location_power(0)),
+            PointLocationView::new(1, CardSlotSide::LocalPlayer),
+        ))
+        .with_children(|parent| {
+            parent.spawn(Text::new("0"));
+        })
+        .id();
+
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert_eq!(
+            slots.place_next_local_with_card_id(
+                1,
+                0,
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID,
+            ),
+            Some(0)
+        );
+    }
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_view)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::location_power(1)
+    );
+    let text_child = app
+        .world()
+        .entity(power_view)
+        .get::<Children>()
+        .unwrap()
+        .first()
+        .copied()
+        .unwrap();
+    assert_eq!(app.world().entity(text_child).get::<Text>().unwrap().0, "1");
+}
+
+#[test]
 fn location_power_update_ignores_non_location_point_types() {
     let mut app = App::new();
     app.init_resource::<CardSlotBoardModel>()
@@ -1334,6 +1388,323 @@ fn card_power_text_applies_and_removes_location_power_delta() {
     assert_eq!(
         app.world().entity(power_text).get::<Text2d>().unwrap().0,
         "1"
+    );
+}
+
+#[test]
+fn card_power_text_applies_bamboo_crossing_power_delta() {
+    let mut app = App::new();
+    app.init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<GameLocationModel>()
+        .insert_resource(GameHandModel::new(vec![
+            crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
+        ]))
+        .add_systems(Update, update_card_power_point_views_system);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .set_round(2);
+
+    let power_text = app
+        .world_mut()
+        .spawn((
+            CardPointTextView::new(PointType::CardPower),
+            Text2d::new("3"),
+        ))
+        .id();
+    let power_background = app
+        .world_mut()
+        .spawn(PointView::new(PointModel::card_power(3)))
+        .id();
+    app.world_mut()
+        .entity_mut(power_background)
+        .add_children(&[power_text]);
+    let card = app
+        .world_mut()
+        .spawn((HandCardGestureTarget::new(0), CardGestureView))
+        .id();
+    app.world_mut()
+        .entity_mut(card)
+        .add_children(&[power_background]);
+
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert_eq!(
+            slots.place_next_local_with_card_id(
+                1,
+                0,
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID,
+            ),
+            Some(0)
+        );
+    }
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_background)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::card_power(1)
+    );
+    assert_eq!(
+        app.world().entity(power_text).get::<Text2d>().unwrap().0,
+        "1"
+    );
+}
+
+#[test]
+fn moved_card_power_text_uses_current_location_delta() {
+    let mut app = App::new();
+    app.init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<GameLocationModel>()
+        .insert_resource(GameHandModel::new(vec![
+            crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
+        ]))
+        .add_systems(Update, update_card_power_point_views_system);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .set_round(2);
+
+    let power_text = app
+        .world_mut()
+        .spawn((
+            CardPointTextView::new(PointType::CardPower),
+            Text2d::new("3"),
+        ))
+        .id();
+    let power_background = app
+        .world_mut()
+        .spawn(PointView::new(PointModel::card_power(3)))
+        .id();
+    app.world_mut()
+        .entity_mut(power_background)
+        .add_children(&[power_text]);
+    let card = app
+        .world_mut()
+        .spawn((HandCardGestureTarget::new(0), CardGestureView))
+        .id();
+    app.world_mut()
+        .entity_mut(card)
+        .add_children(&[power_background]);
+
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert_eq!(
+            slots.place_next_local_with_card_id(
+                0,
+                0,
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID,
+            ),
+            Some(0)
+        );
+    }
+    app.update();
+    assert_eq!(
+        app.world()
+            .entity(power_background)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::card_power(5)
+    );
+
+    {
+        let mut slots = app.world_mut().resource_mut::<CardSlotBoardModel>();
+        assert_eq!(
+            slots.place_next_local_with_card_id(
+                1,
+                0,
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID,
+            ),
+            Some(0)
+        );
+    }
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .entity(power_background)
+            .get::<PointView>()
+            .unwrap()
+            .model,
+        PointModel::card_power(1)
+    );
+    assert_eq!(
+        app.world().entity(power_text).get::<Text2d>().unwrap().0,
+        "1"
+    );
+}
+
+#[test]
+fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CpuBrainModel>()
+        .insert_resource(OpponentMatchModel::new(
+            MatchModeModel::CpuVersusCpu,
+            vec![
+                crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::SISTER_HOTARU_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::SISTER_HOTARU_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::LORD_DAICHI_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::SISTER_HOTARU_CARD_MODEL_ID.to_string(),
+                crate::runtime::resources::YOKAI_PLACEHOLDER_CARD_MODEL_ID.to_string(),
+            ],
+        ))
+        .add_systems(Update, cpu_brain_update_system);
+    {
+        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        match_model.near.draw(1);
+        match_model.far.draw(1);
+        match_model.near.energy_available = 1;
+        match_model.far.energy_available = 1;
+    }
+
+    let mut elapsed = 0.0;
+    while elapsed < 30.0 {
+        elapsed += 0.5;
+        {
+            let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
+            brain.near_next_decision_seconds = 0.0;
+            brain.far_next_decision_seconds = 0.0;
+        }
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(500));
+        app.update();
+        if app
+            .world()
+            .resource::<OpponentMatchModel>()
+            .turn
+            .winner
+            .is_some()
+        {
+            break;
+        }
+    }
+
+    let match_model = app.world().resource::<OpponentMatchModel>();
+    assert!(
+        match_model.turn.winner.is_some(),
+        "CPU-vs-CPU did not finish within 30 seconds; status={}",
+        match_model.status_text()
+    );
+    assert!(
+        match_model
+            .status_text()
+            .starts_with("Status: Winner is Player ")
+    );
+}
+
+#[test]
+fn cpu_placed_card_animation_tweens_move_and_reveal_flip() {
+    let target_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let source_transform = Transform {
+        translation: Vec3::new(-4.0, -2.0, 0.52),
+        rotation: Quat::from_rotation_y(std::f32::consts::PI),
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = source_transform;
+    let mut animation = CpuPlacedCardAnimation::flip_to_front(target_transform);
+
+    let is_settled = advance_cpu_placed_card_animation(0.1, &mut transform, &mut animation);
+
+    assert!(transform.translation.distance(source_transform.translation) > 0.01);
+    assert!(transform.translation.distance(target_transform.translation) > 0.01);
+    let (_, yaw, _) = transform.rotation.to_euler(EulerRot::XYZ);
+    assert!(yaw.abs() > 0.01);
+    assert!(yaw.abs() < std::f32::consts::PI - 0.01);
+    assert!(!is_settled);
+}
+
+#[test]
+fn cpu_placed_card_face_visibility_uses_per_card_reveal_state() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardUiState>()
+        .add_systems(Update, update_cpu_placed_card_face_visibility_system);
+
+    let root = app
+        .world_mut()
+        .spawn((
+            CpuPlacedCardView::new(
+                MatchPlayerSide::Far,
+                CardSlotSide::Opponent,
+                0,
+                0,
+                "test-card",
+                CardFace::Back,
+            ),
+            CpuPlacedCardAnimation::move_to_slot(Transform::default(), CardFace::Back),
+        ))
+        .id();
+    let front = app
+        .world_mut()
+        .spawn((
+            CardFaceLayer::new(CardFace::Front),
+            CpuPlacedCardFaceLayer,
+            Visibility::Hidden,
+        ))
+        .id();
+    let back = app
+        .world_mut()
+        .spawn((
+            CardFaceLayer::new(CardFace::Back),
+            CpuPlacedCardFaceLayer,
+            Visibility::Hidden,
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(root)
+        .add_children(&[front, back]);
+
+    app.update();
+    assert_eq!(
+        app.world().get::<Visibility>(back),
+        Some(&Visibility::Visible)
+    );
+    assert_eq!(
+        app.world().get::<Visibility>(front),
+        Some(&Visibility::Hidden)
+    );
+
+    app.world_mut()
+        .entity_mut(root)
+        .remove::<CpuPlacedCardAnimation>();
+    app.world_mut()
+        .get_mut::<CpuPlacedCardView>(root)
+        .unwrap()
+        .visible_face = CardFace::Front;
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Visibility>(front),
+        Some(&Visibility::Visible)
+    );
+    assert_eq!(
+        app.world().get::<Visibility>(back),
+        Some(&Visibility::Hidden)
     );
 }
 

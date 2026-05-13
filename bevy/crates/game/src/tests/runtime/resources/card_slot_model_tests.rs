@@ -102,6 +102,22 @@ fn next_available_local_slot_uses_upper_left_upper_right_lower_left_lower_right_
 }
 
 #[test]
+fn replacing_a_local_card_moves_it_instead_of_duplicating_slots() {
+    let mut board = CardSlotBoardModel::default();
+
+    assert_eq!(board.place_next_local(0, 7), Some(0));
+    assert_eq!(board.local_slot_for_card(7), Some((0, 0)));
+    assert_eq!(board.place_next_local(1, 7), Some(0));
+
+    assert_eq!(board.populated_count(), 1);
+    assert_eq!(board.local_slot_for_card(7), Some((1, 0)));
+    assert_eq!(
+        board.slot(0, CardSlotSide::LocalPlayer, 0).unwrap().state,
+        CardSlotState::Empty
+    );
+}
+
+#[test]
 fn opponent_populated_and_missing_slots_reject_placement() {
     let mut board = CardSlotBoardModel::default();
 

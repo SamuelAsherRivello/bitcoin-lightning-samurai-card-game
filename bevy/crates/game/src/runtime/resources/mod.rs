@@ -7,18 +7,22 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub mod card_gesture_model;
 pub mod card_slot_model;
+pub mod cpu_brain_model;
 pub mod debug_drawing_model;
 pub mod font_model;
 pub mod game_location_model;
 pub mod game_round_model;
+pub mod opponent_match_model;
 pub mod point_model;
 
 pub use card_gesture_model::*;
 pub use card_slot_model::*;
+pub use cpu_brain_model::*;
 pub use debug_drawing_model::*;
 pub use font_model::*;
 pub use game_location_model::*;
 pub use game_round_model::*;
+pub use opponent_match_model::*;
 pub use point_model::*;
 
 const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
@@ -690,7 +694,7 @@ impl ActiveCardModel {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum CardFace {
     #[default]
     Front,
@@ -1057,6 +1061,10 @@ pub fn valid_window_placement(placement: Option<WindowPlacement>) -> Option<Wind
 }
 
 fn workspace_root_path() -> PathBuf {
+    workspace_root_path_for_game()
+}
+
+pub fn workspace_root_path_for_game() -> PathBuf {
     let mut path = Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
     for component in WORKSPACE_RELATIVE_FROM_GAME_CRATE {
         path.push(component);

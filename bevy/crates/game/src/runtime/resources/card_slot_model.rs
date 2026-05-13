@@ -243,6 +243,16 @@ impl CardSlotBoardModel {
             .is_some_and(|slot| slot.accepts_local_direct_placement())
     }
 
+    pub fn can_place_for_side(
+        &self,
+        location_index: usize,
+        side: CardSlotSide,
+        slot_index: usize,
+    ) -> bool {
+        self.slot(location_index, side, slot_index)
+            .is_some_and(|slot| slot.state.is_empty())
+    }
+
     pub fn place_local(
         &mut self,
         location_index: usize,
@@ -261,23 +271,62 @@ impl CardSlotBoardModel {
         hand_index: usize,
         card_id: impl Into<String>,
     ) -> bool {
-        if !self.can_place_local(location_index, side, slot_index) {
-            return false;
-        }
-
-        if let Some(slot) = self.slots.iter_mut().find(|slot| {
+        let Some(target_index) = self.slots.iter().position(|slot| {
             slot.location_index == location_index
                 && slot.side == side
                 && slot.slot_index == slot_index
-        }) {
-            slot.state = CardSlotState::Populated {
-                hand_index,
-                card_id: card_id.into(),
-            };
-            return true;
+                && slot.accepts_local_direct_placement()
+        }) else {
+            return false;
+        };
+
+        for slot in &mut self.slots {
+            if slot.side == CardSlotSide::LocalPlayer && slot.state.hand_index() == Some(hand_index)
+            {
+                slot.state = CardSlotState::Empty;
+            }
         }
 
-        false
+        self.slots[target_index].state = CardSlotState::Populated {
+            hand_index,
+            card_id: card_id.into(),
+        };
+        true
+    }
+
+    pub fn place_for_side_with_card_id(
+        &mut self,
+        location_index: usize,
+        side: CardSlotSide,
+        slot_index: usize,
+        hand_index: usize,
+        card_id: impl Into<String>,
+    ) -> bool {
+        let Some(target_index) = self.slots.iter().position(|slot| {
+            slot.location_index == location_index
+                && slot.side == side
+                && slot.slot_index == slot_index
+                && slot.state.is_empty()
+        }) else {
+            return false;
+        };
+
+        for slot in &mut self.slots {
+            if slot.side == side && slot.state.hand_index() == Some(hand_index) {
+                slot.state = CardSlotState::Empty;
+            }
+        }
+
+        self.slots[target_index].state = CardSlotState::Populated {
+            hand_index,
+            card_id: card_id.into(),
+        };
+        true
+    }
+
+    pub fn next_available_slot(&self, location_index: usize, side: CardSlotSide) -> Option<usize> {
+        (0..CARD_SLOT_ROW_COUNT)
+            .find(|slot_index| self.can_place_for_side(location_index, side, *slot_index))
     }
 
     pub fn next_available_local_slot(&self, location_index: usize) -> Option<usize> {

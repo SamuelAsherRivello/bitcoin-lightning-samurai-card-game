@@ -31,6 +31,9 @@ fn release_after_threshold_does_not_select_for_inspection() {
                     handle_move(
                         Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
                         &defaults,
+                        Some(&registry),
+                        Some(&hand),
+                        Some(&round),
                         &mut gesture,
                         &mut states,
                     );
@@ -528,6 +531,9 @@ fn locked_location_card_drag_returns_to_source() {
     handle_move(
         Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
         &defaults,
+        None,
+        None,
+        None,
         &mut gesture,
         &mut card_states,
     );
