@@ -174,8 +174,10 @@ fn drag_preview_source_scale(
 ) -> Vec3 {
     let source_game_scene_height = card_defaults.height * source_transform.scale.y
         / game_scene_world_height_for_game_scene_height(1.0, source_transform.translation.z);
-    let source_world_height =
-        game_scene_world_height_for_game_scene_height(source_game_scene_height, CARD_GESTURE_DRAG_Z);
+    let source_world_height = game_scene_world_height_for_game_scene_height(
+        source_game_scene_height,
+        CARD_GESTURE_DRAG_Z,
+    );
     let scale = source_world_height / card_defaults.height;
 
     Vec3::splat(scale)

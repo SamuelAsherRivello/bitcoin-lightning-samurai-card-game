@@ -5,17 +5,19 @@ mod ai_runtime_plugin;
 
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
 pub use ai_runtime_plugin::{
-    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AiRuntimePlugin,
+    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AI_RUNTIME_SHOW_DECK_LIBRARY_METHOD,
+    AI_RUNTIME_SHOW_DECK_SCREEN_METHOD, AiRuntimePlugin,
 };
 
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardFlipState,
     CardGestureModel, CardInspectionDefaults, CardInspectionState, CardModelRegistry,
     CardSlotBoardModel, CardStateModel, CardUiState, CpuBrainModel, DebugDrawingModel,
-    DebugHudState, FullscreenViewportTransitionState, GameDeckModel, GameHandModel,
-    GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry, OpponentMatchModel,
-    PlayerDeckCollectionModel, PrimaryCameraDefaults, SelectedCardModalModel, WindowPlacementState,
-    WorldModelRegistry, create_match_mode_preference_store, create_player_deck_collection_store,
+    DebugHudState, DeckScreenModel, FullscreenViewportTransitionState, GameDeckModel,
+    GameHandModel, GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry,
+    OpponentMatchModel, PlayerDeckCollectionModel, PrimaryCameraDefaults, SelectedCardModalModel,
+    TopNavigationModel, WindowPlacementState, WorldModelRegistry,
+    create_match_mode_preference_store, create_player_deck_collection_store,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{
@@ -28,20 +30,22 @@ use crate::runtime::systems::{
     constrain_debug_camera_to_safe_area, constrain_deck_camera_to_safe_area,
     constrain_game_scene_3d_cameras_to_safe_area, cpu_brain_update_system,
     cpu_placed_card_animation_system, debug_draw_solo_update_system, debug_drawing_update_system,
-    drop_target_hint_update_system, enforce_hidden_game_scene_visibility_system,
-    hot_reload_auto_restart_app_scene, initialize_game_models, load_saved_card_settings,
-    load_saved_debug_hud_input, load_saved_match_mode_preference,
-    load_saved_player_deck_collection, load_saved_window_placement,
-    log_game_scene_card_render_diagnostics, modal_block_game_control_interactions_system,
-    quit_app_on_escape, record_desktop_hot_reload_patch_message, restart_app_scene,
+    deck_screen_update_system, drop_target_hint_update_system,
+    enforce_hidden_game_scene_visibility_system, hot_reload_auto_restart_app_scene,
+    initialize_game_models, load_saved_card_settings, load_saved_debug_hud_input,
+    load_saved_match_mode_preference, load_saved_player_deck_collection,
+    load_saved_window_placement, log_game_scene_card_render_diagnostics,
+    modal_block_game_control_interactions_system, quit_app_on_escape,
+    record_desktop_hot_reload_patch_message, restart_app_scene,
     restore_window_placement_to_current_monitors, save_window_placement_on_close, scale_debug_hud,
     scene_input_system, setup_app_scene, setup_game, setup_game_scene_with_params, setup_inspector,
     smooth_card_rotation, staged_match_resolution_system, sync_browser_fullscreen_state_system,
     sync_cpu_hand_card_entities_system, sync_cpu_placed_card_entities_system,
     sync_debug_hud_ui_camera_system, sync_game_scene_hand_card_entities_system,
-    toggle_debug_hud_inputs, toggle_inspector, track_card_pointer_target, track_window_placement,
-    track_window_size, update_card_face_visibility, update_card_flip_animation,
-    update_card_frame_shine, update_card_parallax_layers, update_card_point_text2d_overlay_system,
+    toggle_debug_hud_inputs, toggle_inspector, top_navigation_update_system,
+    track_card_pointer_target, track_window_placement, track_window_size,
+    update_card_face_visibility, update_card_flip_animation, update_card_frame_shine,
+    update_card_parallax_layers, update_card_point_text2d_overlay_system,
     update_card_power_point_views_system, update_cpu_placed_card_face_visibility_system,
     update_debug_hud, update_end_round_button, update_game_control_ui_system,
     update_game_location_views_system, update_location_power_points, view_input_system,
@@ -89,6 +93,8 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<CardModelRegistry>()
             .init_resource::<CardGestureModel>()
             .init_resource::<SelectedCardModalModel>()
+            .init_resource::<DeckScreenModel>()
+            .init_resource::<TopNavigationModel>()
             .init_resource::<CardSlotBoardModel>()
             .init_resource::<CardStateModel>()
             .init_resource::<GameDeckModel>()
@@ -207,6 +213,15 @@ impl Plugin for CoreGamePlugin {
                     .before(card_gesture_animation_system),
             )
             .add_systems(Update, scene_input_system.before(view_input_system))
+            .add_systems(
+                Update,
+                (
+                    top_navigation_update_system,
+                    deck_screen_update_system
+                        .after(top_navigation_update_system)
+                        .after(card_selection_update_system),
+                ),
+            )
             .add_systems(
                 Update,
                 card_selection_update_system

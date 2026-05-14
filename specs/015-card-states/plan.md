@@ -1,128 +1,119 @@
-# Implementation Plan: Card View State Model
+# Implementation Plan: [FEATURE]
 
-**Branch**: `015-card-states` | **Date**: 2026-05-13 | **Spec**: [spec.md](./spec.md)  
-**Input**: Feature specification from `specs/015-card-states/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Analyze the current `CardViewBundle` state surface and propose a clearer model that separates card identity, durable gameplay location, face/reveal policy, transient interaction, and render pose. Current state is spread across `CardViewBundle`, `CardFaceLayer`, `CardFlipState`, `CardStateModel`, `CardGestureModel`, `CardSlotBoardModel`, CPU placement marker components, and `PlacementVisibilityModel`; the proposed model consolidates the durable relationships into a per-card-instance model and derives view state for rendering.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: Rust in the existing Bevy workspace  
-**Primary Dependencies**: Existing Bevy ECS runtime; no new dependency planned  
-**Storage**: Transient runtime state only; no persistence or schema change  
-**Testing**: `scripts/other/RunTests.ps1`; targeted model tests under `bevy/crates/game/src/tests/runtime/resources/` if implemented  
-**Target Platform**: Windows desktop and browser WebGPU parity  
-**Project Type**: Bevy ECS game runtime under `bevy/crates/game`  
-**Performance Goals**: Keep state lookup O(1) or linear only over current small hand/slot/card vectors; avoid repeated cross-resource searches for card identity where practical  
-**Constraints**: Preserve aspect-ratio-safe GameScene transforms, current card face visibility behavior, local drag semantics, current-turn hidden CPU/opponent placements, and existing Scene/Model/View naming  
-**Scale/Scope**: Planning and data model for deck, hand, selected, dragging, local/opponent location slots, current-turn hidden/revealed face policy, and current same-turn/locked placement rules
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., chosen project language and version or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [chosen project dependencies or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, chosen persistence approach or N/A]  
+**Testing**: [chosen verification command or NEEDS CLARIFICATION]  
+**Target Platform**: [chosen runtime platform or NEEDS CLARIFICATION]
+**Project Type**: [chosen project type or NEEDS CLARIFICATION]  
+**Performance Goals**: [domain-specific target or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific constraints or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific scope or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Check | Status | Notes |
-| ----- | ------ | ----- |
-| Active spec and repo guidance | ✅ | Plan follows `specs/015-card-states/spec.md`, constitution 1.6.1, and AGENTS.md. |
-| Source/assets/scripts/docs locations | ✅ | Planning artifacts stay under `specs/015-card-states`; any later runtime implementation belongs under `bevy/crates/game/src/runtime`. |
-| Bevy template reference | ✅ | Future implementation should inspect `bevy/crates/template-crate` before adding runtime files. |
-| Rust naming conventions | ✅ | Proposed model names use `Model` and lowercase module paths. |
-| One primary runtime concept per file | ✅ | Proposed future files split instance state, view state, and transitions. |
-| HUMAN/AI purpose comments | ✅ | Required for future primary runtime items. |
-| Runtime system naming | ✅ | Future systems should use names such as `card_state_update_system` and `card_view_state_sync_system`. |
-| Scene/Model/View naming | ✅ | The proposal keeps durable card data in models and render concerns in views. |
-| Theme asset organization | ✅ | No runtime assets are introduced. |
-| Visible feedback | ✅ | Existing selected, dragging, returning, drop hint, and reveal feedback are preserved by contract. |
-| Browser/native storage constraints | ✅ | No storage, database, localStorage, SQLite, or OPFS change. |
-| Browser-visible verification path | ✅ | If implemented, verify with the same GameScene gesture and opponent reveal workflows. |
-| Aspect-ratio-safe layout | ✅ | Proposed view state derives poses from existing safe GameScene layout helpers. |
-| Framework constraints documented | ✅ | Bevy ECS ownership and cross-resource derivation risks are captured below. |
+- Confirm the feature follows the active spec, constitution, and repo-local agent guidance.
+- Confirm source, assets, scripts, docs, and tests stay in the locations defined by this project.
+- Confirm Bevy crate folders, representative files, asset folders, and Rust coding standards use `bevy/crates/template-crate` as the proper local reference.
+- Confirm Rust workspace folders and files use typical Rust naming conventions, including lowercase crate, module, and asset directories.
+- Confirm changed runtime files are organized around one primary concept per file with purposeful Plugin/Component/Scene/View/Model/System names.
+- Confirm changed runtime items include a terse `HUMAN:` and `AI:` purpose comment immediately above the primary item.
+- Confirm changed runtime system functions follow `[domain]_[schedule]_system`.
+- Confirm Bevy runtime naming uses `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation where those distinctions apply.
+- Confirm theme-owned card, location, and world assets use `assets/themes/theme_<theme_name>/{cards,locations,worlds}/` with category-prefixed folders when a feature touches theme assets.
+- Confirm visible loading or toast-style feedback remains for template data loading, cache reads, cache writes, refreshes, and database creation.
+- Confirm browser builds keep localStorage snapshots and do not introduce browser SQLite or OPFS worker startup.
+- Confirm first-time native database/schema/seed setup remains in `create_database_if_missing()` and normal reads do not recreate or reseed existing data.
+- Confirm browser-visible changes have a practical served-web verification path.
+- Confirm the feature follows the selected language and framework standards.
+- Confirm all on-screen 2D and 3D positions derive from the aspect-ratio-safe game view and are recalculated when the viewport changes.
+- Confirm any framework-specific API constraints are documented in the plan.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/015-card-states/
-├── spec.md
-├── plan.md
-├── research.md
-├── data-model.md
-├── quickstart.md
-└── contracts/
-    └── card-state-contract.md
+specs/[###-feature]/
+├── plan.md              # This file (/speckit-plan command output)
+├── research.md          # Phase 0 output (/speckit-plan command)
+├── data-model.md        # Phase 1 output (/speckit-plan command)
+├── quickstart.md        # Phase 1 output (/speckit-plan command)
+├── contracts/           # Phase 1 output (/speckit-plan command)
+└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths for the generated project. The delivered plan must
+  not include Option labels.
+-->
 
 ```text
-bevy/crates/game/src/runtime/
-├── bundles/
-│   └── card_view_bundle.rs
-├── components/
-│   ├── card_gesture_component.rs
-│   └── mod.rs
-├── resources/
-│   ├── card_gesture_model.rs
-│   ├── card_slot_model.rs
-│   ├── opponent_match_model.rs
-│   └── [future card_instance_state_model.rs]
-└── systems/
-    ├── card_gesture_animation_system.rs
-    ├── card_gesture_update_system.rs
-    └── mod.rs
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
 
-bevy/crates/game/src/tests/runtime/
-├── resources/
-│   └── [future card_instance_state_model_tests.rs]
-└── systems/
-    └── card_gesture_update_system_tests.rs
+tests/
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Multi-surface project
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Client + service project
+api/
+└── [same as backend above]
+
+client/
+└── [client-specific structure: feature modules, user flows, client tests]
 ```
 
-**Structure Decision**: Keep this as a model cleanup inside the existing Bevy game runtime. `CardViewBundle` should stay a render-root constructor; the new durable state should live in resources/models and sync into render components.
-
-## Phase 0 Research
-
-Research is complete in [research.md](./research.md). Key decisions:
-
-| Decision | Outcome |
-| -------- | ------- |
-| Treat state as axes | Model face, zone, ownership, interaction, reveal, and pose as separate axes rather than one overloaded enum. |
-| Preserve `CardViewBundle` role | Keep the bundle stateless except for initial transform/visibility and `CardView` marker. |
-| Use card instance IDs | Use stable instance identity instead of hand indices as the primary key; keep hand order as a relationship. |
-| Derive render state | Derive visible face and pose from instance zone plus active interaction rather than storing separate render truth. |
-
-## Phase 1 Design
-
-| Artifact | Purpose |
-| -------- | ------- |
-| [data-model.md](./data-model.md) | Documents current state hierarchy and proposed model. |
-| [contracts/card-state-contract.md](./contracts/card-state-contract.md) | Defines legal combinations and transition contract. |
-| [quickstart.md](./quickstart.md) | Defines review and future verification steps. |
-
-## Implementation Approach
-
-| Area | Plan |
-| ---- | ---- |
-| Identity | Introduce a stable `CardInstanceId` for each card drawn or placed in a match. |
-| Durable state | Replace hand-index-centered `CardStateModel` with `CardInstanceStateModel` containing owner, card model ID, zone, placement, movement lock, and reveal policy. |
-| Interaction state | Keep only one active `CardInteractionModel` for pressed/selected/dragging/returning/settling state and reference a `CardInstanceId`. |
-| View state | Add or derive `CardViewStateModel` for visible face, pose, z band, input affordance, and layer visibility. |
-| Migration | Add adapters so existing `GameHandModel`, `CardSlotBoardModel`, and `OpponentMatchModel` can be read into the new shape before removing older duplicated state. |
-| Tests | Start with pure model transition tests before changing gesture systems. |
-
-## Post-Design Constitution Check
-
-| Check | Status | Notes |
-| ----- | ------ | ----- |
-| Source remains scoped | ✅ | Proposed future changes stay in `bevy/crates/game/src/runtime` and tests under `bevy/crates/game/src/tests/runtime`. |
-| Desktop/browser parity addressed | ✅ | No platform-specific dependency is proposed. |
-| Aspect-ratio-safe layout addressed | ✅ | Pose derivation continues to use existing GameScene helpers and slot rects. |
-| Data changes explicit | ✅ | State changes are transient runtime model changes only. |
-| Framework constraints recorded | ✅ | Bevy ECS resource/component ownership is part of the proposed hierarchy. |
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
-No constitution violations require justification.
+> **Fill ONLY if Constitution Check has violations that must be justified**
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

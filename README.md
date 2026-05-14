@@ -40,6 +40,18 @@ The static web build is exported and hosted when a GitHub Release is published. 
 | `H` | Toggles persisted desktop hot-reload auto-restart behavior. |
 | `Escape` | Invisible key: requests the same app close flow as the desktop title-bar close button. |
 
+## Meta-Game Screens
+
+| Screen | Composition | Current Behavior |
+| ------ | ----------- | ---------------- |
+| `GameScreen` | `AppScene` plus `GameScene` | Active gameplay view. |
+| `DeckScreen` | `AppScene` plus `DeckScene` | Shows reusable top navigation, deck selection, `Deck 01`, and the selected deck editor. |
+| `DebugScreen` | `AppScene` plus `DebugScene` | Debug settings/card presentation view. |
+
+`DeckScreen` currently owns one deck named `Deck 01` with 12 cards. All library cards start in the deck, so the Library starts empty; the Shop tab is visible as an empty state for future work. Card modals support `Back`, `Move To Library`, and `Move To Deck 01`; `Transfer Out` remains visible but disabled until that feature is specified.
+
+Reusable DeckScreen UI concepts include `TopNavigationViewBundle` for page navigation and `DeckViewBundle` for deck tiles rendered from the existing card back asset plus the deck name.
+
 ## Requirements
 
 | Requirement | Purpose |

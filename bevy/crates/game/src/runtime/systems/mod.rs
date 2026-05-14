@@ -47,21 +47,25 @@ pub use debug_drawing_update_system::*;
 pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
-    CardViewBundle, LocationViewBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView,
-    PointModel, PointType, PointView, PointViewBundle, DebugScreenBundle, DeckScreenBundle, GameScreenBundle,
+    CardViewBundle, DeckScreenBundle, DeckViewBundle, LocationViewBundle,
+    POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView, PointModel, PointType, PointView,
+    PointViewBundle, TopNavigationViewBundle,
 };
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardLayerRole, CardParallaxLayer, CardSelectionSource, CardSlotGestureTarget,
     CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase,
     CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText, DebugHudKeyText, DebugHudText,
-    DebugSceneEntity, DebugSceneRoot, DeckSceneEntity, DeckSceneRoot,
-    DropTargetHint, EndRoundButton, GameControlAction, GameControlButton, GameControlLabel,
-    GameLocation, GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameSceneEntity,
-    GameSceneRoot, HandCardGestureTarget, InspectorState, LocalPlayerHand,
-    LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, Player, PointViewCircle,
-    PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard,
-    VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget, VisualModifier, WorldBackground,
+    DebugSceneEntity, DebugSceneRoot, DeckSceneEntity, DeckSceneRoot, DeckScreenCardTileButton,
+    DeckScreenCardView, DeckScreenContentRoot, DeckScreenDeckTileButton, DeckScreenGridBackdrop,
+    DeckScreenGridBackdropRole, DeckScreenModalActionButton, DeckScreenModalRoot,
+    DeckScreenTabButton, DropTargetHint, EndRoundButton, GameControlAction, GameControlButton,
+    GameControlLabel, GameLocation, GameLocationBodyText, GameLocationBorder,
+    GameLocationTitleText, GameSceneEntity, GameSceneRoot, HandCardGestureTarget, InspectorState,
+    LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, Player,
+    PointViewCircle, PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard,
+    TopNavigationButton, TopNavigationRoot, VISUAL_MODIFIER_CARD_OUTLINE_SCALE,
+    VisualModificationTarget, VisualModifier, WorldBackground,
 };
 #[cfg(test)]
 use crate::runtime::resources::CardState;
@@ -72,17 +76,20 @@ use crate::runtime::resources::{
     CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
     CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
     CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
-    CpuBrainModel, CpuPlacementMotionSourceModel, DEFAULT_DECK_NAME, DebugHudInputStore,
-    DebugHudState, DeckModel, FullscreenViewportTransitionState, GameDeckModel, GameHandModel,
-    GameLocationModel, GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel,
-    MatchModeModel, MatchModePreferenceStore, MatchPlayerSide, MatchResolutionPhase,
-    MatchWinnerModel, OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility,
-    PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
-    SelectedCardModalModel, WindowPlacement, WindowPlacementState, WindowPlacementStore,
-    WorldModelRegistry, choose_level1_moves, cpu_slot_hand_index,
+    CpuBrainModel, CpuPlacementMotionSourceModel, DECK_SCREEN_DECK_NAME, DebugHudInputStore,
+    DebugHudState, DeckEditableZoneModel, DeckEditorTabModel, DeckModel, DeckScreenModel,
+    FullscreenViewportTransitionState, GameDeckModel, GameHandModel, GameLocationModel,
+    GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel, MatchModeModel,
+    MatchModePreferenceStore, MatchPlayerSide, MatchResolutionPhase, MatchWinnerModel,
+    OpponentMatchModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility, PlayerDeckCollectionModel,
+    PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, SelectedCardModalModel,
+    TopNavigationDestination, TopNavigationModel, WindowPlacement, WindowPlacementState,
+    WindowPlacementStore, WorldModelRegistry, choose_level1_moves, cpu_slot_hand_index,
+    deck_screen_deck_cards, deck_screen_library_cards, ensure_deck_screen_collection,
     ensure_player_deck_collection_model, final_winner_from_slots, load_window_placement,
-    random_shuffled_default_deck_cards, reset_two_player_match, start_match_round,
-    sync_near_human_from_game_models, valid_window_placement,
+    move_deck_card_to_library, move_library_card_to_deck, random_shuffled_default_deck_cards,
+    reset_two_player_match, start_match_round, sync_near_human_from_game_models,
+    valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -147,6 +154,25 @@ const CARD_POINT_TEXT_RENDER_LAYER: usize = 2;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const DECK_SCENE_CARD_HEIGHT_FRACTION: f32 = 0.9;
+const DECK_SCREEN_DECK_GRID_LEFT: f32 = 64.0;
+const DECK_SCREEN_DECK_GRID_TOP: f32 = 174.0;
+const DECK_SCREEN_DECK_GRID_COLUMN_GAP: f32 = 12.0;
+const DECK_SCREEN_DECK_GRID_ROW_GAP: f32 = 12.0;
+const DECK_SCREEN_DECK_GRID_COLUMN_WIDTH: f32 = 126.0;
+const DECK_SCREEN_DECK_GRID_ROW_HEIGHT: f32 = 178.0;
+const DECK_SCREEN_DECK_CARD_HEIGHT: f32 = 154.0;
+const DECK_SCREEN_DECK_CARD_WORLD_Z: f32 = 0.08;
+const DECK_SCREEN_LIBRARY_GRID_LEFT: f32 = 676.0;
+const DECK_SCREEN_GRID_COLUMN_COUNT: f32 = 4.0;
+const DECK_SCREEN_GRID_ROW_COUNT: f32 = 3.0;
+const DECK_SCREEN_GRID_PANEL_WIDTH: f32 = (DECK_SCREEN_DECK_GRID_COLUMN_WIDTH
+    * DECK_SCREEN_GRID_COLUMN_COUNT)
+    + (DECK_SCREEN_DECK_GRID_COLUMN_GAP * (DECK_SCREEN_GRID_COLUMN_COUNT - 1.0));
+const DECK_SCREEN_GRID_PANEL_HEIGHT: f32 = (DECK_SCREEN_DECK_GRID_ROW_HEIGHT
+    * DECK_SCREEN_GRID_ROW_COUNT)
+    + (DECK_SCREEN_DECK_GRID_ROW_GAP * (DECK_SCREEN_GRID_ROW_COUNT - 1.0));
+const DECK_SCREEN_GRID_BACKDROP_WORLD_Z: f32 = 0.015;
+const DECK_SCREEN_GRID_BORDER_THICKNESS: f32 = 2.0;
 const DEBUG_HUD_Z_INDEX: i32 = 1_200;
 const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
@@ -1578,7 +1604,8 @@ pub(crate) fn update_card_point_text2d_overlay_system(
 }
 
 fn card_point_text2d_local_transform(point_transform: &GlobalTransform) -> Transform {
-    let game_scene_position = game_scene_position_from_world_position(point_transform.translation());
+    let game_scene_position =
+        game_scene_position_from_world_position(point_transform.translation());
     let text_position =
         game_scene_text2d_position_from_game_scene(game_scene_position, CARD_POINT_TEXT_Z);
     let text_global_transform = GlobalTransform::from(Transform {
@@ -2045,6 +2072,8 @@ pub fn setup_deck_scene(
     card_model_registry: Res<CardModelRegistry>,
     active_card_model: Res<ActiveCardModel>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
+    mut deck_screen_model: Option<ResMut<DeckScreenModel>>,
+    mut top_navigation_model: Option<ResMut<TopNavigationModel>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -2054,6 +2083,12 @@ pub fn setup_deck_scene(
     let player_deck_collection = player_deck_collection
         .as_deref()
         .unwrap_or(&fallback_player_deck_collection);
+    if let Some(top_navigation_model) = top_navigation_model.as_deref_mut() {
+        top_navigation_model.selected = TopNavigationDestination::MyDecks;
+    }
+    if let Some(deck_screen_model) = deck_screen_model.as_deref_mut() {
+        deck_screen_model.needs_rebuild = false;
+    }
     spawn_deck_scene_contents(
         &mut commands,
         &asset_server,
@@ -2062,6 +2097,7 @@ pub fn setup_deck_scene(
         &card_model_registry,
         &active_card_model,
         &player_deck_collection,
+        deck_screen_model.as_deref(),
         &mut meshes,
         &mut materials,
         masked_background_materials.map(|materials| materials.into_inner()),
@@ -2077,203 +2113,1105 @@ fn spawn_deck_scene_contents(
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
     card_model_registry: &CardModelRegistry,
-    active_card_model: &ActiveCardModel,
+    _active_card_model: &ActiveCardModel,
     player_deck_collection: &PlayerDeckCollectionModel,
+    deck_screen_model: Option<&DeckScreenModel>,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     app_scene_parent: Option<Entity>,
     visible_face: CardFace,
-    initial_rotation: Quat,
+    _initial_rotation: Quat,
 ) {
-    let scene_root = commands
-        .spawn((
-            Name::new("DeckScene"),
-            DeckSceneRoot,
-            DeckSceneEntity,
-            Transform::default(),
-            GlobalTransform::default(),
-            Visibility::default(),
-        ))
-        .id();
+    let scene_root = commands.spawn(DeckScreenBundle::default()).id();
     let camera = spawn_primary_camera(commands, camera_defaults);
     let ui_camera = spawn_deck_ui_camera(commands);
     let light = spawn_deck_light(commands);
-    let card = spawn_card_structure(
-        commands,
-        asset_server,
-        card_defaults,
-        card_model_registry,
-        active_card_model,
-        meshes,
-        materials,
-        masked_background_materials,
-        visible_face,
-        false,
-        Transform {
-            translation: Vec3::ZERO,
-            rotation: initial_rotation,
-            scale: Vec3::splat(deck_centered_card_scale(card_defaults)),
+    let mode = deck_screen_model.map_or(Default::default(), |model| model.mode);
+    let tab = deck_screen_model.map_or(Default::default(), |model| model.editor_tab);
+    let modal = deck_screen_model.and_then(|model| model.modal.as_ref());
+
+    commands.entity(scene_root).insert((
+        UiTargetCamera(ui_camera),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..Default::default()
         },
-    );
-    let deck_cards = player_deck_collection
-        .primary_deck()
-        .filter(|deck| !deck.cards.is_empty())
-        .map(|deck| deck.cards.clone())
-        .unwrap_or_else(random_shuffled_default_deck_cards);
-    let deck_panel = commands
+    ));
+    commands.entity(scene_root).with_children(|parent| {
+        spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::MyDecks, false);
+        spawn_deck_screen_content(
+            parent,
+            ui_camera,
+            asset_server,
+            card_model_registry,
+            player_deck_collection,
+            mode,
+            tab,
+        );
+        if let Some(modal) = modal {
+            spawn_deck_screen_modal(parent, ui_camera, card_model_registry, modal);
+        }
+    });
+    if mode == crate::runtime::resources::DeckScreenMode::Editor {
+        let deck_cards = deck_screen_deck_cards(player_deck_collection);
+        let library_cards = deck_screen_library_cards(&deck_cards);
+        spawn_deck_screen_grid_backdrops(commands, meshes, materials, tab, scene_root);
+        spawn_deck_screen_card_views(
+            commands,
+            asset_server,
+            card_defaults,
+            card_model_registry,
+            &deck_cards,
+            &library_cards,
+            tab,
+            meshes,
+            materials,
+            &mut masked_background_materials,
+            visible_face,
+            scene_root,
+        );
+    }
+    commands.entity(scene_root).add_child(camera);
+    commands.entity(scene_root).add_child(ui_camera);
+    commands.entity(scene_root).add_child(light);
+    if let Some(parent) = app_scene_parent {
+        commands.entity(parent).add_child(scene_root);
+    }
+}
+
+fn spawn_top_navigation_view(
+    parent: &mut ChildSpawnerCommands,
+    ui_camera: Entity,
+    selected: TopNavigationDestination,
+    is_blocked: bool,
+) {
+    parent
         .spawn((
-            Name::new("Deck Content"),
+            TopNavigationViewBundle::default(),
+            UiTargetCamera(ui_camera),
+        ))
+        .with_children(|parent| {
+            for destination in TopNavigationDestination::all() {
+                let is_selected = destination == selected;
+                parent
+                    .spawn((
+                        Name::new(format!("TopNav {}", destination.label())),
+                        Button,
+                        TopNavigationButton::new(destination),
+                        Node {
+                            width: Val::Px(150.0),
+                            height: Val::Px(46.0),
+                            border: UiRect::all(Val::Px(2.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        },
+                        BackgroundColor(if is_selected {
+                            Color::srgb(0.18, 0.38, 0.58)
+                        } else if is_blocked {
+                            Color::srgba(0.12, 0.14, 0.18, 0.65)
+                        } else {
+                            Color::srgb(0.18, 0.22, 0.29)
+                        }),
+                        BorderColor::all(if is_selected {
+                            Color::srgb(0.56, 0.78, 1.0)
+                        } else {
+                            Color::srgb(0.43, 0.47, 0.56)
+                        }),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Text::new(destination.label()),
+                            TextFont {
+                                font_size: 18.0,
+                                ..Default::default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+            }
+        });
+}
+
+fn spawn_deck_screen_content(
+    parent: &mut ChildSpawnerCommands,
+    ui_camera: Entity,
+    asset_server: &AssetServer,
+    card_model_registry: &CardModelRegistry,
+    player_deck_collection: &PlayerDeckCollectionModel,
+    mode: crate::runtime::resources::DeckScreenMode,
+    tab: DeckEditorTabModel,
+) {
+    parent
+        .spawn((
+            Name::new("DeckScreen Content"),
+            DeckScreenContentRoot,
             DeckSceneEntity,
+            UiTargetCamera(ui_camera),
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                top: Val::Px(0.0),
+                left: Val::Px(48.0),
+                right: Val::Px(48.0),
+                top: Val::Px(110.0),
+                bottom: Val::Px(38.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| match mode {
+            crate::runtime::resources::DeckScreenMode::DeckSelection => {
+                spawn_deck_selection(parent, asset_server);
+            }
+            crate::runtime::resources::DeckScreenMode::Editor => {
+                spawn_deck_editor(parent, card_model_registry, player_deck_collection, tab);
+            }
+        });
+}
+
+fn spawn_deck_selection(parent: &mut ChildSpawnerCommands, asset_server: &AssetServer) {
+    parent
+        .spawn((
+            Name::new("DeckScreen Deck Grid"),
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::FlexStart,
-                column_gap: Val::Px(16.0),
-                ..Default::default()
-            },
-            Visibility::Visible,
-        ))
-        .id();
-    let deck_list_panel = commands
-        .spawn((
-            Name::new("Deck List"),
-            Node {
-                width: Val::Percent(24.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(16.0)),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::FlexStart,
-                row_gap: Val::Px(8.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(34.0),
                 ..Default::default()
             },
         ))
-        .id();
-    let card_list_panel = commands
-        .spawn((
-            Name::new("Deck Cards"),
-            Node {
-                width: Val::Percent(72.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(16.0)),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::FlexStart,
-                justify_content: JustifyContent::FlexStart,
-                row_gap: Val::Px(10.0),
-                ..Default::default()
-            },
-        ))
-        .id();
-
-    commands.entity(deck_list_panel).with_children(|parent| {
-        parent
-            .spawn((
-                Name::new("Deck Name Button"),
-                Button,
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Px(36.0),
-                    padding: UiRect::all(Val::Px(8.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                },
-                BackgroundColor(Color::srgb(0.14, 0.14, 0.14)),
-                BorderColor::all(Color::srgba(0.34, 0.34, 0.34, 0.95)),
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text::new(DEFAULT_DECK_NAME),
-                    TextFont {
-                        font_size: 16.0,
-                        ..Default::default()
-                    },
-                    TextColor(Color::WHITE),
-                ));
-            });
-    });
-    commands.entity(card_list_panel).with_children(|parent| {
-        let card_count = deck_cards.len();
-        parent
-            .spawn((
-                Name::new("Deck Cards Header"),
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Px(28.0),
-                    padding: UiRect::all(Val::Px(8.0)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::FlexStart,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text::new(format!("Deck Cards ({card_count})")),
-                    TextFont {
-                        font_size: 14.0,
-                        ..Default::default()
-                    },
-                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                ));
-            });
-
-        for card_id in &deck_cards {
-            let card_model = card_model_registry.card_model_for_id(card_id);
-            let card_label = card_model.map_or(card_id.as_str(), |card| card.display_name);
+        .with_children(|parent| {
             parent
                 .spawn((
-                    Name::new(format!("Deck Card Preview {card_label}")),
+                    Name::new("DeckView New Deck"),
                     Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Px(34.0),
-                        padding: UiRect::all(Val::Px(8.0)),
+                        width: Val::Px(132.0),
+                        height: Val::Px(214.0),
+                        border: UiRect::all(Val::Px(3.0)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        border: UiRect::all(Val::Px(1.0)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::srgba(0.09, 0.09, 0.09, 0.85)),
-                    BorderColor::all(Color::srgb(0.34, 0.34, 0.34)),
+                    BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.06)),
+                    BorderColor::all(Color::srgba(0.85, 0.88, 0.94, 0.72)),
                 ))
                 .with_children(|parent| {
                     parent.spawn((
-                        Text::new(card_label),
+                        Text::new("New Deck"),
                         TextFont {
-                            font_size: 12.0,
+                            font_size: 22.0,
                             ..Default::default()
                         },
                         TextColor(Color::WHITE),
                     ));
                 });
-        }
-    });
-    // Keep 3D content out of the UI node hierarchy so resize-driven UI layout
-    // transforms cannot move or scale the deck presentation.
-    commands.entity(scene_root).add_child(camera);
-    commands.entity(scene_root).add_child(ui_camera);
-    commands.entity(scene_root).add_child(light);
-    commands.entity(scene_root).add_child(card);
-    commands
-        .entity(card)
-        .insert((
+
+            parent
+                .spawn((
+                    DeckViewBundle::new(DECK_SCREEN_DECK_NAME),
+                    DeckScreenDeckTileButton,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        ImageNode::new(asset_server.load(CARD_BACK_TEXTURE_PATH))
+                            .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
+                        Node {
+                            width: Val::Percent(78.0),
+                            height: Val::Percent(78.0),
+                            ..Default::default()
+                        },
+                    ));
+                    parent.spawn((
+                        Text::new(DECK_SCREEN_DECK_NAME),
+                        TextFont {
+                            font_size: 18.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+        });
+}
+
+fn spawn_deck_editor(
+    parent: &mut ChildSpawnerCommands,
+    card_model_registry: &CardModelRegistry,
+    player_deck_collection: &PlayerDeckCollectionModel,
+    tab: DeckEditorTabModel,
+) {
+    let deck_cards = deck_screen_deck_cards(player_deck_collection);
+    let library_cards = deck_screen_library_cards(&deck_cards);
+    parent
+        .spawn((
+            Name::new("DeckScreen Editor"),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                display: Display::Grid,
+                grid_template_columns: vec![RepeatedGridTrack::flex(2, 1.0)],
+                column_gap: Val::Px(34.0),
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| {
+            spawn_card_grid_panel(
+                parent,
+                "Deck 01",
+                &deck_cards,
+                DeckEditableZoneModel::Deck,
+                card_model_registry,
+                false,
+            );
+            spawn_available_panel(parent, tab, &library_cards, card_model_registry);
+        });
+}
+
+/// HUMAN: Renders matching card-grid panel frames behind DeckScreen cards.
+/// AI: These planes sit below CardViewBundle roots so panel borders cannot cover cards.
+fn spawn_deck_screen_grid_backdrops(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    tab: DeckEditorTabModel,
+    scene_root: Entity,
+) {
+    spawn_deck_screen_grid_backdrop_for_zone(
+        commands,
+        meshes,
+        materials,
+        DeckEditableZoneModel::Deck,
+        scene_root,
+    );
+    if tab == DeckEditorTabModel::Library {
+        spawn_deck_screen_grid_backdrop_for_zone(
+            commands,
+            meshes,
+            materials,
+            DeckEditableZoneModel::Library,
+            scene_root,
+        );
+    }
+}
+
+fn spawn_deck_screen_grid_backdrop_for_zone(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    zone: DeckEditableZoneModel,
+    scene_root: Entity,
+) {
+    spawn_deck_screen_grid_backdrop_rect(
+        commands,
+        meshes,
+        materials,
+        zone,
+        DeckScreenGridBackdropRole::Fill,
+        deck_screen_grid_backdrop_center(zone),
+        Vec2::new(DECK_SCREEN_GRID_PANEL_WIDTH, DECK_SCREEN_GRID_PANEL_HEIGHT),
+        Color::srgba(0.08, 0.1, 0.14, 0.55),
+        scene_root,
+    );
+
+    let left = deck_screen_grid_left(zone);
+    let right = left + DECK_SCREEN_GRID_PANEL_WIDTH;
+    let top = DECK_SCREEN_DECK_GRID_TOP;
+    let bottom = top + DECK_SCREEN_GRID_PANEL_HEIGHT;
+    let center_x = left + (DECK_SCREEN_GRID_PANEL_WIDTH * 0.5);
+    let center_y = top + (DECK_SCREEN_GRID_PANEL_HEIGHT * 0.5);
+    let border_color = Color::srgba(0.87, 0.9, 0.95, 0.26);
+
+    for (role, center, size) in [
+        (
+            DeckScreenGridBackdropRole::Top,
+            Vec2::new(center_x, top),
+            Vec2::new(
+                DECK_SCREEN_GRID_PANEL_WIDTH,
+                DECK_SCREEN_GRID_BORDER_THICKNESS,
+            ),
+        ),
+        (
+            DeckScreenGridBackdropRole::Bottom,
+            Vec2::new(center_x, bottom),
+            Vec2::new(
+                DECK_SCREEN_GRID_PANEL_WIDTH,
+                DECK_SCREEN_GRID_BORDER_THICKNESS,
+            ),
+        ),
+        (
+            DeckScreenGridBackdropRole::Left,
+            Vec2::new(left, center_y),
+            Vec2::new(
+                DECK_SCREEN_GRID_BORDER_THICKNESS,
+                DECK_SCREEN_GRID_PANEL_HEIGHT,
+            ),
+        ),
+        (
+            DeckScreenGridBackdropRole::Right,
+            Vec2::new(right, center_y),
+            Vec2::new(
+                DECK_SCREEN_GRID_BORDER_THICKNESS,
+                DECK_SCREEN_GRID_PANEL_HEIGHT,
+            ),
+        ),
+    ] {
+        spawn_deck_screen_grid_backdrop_rect(
+            commands,
+            meshes,
+            materials,
+            zone,
+            role,
+            center,
+            size,
+            border_color,
+            scene_root,
+        );
+    }
+}
+
+fn spawn_deck_screen_grid_backdrop_rect(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    zone: DeckEditableZoneModel,
+    role: DeckScreenGridBackdropRole,
+    center: Vec2,
+    size: Vec2,
+    color: Color,
+    scene_root: Entity,
+) {
+    let world_size = Vec2::new(
+        game_scene_world_width_for_game_scene_width(size.x, DECK_SCREEN_GRID_BACKDROP_WORLD_Z),
+        game_scene_world_height_for_game_scene_height(size.y, DECK_SCREEN_GRID_BACKDROP_WORLD_Z),
+    );
+    let entity = commands
+        .spawn((
+            Name::new(format!("DeckScreen {zone:?} Grid {role:?}")),
             DeckSceneEntity,
+            DeckScreenGridBackdrop::new(zone, role),
+            Mesh3d(meshes.add(Rectangle::new(world_size.x, world_size.y))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: color,
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..Default::default()
+            })),
+            Transform::from_translation(game_scene_world_position_from_game_scene(
+                center,
+                DECK_SCREEN_GRID_BACKDROP_WORLD_Z,
+            )),
+            RenderLayers::layer(CARD_RENDER_LAYER),
+            Visibility::Visible,
+            NoCpuCulling,
+            NoFrustumCulling,
+        ))
+        .id();
+    commands.entity(scene_root).add_child(entity);
+}
+
+fn deck_screen_grid_left(zone: DeckEditableZoneModel) -> f32 {
+    match zone {
+        DeckEditableZoneModel::Deck => DECK_SCREEN_DECK_GRID_LEFT,
+        DeckEditableZoneModel::Library | DeckEditableZoneModel::Shop => {
+            DECK_SCREEN_LIBRARY_GRID_LEFT
+        }
+    }
+}
+
+fn deck_screen_grid_backdrop_center(zone: DeckEditableZoneModel) -> Vec2 {
+    Vec2::new(
+        deck_screen_grid_left(zone) + (DECK_SCREEN_GRID_PANEL_WIDTH * 0.5),
+        DECK_SCREEN_DECK_GRID_TOP + (DECK_SCREEN_GRID_PANEL_HEIGHT * 0.5),
+    )
+}
+
+/// HUMAN: Renders editor cards as full CardViewBundle visuals in their grids.
+/// AI: UI card tiles stay as transparent hit targets while these world entities provide presentation.
+fn spawn_deck_screen_card_views(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    card_defaults: &CardInspectionDefaults,
+    card_model_registry: &CardModelRegistry,
+    deck_cards: &[String],
+    library_cards: &[String],
+    tab: DeckEditorTabModel,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    masked_background_materials: &mut Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    visible_face: CardFace,
+    scene_root: Entity,
+) {
+    spawn_deck_screen_card_views_for_zone(
+        commands,
+        asset_server,
+        card_defaults,
+        card_model_registry,
+        deck_cards,
+        DeckEditableZoneModel::Deck,
+        meshes,
+        materials,
+        masked_background_materials,
+        visible_face,
+        scene_root,
+    );
+    if tab == DeckEditorTabModel::Library {
+        spawn_deck_screen_card_views_for_zone(
+            commands,
+            asset_server,
+            card_defaults,
+            card_model_registry,
+            library_cards,
+            DeckEditableZoneModel::Library,
+            meshes,
+            materials,
+            masked_background_materials,
+            visible_face,
+            scene_root,
+        );
+    }
+}
+
+fn spawn_deck_screen_card_views_for_zone(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    card_defaults: &CardInspectionDefaults,
+    card_model_registry: &CardModelRegistry,
+    cards: &[String],
+    zone: DeckEditableZoneModel,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    masked_background_materials: &mut Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    visible_face: CardFace,
+    scene_root: Entity,
+) {
+    for (index, card_id) in cards.iter().enumerate() {
+        let Some(card_model) = card_model_registry.card_model_for_id(card_id).cloned() else {
+            continue;
+        };
+        let card = spawn_card_structure_for_type(
+            commands,
+            asset_server,
+            card_defaults,
+            card_model,
+            meshes,
+            materials,
+            masked_background_materials.as_deref_mut(),
+            visible_face,
+            false,
+            deck_screen_card_view_transform(card_defaults, zone, index),
+        );
+        commands.entity(card).insert((
+            DeckSceneEntity,
+            DeckScreenCardView::new(card_id.clone(), zone, index),
             SelectableCard::new(CardSelectionSource::ScreenCard {
                 view: ActiveView::DeckScene,
             }),
+        ));
+        commands.entity(scene_root).add_child(card);
+    }
+}
+
+fn deck_screen_card_view_transform(
+    card_defaults: &CardInspectionDefaults,
+    zone: DeckEditableZoneModel,
+    index: usize,
+) -> Transform {
+    let column = (index % 4) as f32;
+    let row = (index / 4) as f32;
+    let grid_left = deck_screen_grid_left(zone);
+    let card_center = Vec2::new(
+        grid_left
+            + (DECK_SCREEN_DECK_GRID_COLUMN_WIDTH * (column + 0.5))
+            + (DECK_SCREEN_DECK_GRID_COLUMN_GAP * column),
+        DECK_SCREEN_DECK_GRID_TOP
+            + (DECK_SCREEN_DECK_GRID_ROW_HEIGHT * (row + 0.5))
+            + (DECK_SCREEN_DECK_GRID_ROW_GAP * row),
+    );
+    let scale = game_scene_world_height_for_game_scene_height(
+        DECK_SCREEN_DECK_CARD_HEIGHT,
+        DECK_SCREEN_DECK_CARD_WORLD_Z,
+    ) / card_defaults.height;
+
+    Transform {
+        translation: game_scene_world_position_from_game_scene(
+            card_center,
+            DECK_SCREEN_DECK_CARD_WORLD_Z,
+        ),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(scale),
+    }
+}
+
+fn spawn_available_panel(
+    parent: &mut ChildSpawnerCommands,
+    tab: DeckEditorTabModel,
+    library_cards: &[String],
+    card_model_registry: &CardModelRegistry,
+) {
+    parent
+        .spawn((
+            Name::new("Not In Deck Panel"),
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(12.0),
+                ..Default::default()
+            },
         ))
-        .observe(card_click_navigation);
-    commands.entity(scene_root).add_child(deck_panel);
-    commands.entity(deck_panel).add_child(deck_list_panel);
-    commands.entity(deck_panel).add_child(card_list_panel);
-    if let Some(parent) = app_scene_parent {
-        commands.entity(parent).add_child(scene_root);
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Name::new("DeckScreen Tabs"),
+                    Node {
+                        height: Val::Px(36.0),
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::Center,
+                        column_gap: Val::Px(12.0),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|parent| {
+                    spawn_tab_button(
+                        parent,
+                        DeckEditorTabModel::Library,
+                        tab == DeckEditorTabModel::Library,
+                    );
+                    spawn_tab_button(
+                        parent,
+                        DeckEditorTabModel::Shop,
+                        tab == DeckEditorTabModel::Shop,
+                    );
+                });
+
+            match tab {
+                DeckEditorTabModel::Library => spawn_card_grid_panel(
+                    parent,
+                    "Not In Deck",
+                    library_cards,
+                    DeckEditableZoneModel::Library,
+                    card_model_registry,
+                    true,
+                ),
+                DeckEditorTabModel::Shop => spawn_empty_panel(parent, "Shop is empty"),
+            }
+        });
+}
+
+fn spawn_tab_button(parent: &mut ChildSpawnerCommands, tab: DeckEditorTabModel, selected: bool) {
+    let label = match tab {
+        DeckEditorTabModel::Library => "Library",
+        DeckEditorTabModel::Shop => "Shop",
+    };
+    parent
+        .spawn((
+            Name::new(format!("DeckScreen Tab {label}")),
+            Button,
+            DeckScreenTabButton::new(tab),
+            Node {
+                width: Val::Px(118.0),
+                height: Val::Px(36.0),
+                border: UiRect::all(Val::Px(2.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            BackgroundColor(if selected {
+                Color::srgb(0.72, 0.56, 0.21)
+            } else {
+                Color::srgb(0.18, 0.22, 0.29)
+            }),
+            BorderColor::all(if selected {
+                Color::srgb(0.94, 0.85, 0.55)
+            } else {
+                Color::srgb(0.43, 0.47, 0.56)
+            }),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(label),
+                TextFont {
+                    font_size: 15.0,
+                    ..Default::default()
+                },
+                TextColor(if selected { Color::BLACK } else { Color::WHITE }),
+            ));
+        });
+}
+
+fn spawn_card_grid_panel(
+    parent: &mut ChildSpawnerCommands,
+    title: &str,
+    cards: &[String],
+    zone: DeckEditableZoneModel,
+    card_model_registry: &CardModelRegistry,
+    show_empty_state: bool,
+) {
+    parent
+        .spawn((
+            Name::new(format!("DeckScreen {title} Panel")),
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(12.0),
+                ..Default::default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(title.to_string()),
+                TextFont {
+                    font_size: 20.0,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+            ));
+            parent
+                .spawn((
+                    Name::new(format!("DeckScreen {title} Grid")),
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        display: Display::Grid,
+                        grid_template_columns: vec![RepeatedGridTrack::flex(4, 1.0)],
+                        grid_template_rows: vec![RepeatedGridTrack::flex(3, 1.0)],
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
+                        padding: UiRect::all(Val::Px(16.0)),
+                        ..Default::default()
+                    },
+                    BackgroundColor(Color::NONE),
+                    BorderColor::all(Color::NONE),
+                ))
+                .with_children(|parent| {
+                    if cards.is_empty() && show_empty_state {
+                        parent.spawn((
+                            Text::new("Empty"),
+                            TextFont {
+                                font_size: 24.0,
+                                ..Default::default()
+                            },
+                            TextColor(Color::srgb(0.68, 0.72, 0.78)),
+                        ));
+                    }
+                    for (index, card_id) in cards.iter().enumerate() {
+                        spawn_deck_screen_card_tile(
+                            parent,
+                            card_model_registry,
+                            card_id,
+                            zone,
+                            index,
+                        );
+                    }
+                });
+        });
+}
+
+fn spawn_empty_panel(parent: &mut ChildSpawnerCommands, text: &'static str) {
+    parent
+        .spawn((
+            Name::new("DeckScreen Empty Panel"),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(Val::Px(1.0)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.1, 0.14, 0.55)),
+            BorderColor::all(Color::srgba(0.87, 0.9, 0.95, 0.22)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(text),
+                TextFont {
+                    font_size: 24.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.68, 0.72, 0.78)),
+            ));
+        });
+}
+
+fn spawn_deck_screen_card_tile(
+    parent: &mut ChildSpawnerCommands,
+    card_model_registry: &CardModelRegistry,
+    card_id: &str,
+    zone: DeckEditableZoneModel,
+    index: usize,
+) {
+    let card_label = card_model_registry
+        .card_model_for_id(card_id)
+        .map_or(card_id, |card| card.display_name);
+    parent.spawn((
+        Name::new(format!("DeckScreen Card {card_label}")),
+        Button,
+        DeckScreenCardTileButton::new(card_id.to_string(), zone, index),
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            border: UiRect::all(Val::Px(2.0)),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            padding: UiRect::all(Val::Px(8.0)),
+            ..Default::default()
+        },
+        BackgroundColor(Color::NONE),
+        BorderColor::all(Color::NONE),
+    ));
+}
+
+fn spawn_deck_screen_modal(
+    parent: &mut ChildSpawnerCommands,
+    ui_camera: Entity,
+    card_model_registry: &CardModelRegistry,
+    modal: &crate::runtime::resources::DeckScreenCardModalModel,
+) {
+    let card_label = card_model_registry
+        .card_model_for_id(&modal.card_id)
+        .map_or(modal.card_id.as_str(), |card| card.display_name);
+    parent
+        .spawn((
+            Name::new("DeckScreen Card Modal"),
+            DeckScreenModalRoot,
+            UiTargetCamera(ui_camera),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                display: Display::Grid,
+                grid_template_columns: vec![GridTrack::flex(1.0), GridTrack::px(260.0)],
+                column_gap: Val::Px(26.0),
+                padding: UiRect::all(Val::Px(72.0)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::srgba(0.02, 0.025, 0.035, 0.74)),
+            GlobalZIndex(900),
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Name::new("DeckScreen Large Card"),
+                    Node {
+                        width: Val::Px(300.0),
+                        height: Val::Px(500.0),
+                        border: UiRect::all(Val::Px(4.0)),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(Val::Px(24.0)),
+                        ..Default::default()
+                    },
+                    BackgroundColor(Color::srgb(0.79, 0.71, 0.49)),
+                    BorderColor::all(Color::srgb(0.95, 0.86, 0.7)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(card_label.to_string()),
+                        TextFont {
+                            font_size: 28.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::BLACK),
+                    ));
+                    parent.spawn((
+                        Text::new("Card Preview"),
+                        TextFont {
+                            font_size: 22.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::srgb(0.12, 0.14, 0.18)),
+                    ));
+                });
+            parent
+                .spawn((
+                    Name::new("DeckScreen Modal Actions"),
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        row_gap: Val::Px(18.0),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|parent| {
+                    spawn_modal_action(
+                        parent,
+                        DeckScreenModalActionButton::MoveToDeck,
+                        "Move To Deck 01",
+                        modal.actions.move_to_deck,
+                    );
+                    spawn_modal_action(
+                        parent,
+                        DeckScreenModalActionButton::MoveToLibrary,
+                        "Move To Library",
+                        modal.actions.move_to_library,
+                    );
+                    spawn_modal_action(
+                        parent,
+                        DeckScreenModalActionButton::TransferOut,
+                        "Transfer Out",
+                        modal.actions.transfer_out,
+                    );
+                    spawn_modal_action(
+                        parent,
+                        DeckScreenModalActionButton::Back,
+                        "Back",
+                        modal.actions.back,
+                    );
+                });
+        });
+}
+
+fn spawn_modal_action(
+    parent: &mut ChildSpawnerCommands,
+    action: DeckScreenModalActionButton,
+    label: &'static str,
+    enabled: bool,
+) {
+    parent
+        .spawn((
+            Name::new(format!("DeckScreen Modal Action {label}")),
+            Button,
+            action,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(62.0),
+                border: UiRect::all(Val::Px(2.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            BackgroundColor(if enabled {
+                Color::srgb(0.24, 0.28, 0.36)
+            } else {
+                Color::srgba(0.1, 0.1, 0.1, 0.55)
+            }),
+            BorderColor::all(if enabled {
+                Color::srgb(0.6, 0.65, 0.74)
+            } else {
+                Color::srgb(0.28, 0.28, 0.28)
+            }),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(label),
+                TextFont {
+                    font_size: 21.0,
+                    ..Default::default()
+                },
+                TextColor(if enabled {
+                    Color::WHITE
+                } else {
+                    Color::srgb(0.45, 0.45, 0.45)
+                }),
+            ));
+        });
+}
+
+/// HUMAN: Handles reusable top-navigation button activation.
+/// AI: Only My Decks is active in this feature; modal state blocks all top-nav input.
+pub fn top_navigation_update_system(
+    deck_screen_model: Option<Res<DeckScreenModel>>,
+    selected_card_modal: Option<Res<SelectedCardModalModel>>,
+    mut top_navigation_model: ResMut<TopNavigationModel>,
+    mut button_query: Query<(&Interaction, &TopNavigationButton), Changed<Interaction>>,
+) {
+    if deck_screen_model
+        .as_ref()
+        .is_some_and(|model| model.modal.is_some())
+        || selected_card_modal
+            .as_ref()
+            .is_some_and(|model| model.is_active() || model.press_candidate.is_some())
+    {
+        return;
+    }
+
+    for (interaction, button) in &mut button_query {
+        if *interaction == Interaction::Pressed
+            && button.destination == TopNavigationDestination::MyDecks
+        {
+            top_navigation_model.selected = TopNavigationDestination::MyDecks;
+        }
+    }
+}
+
+/// HUMAN: Handles DeckScreen UI input and rebuilds DeckScreen presentation.
+/// AI: Keeps meta-game deck editing separate from active gameplay deck/hand state.
+pub fn deck_screen_update_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_model_registry: Res<CardModelRegistry>,
+    mut deck_screen_model: ResMut<DeckScreenModel>,
+    selected_card_modal: Res<SelectedCardModalModel>,
+    mut player_deck_collection: ResMut<PlayerDeckCollectionModel>,
+    mut persistent_player_decks: Option<ResMut<Persistent<PlayerDeckCollectionModel>>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
+    scene_root_query: Query<Entity, With<DeckSceneRoot>>,
+    ui_camera_query: Query<Entity, (With<Camera2d>, With<DeckSceneEntity>)>,
+    ui_root_query: Query<
+        Entity,
+        Or<(
+            With<TopNavigationRoot>,
+            With<DeckScreenContentRoot>,
+            With<DeckScreenModalRoot>,
+            With<DeckScreenCardView>,
+            With<DeckScreenGridBackdrop>,
+        )>,
+    >,
+    mut button_query: Query<
+        (
+            &Interaction,
+            Option<&DeckScreenDeckTileButton>,
+            Option<&DeckScreenTabButton>,
+            Option<&DeckScreenCardTileButton>,
+            Option<&DeckScreenModalActionButton>,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    ensure_deck_screen_collection(&mut player_deck_collection);
+    let mut should_persist = false;
+
+    for (interaction, deck_tile, tab_button, card_tile, modal_action) in &mut button_query {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+
+        if deck_screen_model.modal.is_some() {
+            if let Some(action) = modal_action {
+                match action {
+                    DeckScreenModalActionButton::Back => deck_screen_model.close_modal(),
+                    DeckScreenModalActionButton::MoveToLibrary => {
+                        let modal = deck_screen_model.modal.clone();
+                        if let Some(modal) = modal
+                            && modal.actions.move_to_library
+                            && move_deck_card_to_library(
+                                &mut player_deck_collection,
+                                modal.source_index,
+                            )
+                            .is_some()
+                        {
+                            should_persist = true;
+                            deck_screen_model.close_modal();
+                        }
+                    }
+                    DeckScreenModalActionButton::MoveToDeck => {
+                        let modal = deck_screen_model.modal.clone();
+                        if let Some(modal) = modal
+                            && modal.actions.move_to_deck
+                            && move_library_card_to_deck(
+                                &mut player_deck_collection,
+                                &modal.card_id,
+                            )
+                        {
+                            should_persist = true;
+                            deck_screen_model.close_modal();
+                        }
+                    }
+                    DeckScreenModalActionButton::TransferOut => {}
+                }
+            }
+            continue;
+        }
+
+        if selected_card_modal.is_active() || selected_card_modal.press_candidate.is_some() {
+            continue;
+        }
+
+        if deck_tile.is_some() {
+            deck_screen_model.open_editor();
+            continue;
+        }
+        if let Some(tab_button) = tab_button {
+            deck_screen_model.select_tab(tab_button.tab);
+            continue;
+        }
+        if card_tile.is_some() {
+            continue;
+        }
+    }
+
+    if should_persist
+        && let Some(persistent_player_decks) = persistent_player_decks.as_deref_mut()
+        && let Err(error) = persistent_player_decks.set(player_deck_collection.clone())
+    {
+        warn!("Failed to save DeckScreen deck collection: {error}");
+    }
+
+    if !deck_screen_model.take_rebuild_request() {
+        return;
+    }
+
+    for entity in &ui_root_query {
+        commands.entity(entity).despawn();
+    }
+
+    let Ok(scene_root) = scene_root_query.single() else {
+        return;
+    };
+    let Ok(ui_camera) = ui_camera_query.single() else {
+        return;
+    };
+    let deck_cards = deck_screen_deck_cards(&player_deck_collection);
+    commands.entity(scene_root).with_children(|parent| {
+        spawn_top_navigation_view(
+            parent,
+            ui_camera,
+            TopNavigationDestination::MyDecks,
+            deck_screen_model.modal.is_some(),
+        );
+        spawn_deck_screen_content(
+            parent,
+            ui_camera,
+            &asset_server,
+            &card_model_registry,
+            &player_deck_collection,
+            deck_screen_model.mode,
+            deck_screen_model.editor_tab,
+        );
+        if let Some(modal) = deck_screen_model.modal.as_ref() {
+            spawn_deck_screen_modal(parent, ui_camera, &card_model_registry, modal);
+        }
+    });
+    if deck_screen_model.mode == crate::runtime::resources::DeckScreenMode::Editor {
+        let mut masked_background_materials =
+            masked_background_materials.map(|materials| materials.into_inner());
+        let library_cards = deck_screen_library_cards(&deck_cards);
+        spawn_deck_screen_grid_backdrops(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            deck_screen_model.editor_tab,
+            scene_root,
+        );
+        spawn_deck_screen_card_views(
+            &mut commands,
+            &asset_server,
+            &card_defaults,
+            &card_model_registry,
+            &deck_cards,
+            &library_cards,
+            deck_screen_model.editor_tab,
+            &mut meshes,
+            &mut materials,
+            &mut masked_background_materials,
+            CardFace::Front,
+            scene_root,
+        );
     }
 }
 
@@ -2427,10 +3365,7 @@ fn spawn_card_structure(
 
 /// HUMAN: Positions the DebugScene card near the card control panel.
 /// AI: Size uses Card UI width and offsets by a fixed gap so the model and UI sit beside each other.
-fn debug_scene_card_transform(
-    card_defaults: &CardInspectionDefaults,
-    rotation: Quat,
-) -> Transform {
+fn debug_scene_card_transform(card_defaults: &CardInspectionDefaults, rotation: Quat) -> Transform {
     let target_card_width = DEBUG_WINDOW_WIDTH;
     let target_card_scale =
         game_scene_world_width_for_game_scene_width(target_card_width, 0.0) / card_defaults.width;
@@ -3855,6 +4790,7 @@ impl ViewChangeParams<'_, '_> {
             &self.card_model_registry,
             active_card_model,
             player_deck_collection,
+            None,
             &mut self.meshes,
             &mut self.materials,
             self.masked_background_materials.as_deref_mut(),
@@ -3947,6 +4883,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.card_model_registry,
                     active_card_model,
                     player_deck_collection,
+                    None,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
@@ -4046,6 +4983,7 @@ impl ViewChangeParams<'_, '_> {
                     &self.card_model_registry,
                     active_card_model,
                     player_deck_collection,
+                    None,
                     &mut self.meshes,
                     &mut self.materials,
                     self.masked_background_materials.as_deref_mut(),
@@ -4160,6 +5098,96 @@ pub fn scene_input_system(
             *params.active_view = ActiveView::GameScene;
         }
     }
+}
+
+/// HUMAN: BRP helper that switches the running app to DeckScene for AI runtime inspection.
+/// AI: Keep this equivalent to the user-facing scene cycle path, without synthesizing input.
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub fn ai_runtime_show_deck_screen_system(
+    In(_params): In<Option<serde_json::Value>>,
+    active_card_model: Res<ActiveCardModel>,
+    flip_state: Res<CardFlipState>,
+    mut params: ViewChangeParams,
+) -> bevy::remote::BrpResult {
+    match *params.active_view {
+        ActiveView::GameScene => {
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.hide_game_scene();
+            params.spawn_deck_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+            *params.active_view = ActiveView::DeckScene;
+        }
+        ActiveView::DeckScene => {}
+        ActiveView::DebugScene => {
+            params.despawn_debug_scene();
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.spawn_deck_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+            *params.active_view = ActiveView::DeckScene;
+        }
+    }
+
+    Ok(serde_json::json!({
+        "active_view": "DeckScene",
+        "success": true
+    }))
+}
+
+/// HUMAN: BRP helper that opens DeckScene directly to the deck editor Library tab.
+/// AI: Use this for AI visual checks of the library card-grid presentation.
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub fn ai_runtime_show_deck_library_system(
+    In(_params): In<Option<serde_json::Value>>,
+    active_card_model: Res<ActiveCardModel>,
+    flip_state: Res<CardFlipState>,
+    mut deck_screen: ResMut<DeckScreenModel>,
+    mut top_navigation: ResMut<TopNavigationModel>,
+    mut params: ViewChangeParams,
+) -> bevy::remote::BrpResult {
+    match *params.active_view {
+        ActiveView::GameScene => {
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.hide_game_scene();
+            params.spawn_deck_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+            *params.active_view = ActiveView::DeckScene;
+        }
+        ActiveView::DeckScene => {}
+        ActiveView::DebugScene => {
+            params.despawn_debug_scene();
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.spawn_deck_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+            *params.active_view = ActiveView::DeckScene;
+        }
+    }
+
+    top_navigation.selected = TopNavigationDestination::MyDecks;
+    deck_screen.open_editor();
+    deck_screen.select_tab(DeckEditorTabModel::Library);
+
+    Ok(serde_json::json!({
+        "active_view": "DeckScene",
+        "deck_screen_mode": "Editor",
+        "editor_tab": "Library",
+        "success": true
+    }))
 }
 
 /// HUMAN: Handles pointer navigation from scene card inspection back to GameScene.
@@ -5897,8 +6925,9 @@ pub fn sync_debug_hud_ui_camera_system(
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
             Option<&DebugSceneEntity>,
+            Option<&IsDefaultUiCamera>,
         ),
-        (With<Camera2d>, With<IsDefaultUiCamera>),
+        With<Camera2d>,
     >,
     hud_query: Query<Entity, With<DebugHudText>>,
     target_camera_query: Query<&UiTargetCamera>,
@@ -5906,6 +6935,23 @@ pub fn sync_debug_hud_ui_camera_system(
     let Some(ui_camera) = active_view_ui_camera(*active_view, &camera_query) else {
         return;
     };
+
+    for (entity, _, game_scene, deck_scene, debug_scene, default_marker) in &camera_query {
+        let belongs_to_active_view = match *active_view {
+            ActiveView::GameScene => game_scene.is_some(),
+            ActiveView::DeckScene => deck_scene.is_some(),
+            ActiveView::DebugScene => debug_scene.is_some(),
+        };
+        match (belongs_to_active_view, default_marker.is_some()) {
+            (true, false) => {
+                commands.entity(entity).insert(IsDefaultUiCamera);
+            }
+            (false, true) => {
+                commands.entity(entity).remove::<IsDefaultUiCamera>();
+            }
+            _ => {}
+        }
+    }
 
     for hud in &hud_query {
         let root = ui_root_for_entity(hud, &child_of_query);
@@ -5936,12 +6982,14 @@ fn active_view_ui_camera(
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
             Option<&DebugSceneEntity>,
+            Option<&IsDefaultUiCamera>,
         ),
-        (With<Camera2d>, With<IsDefaultUiCamera>),
+        With<Camera2d>,
     >,
 ) -> Option<Entity> {
-    camera_query.iter().find_map(
-        |(entity, camera, game_scene, deck_scene, debug_scene)| {
+    camera_query
+        .iter()
+        .find_map(|(entity, camera, game_scene, deck_scene, debug_scene, _)| {
             if !camera.is_active {
                 return None;
             }
@@ -5953,8 +7001,7 @@ fn active_view_ui_camera(
             };
 
             belongs_to_active_view.then_some(entity)
-        },
-    )
+        })
 }
 
 pub fn toggle_debug_hud_inputs(

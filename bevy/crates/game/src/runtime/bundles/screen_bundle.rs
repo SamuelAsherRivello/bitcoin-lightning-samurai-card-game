@@ -12,6 +12,11 @@ pub struct GameScreenBundle {
     pub name: Name,
     pub root: GameSceneRoot,
     pub scene_entity: GameSceneEntity,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 impl Default for GameScreenBundle {
@@ -20,6 +25,11 @@ impl Default for GameScreenBundle {
             name: Name::new("GameScreen"),
             root: GameSceneRoot,
             scene_entity: GameSceneEntity,
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::default(),
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
         }
     }
 }
@@ -31,6 +41,11 @@ pub struct DeckScreenBundle {
     pub name: Name,
     pub root: DeckSceneRoot,
     pub scene_entity: DeckSceneEntity,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 impl Default for DeckScreenBundle {
@@ -39,6 +54,11 @@ impl Default for DeckScreenBundle {
             name: Name::new("DeckScreen"),
             root: DeckSceneRoot,
             scene_entity: DeckSceneEntity,
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::default(),
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
         }
     }
 }
@@ -50,6 +70,11 @@ pub struct DebugScreenBundle {
     pub name: Name,
     pub root: DebugSceneRoot,
     pub scene_entity: DebugSceneEntity,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 impl Default for DebugScreenBundle {
@@ -58,6 +83,11 @@ impl Default for DebugScreenBundle {
             name: Name::new("DebugScreen"),
             root: DebugSceneRoot,
             scene_entity: DebugSceneEntity,
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::default(),
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
         }
     }
 }

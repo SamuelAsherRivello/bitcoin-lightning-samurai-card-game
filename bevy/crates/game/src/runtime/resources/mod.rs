@@ -10,24 +10,28 @@ pub mod card_instance_state_model;
 pub mod card_slot_model;
 pub mod cpu_brain_model;
 pub mod debug_drawing_model;
+pub mod deck_screen_model;
 pub mod font_model;
 pub mod game_location_model;
 pub mod game_round_model;
 pub mod opponent_match_model;
 pub mod point_model;
 pub mod selected_card_modal_model;
+pub mod top_navigation_model;
 
 pub use card_gesture_model::*;
 pub use card_instance_state_model::*;
 pub use card_slot_model::*;
 pub use cpu_brain_model::*;
 pub use debug_drawing_model::*;
+pub use deck_screen_model::*;
 pub use font_model::*;
 pub use game_location_model::*;
 pub use game_round_model::*;
 pub use opponent_match_model::*;
 pub use point_model::*;
 pub use selected_card_modal_model::*;
+pub use top_navigation_model::*;
 
 const WORKSPACE_RELATIVE_FROM_GAME_CRATE: [&str; 3] = ["..", "..", ".."];
 #[cfg(feature = "desktop-hot-reload")]
@@ -45,7 +49,7 @@ pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
 pub const CARD_MODEL_SLOT_COUNT: usize = 5;
-pub const STARTING_DECK_CARD_COUNT: usize = 15;
+pub const STARTING_DECK_CARD_COUNT: usize = 12;
 pub const STARTING_HAND_CARD_COUNT: usize = 5;
 pub const STARTING_HAND_REPEATS_PER_CARD: usize = 3;
 pub const DEFAULT_PLAYER_NAME: &str = "Player 01";

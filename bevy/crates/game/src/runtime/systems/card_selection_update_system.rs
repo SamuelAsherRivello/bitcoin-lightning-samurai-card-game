@@ -5,8 +5,7 @@ use bevy::{
 
 use crate::runtime::components::{
     CardSelectionSource, CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardView,
-    DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget,
-    SelectableCard,
+    DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget, SelectableCard,
 };
 use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardFace, CardFlipState, CardGestureModel,

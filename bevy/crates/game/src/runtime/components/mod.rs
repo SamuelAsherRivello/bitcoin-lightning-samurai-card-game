@@ -7,15 +7,19 @@ pub mod card_gesture_component;
 pub mod card_selection_component;
 pub mod card_ui_component;
 pub mod debug_drawing_component;
+pub mod deck_screen_component;
 pub mod game_control_component;
 pub mod point_view_visual_modifier_component;
+pub mod top_navigation_component;
 
 pub use card_gesture_component::*;
 pub use card_selection_component::*;
 pub use card_ui_component::*;
 pub use debug_drawing_component::*;
+pub use deck_screen_component::*;
 pub use game_control_component::*;
 pub use point_view_visual_modifier_component::*;
+pub use top_navigation_component::*;
 
 /// HUMAN: Player marker for the local game participant.
 /// AI: Keep player state separate from card, scene, and view markers.

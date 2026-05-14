@@ -84,7 +84,8 @@ pub fn card_gesture_update_system(
     }
 
     if let Some(pointer_position) = active_pointer_position(primary_window, &touches)
-        && let Some(game_scene_position) = window_pointer_to_game_scene(pointer_position, window_size)
+        && let Some(game_scene_position) =
+            window_pointer_to_game_scene(pointer_position, window_size)
     {
         handle_move(
             game_scene_position,
@@ -99,7 +100,9 @@ pub fn card_gesture_update_system(
 
     if pointer_just_released(&mouse_buttons, &touches) {
         let game_scene_position = active_pointer_position(primary_window, &touches)
-            .and_then(|pointer_position| window_pointer_to_game_scene(pointer_position, window_size))
+            .and_then(|pointer_position| {
+                window_pointer_to_game_scene(pointer_position, window_size)
+            })
             .or_else(|| {
                 gesture_model
                     .pointer

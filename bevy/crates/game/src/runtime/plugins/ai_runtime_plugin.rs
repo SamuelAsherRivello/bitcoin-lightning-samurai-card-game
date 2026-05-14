@@ -6,8 +6,14 @@ use bevy::{
 };
 use serde_json::Value;
 
+use crate::runtime::systems::{
+    ai_runtime_show_deck_library_system, ai_runtime_show_deck_screen_system,
+};
+
 pub const AI_RUNTIME_BRP_ENDPOINT: &str = "http://localhost:15702";
 pub const AI_RUNTIME_SCREENSHOT_METHOD: &str = "bevy_debugger/screenshot";
+pub const AI_RUNTIME_SHOW_DECK_SCREEN_METHOD: &str = "bevy_debugger/show_deck_screen";
+pub const AI_RUNTIME_SHOW_DECK_LIBRARY_METHOD: &str = "bevy_debugger/show_deck_library";
 
 /// HUMAN: Development-only plugin that exposes Bevy Remote Protocol for AI runtime inspection.
 /// AI: Keep this opt-in behind the ai-runtime feature and native desktop targets only.
@@ -17,7 +23,15 @@ impl Plugin for AiRuntimePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(
             RemotePlugin::default()
-                .with_method(AI_RUNTIME_SCREENSHOT_METHOD, ai_runtime_screenshot_handler),
+                .with_method(AI_RUNTIME_SCREENSHOT_METHOD, ai_runtime_screenshot_handler)
+                .with_method(
+                    AI_RUNTIME_SHOW_DECK_SCREEN_METHOD,
+                    ai_runtime_show_deck_screen_system,
+                )
+                .with_method(
+                    AI_RUNTIME_SHOW_DECK_LIBRARY_METHOD,
+                    ai_runtime_show_deck_library_system,
+                ),
         )
         .add_plugins(RemoteHttpPlugin::default());
     }

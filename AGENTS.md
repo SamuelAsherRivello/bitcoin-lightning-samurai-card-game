@@ -56,7 +56,7 @@ Default assistant model for this project: `gpt-5.5`.
 - Treat `AppScene` as the always-present app-level scene and report the currently active view, such as `GameScene`, `DeckScene`, or `DebugScene`, when describing runtime scene state.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/017-card-selected/plan.md`
+Active implementation plan: `specs/018-deck-screen/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules
