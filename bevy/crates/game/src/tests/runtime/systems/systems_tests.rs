@@ -1,7 +1,13 @@
 use super::*;
+use crate::runtime::components::{
+    CardGrid, DeckScreenCardTileButton, DeckScreenContentRoot, DeckScreenDeckCommandButton,
+    DeckScreenTabButton, DeckView, SelectableCard,
+};
+use crate::runtime::resources::deck_screen_model::DECK_SCREEN_VISIBLE_CARD_COUNT;
 use crate::runtime::resources::{
     CardGestureModel, CardGestureState, CardSlotBoardModel, CpuBrainMoveModel,
-    DECK_SCREEN_CARD_COUNT, DebugDrawMode, DeckScreenMode,
+    DECK_SCREEN_COMING_SOON_MESSAGE, DECK_SCREEN_COMING_SOON_TITLE, DebugDrawMode,
+    DeckEditorTabModel, DeckScreenMode, MATCHMAKING_PREPARING_SECONDS, MatchmakingPhaseModel,
 };
 use bevy::ecs::system::RunSystemOnce;
 use bevy::text::Font;
@@ -114,6 +120,12 @@ fn assert_debug_hud_targets_active_ui_camera(app: &mut App, active_view: ActiveV
         }
         ActiveView::DebugScene => {
             assert!(camera_entity.get::<DebugSceneEntity>().is_some())
+        }
+        ActiveView::MainMenuScene
+        | ActiveView::LightningScene
+        | ActiveView::MatchmakingScene
+        | ActiveView::SettingsScene => {
+            assert!(camera_entity.get::<MetaSceneEntity>().is_some())
         }
     }
 }
@@ -349,11 +361,14 @@ fn deck_scene_owns_camera_light_and_deck_screen_ui() {
 
     let mut content_query = app
         .world_mut()
-        .query_filtered::<Entity, With<DeckScreenContentRoot>>();
-    let content_entity = content_query.single(app.world()).unwrap();
+        .query_filtered::<(Entity, &CardGrid), With<CardGrid>>();
+    let (content_entity, content_grid) = content_query.single(app.world()).unwrap();
+    assert_eq!(content_grid.title, "My Decks");
     assert_eq!(
-        app.world().get::<UiTargetCamera>(content_entity),
-        Some(&UiTargetCamera(ui_camera_entity))
+        app.world()
+            .get::<ChildOf>(content_entity)
+            .map(ChildOf::parent),
+        Some(deck_root)
     );
 
     let mut deck_tile_query = app
@@ -368,6 +383,85 @@ fn deck_scene_owns_camera_light_and_deck_screen_ui() {
         .collect();
     assert!(labels.iter().any(|text| text == DECK_SCREEN_DECK_NAME));
     assert!(labels.iter().any(|text| text == "New Deck"));
+
+    let mut deck_tile_node_query = app.world_mut().query::<(
+        &Name,
+        &Node,
+        Option<&DeckView>,
+        Option<&DeckScreenDeckCommandButton>,
+    )>();
+    let mut existing_deck_size = None;
+    let mut new_deck_size = None;
+    let mut new_deck_command = None;
+    for (name, node, deck_view, deck_command) in deck_tile_node_query.iter(app.world()) {
+        if deck_view.is_some() {
+            existing_deck_size = Some((node.width, node.height));
+        } else if name.as_str() == "DeckScreen + Deck Tile" {
+            new_deck_size = Some((node.width, node.height));
+            new_deck_command = deck_command.copied();
+        }
+    }
+    assert_eq!(new_deck_size, existing_deck_size);
+    assert_eq!(
+        new_deck_command,
+        Some(DeckScreenDeckCommandButton::EditDeckName)
+    );
+}
+
+#[test]
+fn new_deck_tile_uses_edit_name_coming_soon_prompt() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+        .init_asset::<Image>()
+        .init_asset::<Font>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .init_resource::<DeckScreenModel>()
+        .init_resource::<SelectedCardModalModel>()
+        .init_resource::<TopNavigationModel>()
+        .init_resource::<PlayerDeckCollectionModel>()
+        .add_systems(Startup, setup_deck_scene)
+        .add_systems(Update, deck_screen_update_system);
+
+    app.update();
+
+    let new_deck_tile = app
+        .world_mut()
+        .query::<(Entity, &Name)>()
+        .iter(app.world())
+        .find_map(|(entity, name)| (name.as_str() == "DeckScreen + Deck Tile").then_some(entity))
+        .unwrap();
+    app.world_mut()
+        .entity_mut(new_deck_tile)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<DeckScreenModel>().mode,
+        DeckScreenMode::DeckSelection
+    );
+    assert!(app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    let prompt_labels: Vec<String> = app
+        .world_mut()
+        .query::<&Text>()
+        .iter(app.world())
+        .map(|text| text.0.clone())
+        .collect();
+    assert!(
+        prompt_labels
+            .iter()
+            .any(|text| text == DECK_SCREEN_COMING_SOON_TITLE)
+    );
+    assert!(
+        prompt_labels
+            .iter()
+            .any(|text| text == DECK_SCREEN_COMING_SOON_MESSAGE)
+    );
 }
 
 #[test]
@@ -431,6 +525,30 @@ fn debug_scene_owns_camera_light_and_card() {
 }
 
 #[test]
+fn debug_scene_card_matches_game_screen_card_size() {
+    let card_defaults = CardInspectionDefaults::default();
+    let transform = debug_scene_card_transform(&card_defaults, Quat::IDENTITY);
+    let apparent_width =
+        card_defaults.width * apparent_scale_at_z(transform.scale.x, transform.translation.z);
+    let apparent_height =
+        card_defaults.height * apparent_scale_at_z(transform.scale.y, transform.translation.z);
+
+    assert_close(transform.translation.z, GAME_SCENE_HAND_CARD_WORLD_Z);
+    assert_close(apparent_width, GAME_SCENE_HAND_CARD_WIDTH);
+    assert_close(apparent_height, GAME_SCENE_HAND_CARD_HEIGHT);
+}
+
+#[test]
+fn card_click_navigation_does_not_restart_from_debug_scene() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+
+    assert!(card_click_navigation_restarts_game(ActiveView::DeckScene));
+    assert!(!card_click_navigation_restarts_game(ActiveView::DebugScene));
+    assert!(!card_click_navigation_restarts_game(ActiveView::GameScene));
+}
+
+#[test]
 fn card_structure_spawns_visible_cost_and_power_point_views() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
@@ -453,15 +571,24 @@ fn card_structure_spawns_visible_cost_and_power_point_views() {
             .expect("active card model should exist")
             .clone()
     };
+    let card_defaults = app.world().resource::<CardInspectionDefaults>();
+    let point_x =
+        (card_defaults.width * 0.5) - (card_defaults.width * CARD_POINT_BADGE_INSET_RATIO);
+    let point_center_x = point_x + (CARD_POINT_BADGE_SIZE * 0.5);
+    let point_center_y =
+        (card_defaults.height * 0.5) - (card_defaults.height * CARD_POINT_BADGE_INSET_RATIO);
 
-    let mut energy_query = app.world_mut().query::<(&Name, &PointView, &Visibility)>();
-    let energy_views: Vec<(String, i32, Visibility)> = energy_query
+    let mut energy_query = app
+        .world_mut()
+        .query::<(&Name, &PointView, &Visibility, &Transform)>();
+    let energy_views: Vec<(String, i32, Visibility, Vec3)> = energy_query
         .iter(app.world())
-        .filter_map(|(name, view, visibility)| {
+        .filter_map(|(name, view, visibility, transform)| {
             (view.model.point_type == PointType::CardEnergy).then_some((
                 name.to_string(),
                 view.model.value,
                 *visibility,
+                transform.translation,
             ))
         })
         .collect();
@@ -471,19 +598,21 @@ fn card_structure_spawns_visible_cost_and_power_point_views() {
             "Card EnergyPointView Background".to_string(),
             active_card.cost.value,
             Visibility::Visible,
+            Vec3::new(point_center_x, point_center_y, energy_views[0].3.z),
         )]
     );
 
     let mut power_query = app
         .world_mut()
-        .query_filtered::<(&Name, &PointView, &Visibility), Without<GameLocation>>();
-    let power_views: Vec<(String, i32, Visibility)> = power_query
+        .query_filtered::<(&Name, &PointView, &Visibility, &Transform), Without<GameLocation>>();
+    let power_views: Vec<(String, i32, Visibility, Vec3)> = power_query
         .iter(app.world())
-        .filter_map(|(name, view, visibility)| {
+        .filter_map(|(name, view, visibility, transform)| {
             (view.model.point_type == PointType::CardPower).then_some((
                 name.to_string(),
                 view.model.value,
                 *visibility,
+                transform.translation,
             ))
         })
         .collect();
@@ -493,6 +622,7 @@ fn card_structure_spawns_visible_cost_and_power_point_views() {
             "Card PowerPointView Background".to_string(),
             active_card.base_power.value,
             Visibility::Visible,
+            Vec3::new(-point_center_x, point_center_y, power_views[0].3.z),
         )]
     );
 
@@ -590,7 +720,7 @@ fn deck_scene_root_does_not_inherit_ui_layout_transform() {
 }
 
 #[test]
-fn deck_screen_cards_select_as_enlarged_card_views_without_preview_modal() {
+fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -627,44 +757,200 @@ fn deck_screen_cards_select_as_enlarged_card_views_without_preview_modal() {
     );
     assert_eq!(
         deck_screen_deck_cards(app.world().resource::<PlayerDeckCollectionModel>()).len(),
-        DECK_SCREEN_CARD_COUNT
+        DECK_SCREEN_VISIBLE_CARD_COUNT
     );
     let deck_card_view_count = app
         .world_mut()
         .query_filtered::<Entity, (With<CardView>, With<DeckScreenCardView>)>()
         .iter(app.world())
         .count();
-    assert_eq!(deck_card_view_count, DECK_SCREEN_CARD_COUNT);
+    assert_eq!(deck_card_view_count, DECK_SCREEN_VISIBLE_CARD_COUNT + 3);
     let deck_card_view_metadata_count = app
         .world_mut()
         .query::<&DeckScreenCardView>()
         .iter(app.world())
         .filter(|view| view.zone == DeckEditableZoneModel::Deck)
         .count();
-    assert_eq!(deck_card_view_metadata_count, DECK_SCREEN_CARD_COUNT);
+    assert_eq!(
+        deck_card_view_metadata_count,
+        DECK_SCREEN_VISIBLE_CARD_COUNT
+    );
     let deck_column_card_view_count = deck_screen_card_views_right_of(&mut app, 600.0);
-    assert_eq!(deck_column_card_view_count, 0);
+    assert_eq!(deck_column_card_view_count, 3);
     assert_matching_deck_screen_grid_backdrops(&mut app);
+    assert_deck_screen_grid_backdrops_are_behind_cards(&mut app);
+    let grid_titles: Vec<String> = app
+        .world_mut()
+        .query::<&CardGrid>()
+        .iter(app.world())
+        .map(|grid| grid.title.clone())
+        .collect();
+    assert_eq!(
+        grid_titles,
+        vec!["Deck 01".to_string(), "Not In Deck".to_string()]
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenContentRoot>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<GridViewMenuArea>>()
+            .iter(app.world())
+            .count(),
+        2
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenDeckCommandButton>>()
+            .iter(app.world())
+            .count(),
+        2
+    );
+    for command in [
+        DeckScreenDeckCommandButton::EditDeckName,
+        DeckScreenDeckCommandButton::DeleteDeck,
+    ] {
+        let command_entity = app
+            .world_mut()
+            .query::<(Entity, &DeckScreenDeckCommandButton)>()
+            .iter(app.world())
+            .find_map(|(entity, button)| (*button == command).then_some(entity))
+            .unwrap();
+        app.world_mut()
+            .entity_mut(command_entity)
+            .insert(Interaction::Pressed);
+        app.update();
+
+        assert!(app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+        let prompt_labels: Vec<String> = app
+            .world_mut()
+            .query::<&Text>()
+            .iter(app.world())
+            .map(|text| text.0.clone())
+            .collect();
+        assert!(
+            prompt_labels
+                .iter()
+                .any(|text| text == DECK_SCREEN_COMING_SOON_TITLE)
+        );
+        assert!(
+            prompt_labels
+                .iter()
+                .any(|text| text == DECK_SCREEN_COMING_SOON_MESSAGE)
+        );
+
+        let ok_entity = app
+            .world_mut()
+            .query_filtered::<Entity, With<DeckScreenValidationOkButton>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .entity_mut(ok_entity)
+            .insert(Interaction::Pressed);
+        app.update();
+
+        assert!(!app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    }
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenTabButton>>()
+            .iter(app.world())
+            .count(),
+        2
+    );
+    let tab_button_styles: Vec<(DeckEditorTabModel, BackgroundColor, BorderColor)> = app
+        .world_mut()
+        .query::<(&DeckScreenTabButton, &BackgroundColor, &BorderColor)>()
+        .iter(app.world())
+        .map(|(button, background, border)| (button.tab, *background, *border))
+        .collect();
+    let library_style = tab_button_styles
+        .iter()
+        .find(|(tab, _, _)| *tab == DeckEditorTabModel::Library)
+        .unwrap();
+    let shop_style = tab_button_styles
+        .iter()
+        .find(|(tab, _, _)| *tab == DeckEditorTabModel::Shop)
+        .unwrap();
+    assert_ne!(library_style.1, shop_style.1);
+    assert_ne!(library_style.2, shop_style.2);
+
+    let shop_entity = app
+        .world_mut()
+        .query::<(Entity, &DeckScreenTabButton)>()
+        .iter(app.world())
+        .find_map(|(entity, button)| (button.tab == DeckEditorTabModel::Shop).then_some(entity))
+        .unwrap();
+    app.world_mut()
+        .entity_mut(shop_entity)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<DeckScreenModel>().editor_tab,
+        DeckEditorTabModel::Library
+    );
+    assert!(app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    let ok_entity = app
+        .world_mut()
+        .query_filtered::<Entity, With<DeckScreenValidationOkButton>>()
+        .single(app.world())
+        .unwrap();
+    app.world_mut()
+        .entity_mut(ok_entity)
+        .insert(Interaction::Pressed);
+    app.update();
+    assert!(!app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenCardTileButton>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, (With<DeckScreenCardView>, With<SelectableCard>)>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenModalActionButton>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
     assert_eq!(
         deck_screen_library_cards(&deck_screen_deck_cards(
             app.world().resource::<PlayerDeckCollectionModel>()
         ))
         .len(),
-        0
+        3
     );
 
-    let first_deck_card = app
+    let (first_deck_card, source_transform) = app
         .world_mut()
-        .query_filtered::<(Entity, &DeckScreenCardTileButton), With<Button>>()
+        .query_filtered::<(Entity, &DeckScreenCardView, &Transform), With<CardView>>()
         .iter(app.world())
-        .find_map(|(entity, tile)| (tile.zone == DeckEditableZoneModel::Deck).then_some(entity))
+        .find_map(|(entity, view, transform)| {
+            (view.zone == DeckEditableZoneModel::Deck).then_some((entity, *transform))
+        })
         .unwrap();
+    let target_transform =
+        selected_inspection_transform(app.world().resource::<CardInspectionDefaults>());
     app.world_mut()
-        .entity_mut(first_deck_card)
-        .insert(Interaction::Pressed);
+        .resource_mut::<SelectedCardModalModel>()
+        .select_entity(first_deck_card, source_transform, target_transform);
     app.update();
 
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
+    assert!(!app.world().resource::<SelectedCardModalModel>().is_active());
 
     {
         let mut collection = app.world_mut().resource_mut::<PlayerDeckCollectionModel>();
@@ -677,11 +963,11 @@ fn deck_screen_cards_select_as_enlarged_card_views_without_preview_modal() {
 
     let deck_cards = deck_screen_deck_cards(app.world().resource::<PlayerDeckCollectionModel>());
     let library_cards = deck_screen_library_cards(&deck_cards);
-    assert_eq!(deck_cards.len(), DECK_SCREEN_CARD_COUNT - 1);
-    assert_eq!(library_cards.len(), 1);
+    assert_eq!(deck_cards.len(), DECK_SCREEN_VISIBLE_CARD_COUNT);
+    assert_eq!(library_cards.len(), 3);
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
     let library_column_card_view_count = deck_screen_card_views_right_of(&mut app, 600.0);
-    assert_eq!(library_column_card_view_count, 1);
+    assert_eq!(library_column_card_view_count, 3);
     assert_matching_deck_screen_grid_backdrops(&mut app);
     let library_card_view_metadata_count = app
         .world_mut()
@@ -689,19 +975,14 @@ fn deck_screen_cards_select_as_enlarged_card_views_without_preview_modal() {
         .iter(app.world())
         .filter(|view| view.zone == DeckEditableZoneModel::Library)
         .count();
-    assert_eq!(library_card_view_metadata_count, 1);
-
-    let library_card = app
-        .world_mut()
-        .query_filtered::<(Entity, &DeckScreenCardTileButton), With<Button>>()
-        .iter(app.world())
-        .find_map(|(entity, tile)| (tile.zone == DeckEditableZoneModel::Library).then_some(entity))
-        .unwrap();
-    app.world_mut()
-        .entity_mut(library_card)
-        .insert(Interaction::Pressed);
-    app.update();
-
+    assert_eq!(library_card_view_metadata_count, 3);
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenCardTileButton>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
 }
 
@@ -757,6 +1038,23 @@ fn assert_matching_deck_screen_grid_backdrops(app: &mut App) {
         assert_close(deck_size.0, library_size.0);
         assert_close(deck_size.1, library_size.1);
     }
+}
+
+fn assert_deck_screen_grid_backdrops_are_behind_cards(app: &mut App) {
+    let min_card_z = app
+        .world_mut()
+        .query_filtered::<&Transform, (With<CardView>, With<DeckScreenCardView>)>()
+        .iter(app.world())
+        .map(|transform| transform.translation.z)
+        .fold(f32::INFINITY, f32::min);
+    let max_backdrop_z = app
+        .world_mut()
+        .query_filtered::<&Transform, With<DeckScreenGridBackdrop>>()
+        .iter(app.world())
+        .map(|transform| transform.translation.z)
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    assert!(max_backdrop_z < min_card_z);
 }
 
 #[test]
@@ -966,7 +1264,15 @@ fn game_scene_owns_camera_world_background_and_three_locations() {
     let (background_name, background_mesh, _background_material) =
         background_query.single(app.world()).unwrap();
 
-    assert_eq!(background_name.as_str(), "Bamboo Forest World Background");
+    let active_world_name = app
+        .world()
+        .resource::<WorldModelRegistry>()
+        .active_world_model(app.world().resource::<ActiveWorldModel>())
+        .display_name;
+    assert_eq!(
+        background_name.as_str(),
+        format!("{active_world_name} World Background")
+    );
     let background_mesh = app
         .world()
         .resource::<Assets<Mesh>>()
@@ -1150,8 +1456,19 @@ fn game_scene_owns_camera_world_background_and_three_locations() {
 
     let mut hand_query = app
         .world_mut()
-        .query_filtered::<Entity, With<LocalPlayerHand>>();
-    assert_eq!(hand_query.iter(app.world()).count(), 1);
+        .query_filtered::<(Entity, &Node), With<LocalPlayerHand>>();
+    let hands: Vec<(Entity, &Node)> = hand_query.iter(app.world()).collect();
+    assert_eq!(hands.len(), 1);
+    let (hand_entity, hand_node) = hands[0];
+    assert_eq!(hand_node.border, UiRect::ZERO);
+    assert_eq!(
+        app.world().get::<BorderColor>(hand_entity),
+        Some(&BorderColor::all(Color::NONE))
+    );
+    assert_eq!(
+        app.world().get::<BackgroundColor>(hand_entity),
+        Some(&BackgroundColor(Color::NONE))
+    );
 
     let mut round_ui_query = app.world_mut().query_filtered::<Entity, With<RoundUi>>();
     assert_eq!(round_ui_query.iter(app.world()).count(), 1);
@@ -1434,7 +1751,7 @@ fn location_power_points_wait_for_current_round_reveal_state() {
     let mut app = App::new();
     app.init_resource::<CardSlotBoardModel>()
         .init_resource::<CardModelRegistry>()
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::HumanVersusCpu,
             vec!["a".to_string(); crate::runtime::resources::STARTING_DECK_CARD_COUNT],
         ))
@@ -1471,7 +1788,7 @@ fn location_power_points_wait_for_current_round_reveal_state() {
         );
     }
     app.world_mut()
-        .resource_mut::<OpponentMatchModel>()
+        .resource_mut::<MatchModel>()
         .record_placement(MatchPlayerSide::Near, 1, 0);
 
     app.update();
@@ -1487,7 +1804,7 @@ fn location_power_points_wait_for_current_round_reveal_state() {
 
     let slots = app.world().resource::<CardSlotBoardModel>().clone();
     {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.start_next_current_round_reveal(&slots);
         match_model.complete_revealing_current_round_placements();
     }
@@ -2008,7 +2325,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
         .init_resource::<CpuBrainModel>()
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::CpuVersusCpu,
             vec![
                 crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
@@ -2033,7 +2350,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
             ),
         );
     {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.near.draw(1);
         match_model.far.draw(1);
         match_model.near.energy_available = 1;
@@ -2044,7 +2361,7 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
     while elapsed < 30.0 {
         elapsed += 0.5;
         {
-            let match_model = app.world().resource::<OpponentMatchModel>();
+            let match_model = app.world().resource::<MatchModel>();
             let round = match_model.round.round;
             let near_hand_count = match_model.near.hand.len();
             let far_hand_count = match_model.far.hand.len();
@@ -2084,18 +2401,12 @@ fn cpu_versus_cpu_autoplay_reaches_winner_status_within_thirty_seconds() {
             .resource_mut::<Time>()
             .advance_by(std::time::Duration::from_millis(500));
         app.update();
-        if app
-            .world()
-            .resource::<OpponentMatchModel>()
-            .round
-            .winner
-            .is_some()
-        {
+        if app.world().resource::<MatchModel>().round.winner.is_some() {
             break;
         }
     }
 
-    let match_model = app.world().resource::<OpponentMatchModel>();
+    let match_model = app.world().resource::<MatchModel>();
     assert!(
         match_model.round.winner.is_some(),
         "CPU-vs-CPU did not finish within 30 seconds; status={} round={} near_ready={} far_ready={} near_hand={} far_hand={}",
@@ -2126,7 +2437,7 @@ fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
         .init_resource::<CardStateModel>()
         .init_resource::<CpuBrainModel>()
         .insert_resource(ActiveView::DeckScene)
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::CpuVersusCpu,
             vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
         ))
@@ -2138,7 +2449,7 @@ fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
             ),
         );
     {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.near.draw(1);
         match_model.near.energy_available = 1;
     }
@@ -2147,10 +2458,7 @@ fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
         .advance_by(std::time::Duration::from_secs(1));
     app.update();
 
-    assert_eq!(
-        app.world().resource::<OpponentMatchModel>().near.hand.len(),
-        1
-    );
+    assert_eq!(app.world().resource::<MatchModel>().near.hand.len(), 1);
     assert_eq!(
         app.world()
             .resource::<CardSlotBoardModel>()
@@ -2160,7 +2468,7 @@ fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
 
     *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameScene;
     {
-        let match_model = app.world().resource::<OpponentMatchModel>();
+        let match_model = app.world().resource::<MatchModel>();
         let round = match_model.round.round;
         let near_hand_count = match_model.near.hand.len();
         let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
@@ -2173,10 +2481,7 @@ fn cpu_gameplay_pauses_outside_game_scene_and_resumes_on_return() {
         .advance_by(std::time::Duration::from_secs(1));
     app.update();
 
-    assert_eq!(
-        app.world().resource::<OpponentMatchModel>().near.hand.len(),
-        0
-    );
+    assert_eq!(app.world().resource::<MatchModel>().near.hand.len(), 0);
     assert_eq!(
         app.world()
             .resource::<CardSlotBoardModel>()
@@ -2197,13 +2502,13 @@ fn cpu_brain_plans_moves_without_populating_slots_until_both_players_are_ready()
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
         .init_resource::<CpuBrainModel>()
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::HumanVersusCpu,
             vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
         ))
         .add_systems(Update, cpu_brain_update_system);
     let (round, far_hand_count) = {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.far.draw(1);
         match_model.far.energy_available = 10;
         (match_model.round.round, match_model.far.hand.len())
@@ -2218,7 +2523,7 @@ fn cpu_brain_plans_moves_without_populating_slots_until_both_players_are_ready()
         .advance_by(std::time::Duration::from_secs(1));
     app.update();
 
-    let match_model = app.world().resource::<OpponentMatchModel>();
+    let match_model = app.world().resource::<MatchModel>();
     assert_eq!(match_model.far.hand.len(), 1);
     assert!(match_model.has_pending_cpu_placements());
     assert!(match_model.far.ready_for_next);
@@ -2243,13 +2548,13 @@ fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
         .init_resource::<CpuBrainModel>()
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::HumanVersusCpu,
             vec![crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string()],
         ))
         .add_systems(Update, cpu_brain_update_system);
     let (instance_id, card_id) = {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.far.draw(1);
         match_model.far.energy_available = 10;
         (
@@ -2282,7 +2587,7 @@ fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
     app.update();
     assert!(
         !app.world()
-            .resource::<OpponentMatchModel>()
+            .resource::<MatchModel>()
             .has_pending_cpu_placements()
     );
 
@@ -2305,7 +2610,7 @@ fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
 
     {
         let (round, far_hand_count) = {
-            let match_model = app.world().resource::<OpponentMatchModel>();
+            let match_model = app.world().resource::<MatchModel>();
             (match_model.round.round, match_model.far.hand.len())
         };
         let mut brain = app.world_mut().resource_mut::<CpuBrainModel>();
@@ -2320,7 +2625,7 @@ fn cpu_brain_waits_for_hand_card_to_settle_and_pause_before_planning() {
         brain.far_next_decision_seconds = 0.0;
     }
     app.update();
-    let match_model = app.world().resource::<OpponentMatchModel>();
+    let match_model = app.world().resource::<MatchModel>();
     assert!(
         match_model.has_pending_cpu_placements(),
         "far_ready={} far_hand={} far_energy={} pending={} populated={}",
@@ -2602,7 +2907,7 @@ fn cpu_placed_card_move_preserves_tweened_game_scene_path_while_lifted_forward()
 
 #[test]
 fn committed_cpu_placement_records_original_visible_hand_source() {
-    let mut match_model = OpponentMatchModel::new(
+    let mut match_model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec![
             crate::runtime::resources::KAGE_REN_CARD_MODEL_ID.to_string(),
@@ -2788,7 +3093,7 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
         .init_resource::<GameLocationModel>()
         .init_resource::<CardStateModel>()
         .insert_resource(ActiveView::GameScene)
-        .insert_resource(OpponentMatchModel::new(
+        .insert_resource(MatchModel::new(
             MatchModeModel::HumanVersusCpu,
             vec!["a".to_string(); crate::runtime::resources::STARTING_DECK_CARD_COUNT],
         ))
@@ -2805,7 +3110,7 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
         ));
     }
     {
-        let mut match_model = app.world_mut().resource_mut::<OpponentMatchModel>();
+        let mut match_model = app.world_mut().resource_mut::<MatchModel>();
         match_model.record_placement(MatchPlayerSide::Far, 0, 1);
         match_model.record_placement(MatchPlayerSide::Near, 0, 0);
         match_model.record_placement(MatchPlayerSide::Near, 2, 0);
@@ -2823,7 +3128,7 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
 
     app.update();
 
-    let match_model = app.world().resource::<OpponentMatchModel>();
+    let match_model = app.world().resource::<MatchModel>();
     assert_eq!(
         match_model.placement_visibility(MatchPlayerSide::Far, 0, 1),
         PlacementVisibility::Revealing
@@ -2840,7 +3145,7 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
 
     app.update();
 
-    let match_model = app.world().resource::<OpponentMatchModel>();
+    let match_model = app.world().resource::<MatchModel>();
     assert_eq!(
         match_model.placement_visibility(MatchPlayerSide::Far, 0, 1),
         PlacementVisibility::Revealed
@@ -2855,13 +3160,13 @@ fn staged_match_resolution_reveals_only_occupied_cards_one_at_a_time() {
     );
 
     app.world_mut()
-        .resource_mut::<OpponentMatchModel>()
+        .resource_mut::<MatchModel>()
         .next_reveal_delay_seconds = 0.0;
     app.update();
 
     assert_eq!(
         app.world()
-            .resource::<OpponentMatchModel>()
+            .resource::<MatchModel>()
             .placement_visibility(MatchPlayerSide::Near, 2, 0),
         PlacementVisibility::Revealing
     );
@@ -3409,7 +3714,10 @@ fn card_ui_anchor_accounts_for_wide_window_safe_area() {
     let offset = card_ui_safe_area_anchor_offset(Vec2::new(1600.0, 800.0));
 
     assert_eq!(offset.x, -(160.0 + SCREEN_PADDING_LEFT));
-    assert_eq!(offset.y, SCREEN_PADDING_TOP);
+    assert_eq!(
+        offset.y,
+        SCREEN_PADDING_TOP + DEBUG_SCENE_CARD_VERTICAL_OFFSET
+    );
 }
 
 #[test]
@@ -3417,7 +3725,10 @@ fn card_ui_anchor_accounts_for_tall_window_safe_area() {
     let offset = card_ui_safe_area_anchor_offset(Vec2::new(1280.0, 1000.0));
 
     assert_eq!(offset.x, -SCREEN_PADDING_LEFT);
-    assert_eq!(offset.y, 100.0 + SCREEN_PADDING_TOP);
+    assert_eq!(
+        offset.y,
+        100.0 + SCREEN_PADDING_TOP + DEBUG_SCENE_CARD_VERTICAL_OFFSET
+    );
 }
 
 #[test]
@@ -3425,7 +3736,10 @@ fn card_ui_anchor_padding_scales_with_debug_hud() {
     let offset = card_ui_safe_area_anchor_offset(Vec2::new(1024.0, 768.0));
 
     assert_close(offset.x, -(SCREEN_PADDING_LEFT * 0.8));
-    assert_close(offset.y, 64.0 + (SCREEN_PADDING_TOP * 0.8));
+    assert_close(
+        offset.y,
+        64.0 + ((SCREEN_PADDING_TOP + DEBUG_SCENE_CARD_VERTICAL_OFFSET) * 0.8),
+    );
 }
 
 #[test]
@@ -3508,6 +3822,61 @@ fn selected_card_modal_blocks_game_control_interactions() {
         *app.world().get::<BorderColor>(button).unwrap(),
         BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR)
     );
+}
+
+#[test]
+fn restart_button_restarts_game_model_and_randomizes_world() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<ActiveView>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<LocationModelRegistry>()
+        .init_resource::<ActiveLocations>()
+        .init_resource::<ActiveWorldModel>()
+        .init_resource::<MatchModel>()
+        .init_resource::<PlayerDeckCollectionModel>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CardGestureModel>()
+        .init_resource::<CpuBrainModel>()
+        .add_systems(Update, update_end_round_button);
+
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameScene;
+    app.world_mut().resource_mut::<ActiveWorldModel>().index = 0;
+    assert_eq!(
+        app.world_mut()
+            .resource_mut::<CardSlotBoardModel>()
+            .place_next_local(1, 0),
+        Some(0)
+    );
+    assert!(
+        app.world_mut()
+            .resource_mut::<CardStateModel>()
+            .place_in_location(0)
+    );
+    app.world_mut().spawn((
+        GameControlButton::new(GameControlAction::Restart),
+        Interaction::Pressed,
+        BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
+        BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
+    ));
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count(),
+        0
+    );
+    assert_eq!(
+        app.world().resource::<CardStateModel>().state(0),
+        Some(CardState::Hand)
+    );
+    assert_ne!(app.world().resource::<ActiveWorldModel>().index, 0);
 }
 
 #[test]
@@ -3909,6 +4278,102 @@ fn card_ui_toggle_while_front_visible_changes_global_card_settings() {
         name_query
             .iter(app.world())
             .any(|name| name.as_str().contains("KAGE REN"))
+    );
+}
+
+#[test]
+fn game_scene_theme_key_only_updates_world_background() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_asset::<Image>()
+        .init_asset::<Font>()
+        .init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<ButtonInput<MouseButton>>()
+        .init_resource::<Touches>()
+        .init_resource::<ActiveView>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardInspectionState>()
+        .init_resource::<CardFlipState>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .init_resource::<WorldModelRegistry>()
+        .init_resource::<ActiveWorldModel>()
+        .init_resource::<LocationModelRegistry>()
+        .init_resource::<ActiveLocations>()
+        .init_resource::<PlayerDeckCollectionModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<MatchModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardGestureModel>()
+        .init_resource::<CpuBrainModel>()
+        .init_resource::<CardUiState>()
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, card_model_input_system);
+
+    app.update();
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameScene;
+    app.world_mut().resource_mut::<ActiveWorldModel>().index = 0;
+    app.world_mut().resource_mut::<ActiveLocations>().indices = [5, 0, 1];
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .reset_with_active_location_indices(&[5, 0, 1]);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .set_round(4);
+    app.world_mut().resource_mut::<GameRoundModel>().round = 4;
+    app.world_mut()
+        .resource_mut::<GameRoundModel>()
+        .energy_available = 2;
+
+    let background_entity = app
+        .world_mut()
+        .query_filtered::<Entity, With<WorldBackground>>()
+        .single(app.world())
+        .unwrap();
+    let locations_before = app.world().resource::<ActiveLocations>().indices;
+    let game_locations_before = app.world().resource::<GameLocationModel>().clone();
+    let game_round_before = app.world().resource::<GameRoundModel>().clone();
+    let game_hand_before = app.world().resource::<GameHandModel>().clone();
+
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::KeyT);
+    app.update();
+
+    assert_eq!(app.world().resource::<ActiveWorldModel>().index, 1);
+    assert_eq!(
+        app.world()
+            .resource::<WorldModelRegistry>()
+            .active_world_model(app.world().resource::<ActiveWorldModel>())
+            .display_name,
+        "Coastal Harbor"
+    );
+    assert_eq!(
+        app.world().resource::<ActiveLocations>().indices,
+        locations_before
+    );
+    assert_eq!(
+        app.world().resource::<GameLocationModel>(),
+        &game_locations_before
+    );
+    assert_eq!(app.world().resource::<GameRoundModel>(), &game_round_before);
+    assert_eq!(app.world().resource::<GameHandModel>(), &game_hand_before);
+    let (updated_background_entity, updated_background_name) = app
+        .world_mut()
+        .query_filtered::<(Entity, &Name), With<WorldBackground>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(updated_background_entity, background_entity);
+    assert_eq!(
+        updated_background_name.as_str(),
+        "Coastal Harbor World Background"
     );
 }
 
@@ -4353,20 +4818,21 @@ fn debug_hud_removes_unused_wa_keys() {
 }
 
 #[test]
-fn debug_hud_scene_cycle_key_is_not_toggle() {
+fn debug_hud_excludes_removed_scene_cycle_key() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_systems(Startup, setup_debug_hud);
 
     app.update();
 
-    let mut key_query = app.world_mut().query::<&DebugHudKeyText>();
-    let scene_key = key_query
+    let key_codes: Vec<KeyCode> = app
+        .world_mut()
+        .query::<&DebugHudKeyText>()
         .iter(app.world())
-        .find(|key_text| key_text.key_code == KeyCode::KeyS)
-        .unwrap();
+        .map(|key_text| key_text.key_code)
+        .collect();
 
-    assert!(!scene_key.is_toggle);
+    assert!(!key_codes.contains(&KeyCode::KeyS));
 }
 
 #[test]
@@ -5001,125 +5467,147 @@ fn h_key_toggles_hot_reload_autorestart() {
 }
 
 #[test]
-fn s_key_cycles_game_to_deck_to_debug_and_wraps() {
-    let mut app = App::new();
-    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-        .init_resource::<Assets<Mesh>>()
-        .init_resource::<Assets<StandardMaterial>>()
-        .init_asset::<Image>()
-        .init_asset::<Font>()
-        .init_resource::<ButtonInput<KeyCode>>()
-        .init_resource::<ButtonInput<MouseButton>>()
-        .init_resource::<Touches>()
-        .init_resource::<PrimaryCameraDefaults>()
-        .init_resource::<CardInspectionDefaults>()
-        .init_resource::<CardInspectionState>()
-        .init_resource::<CardFlipState>()
-        .init_resource::<CardModelRegistry>()
-        .init_resource::<CardGestureModel>()
-        .init_resource::<CardSlotBoardModel>()
-        .init_resource::<CardStateModel>()
-        .init_resource::<ActiveCardModel>()
-        .init_resource::<WorldModelRegistry>()
-        .init_resource::<ActiveWorldModel>()
-        .init_resource::<LocationModelRegistry>()
-        .init_resource::<ActiveLocations>()
-        .init_resource::<ActiveView>()
-        .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
-        .add_systems(
-            Startup,
-            sync_debug_hud_ui_camera_system.after(setup_game_scene),
-        )
-        .add_systems(
-            Update,
-            (
-                scene_input_system,
-                sync_debug_hud_ui_camera_system.after(scene_input_system),
-            ),
-        );
+fn hot_reload_game_screen_reset_loses_screen_local_state() {
+    let mut gesture_model = CardGestureModel {
+        state: CardGestureState::Dragging,
+        ..Default::default()
+    };
+    let mut slot_board = CardSlotBoardModel::default();
+    let mut card_state_model = CardStateModel::default();
+    let mut card_state = CardInspectionState {
+        last_pointer_normalized: Vec2::ONE,
+        target_rotation: Quat::from_rotation_y(1.0),
+    };
+    let mut flip_state = CardFlipState {
+        target_y_rotation: 1.0,
+        visible_face: CardFace::Back,
+        ..Default::default()
+    };
+    let mut ticks = GameTicks(7);
 
-    app.update();
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameScene);
+    assert_eq!(slot_board.place_next_local(1, 0), Some(0));
+    assert!(card_state_model.place_in_location(0));
 
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyS);
-    app.update();
-
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::DeckScene);
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DeckScene);
-    let mut hud_query = app
-        .world_mut()
-        .query_filtered::<&Visibility, With<DebugHudText>>();
-    assert!(matches!(
-        hud_query.single(app.world()),
-        Ok(Visibility::Visible | Visibility::Inherited)
-    ));
-    assert_eq!(active_child_scene_root_count(&mut app), 2);
-    let mut game_query = app
-        .world_mut()
-        .query_filtered::<&Visibility, With<GameSceneRoot>>();
-    assert!(matches!(
-        game_query.single(app.world()),
-        Ok(Visibility::Hidden)
-    ));
-    let mut deck_query = app
-        .world_mut()
-        .query_filtered::<Entity, With<DeckSceneRoot>>();
-    assert_eq!(deck_query.iter(app.world()).count(), 1);
-
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .reset(KeyCode::KeyS);
-    app.update();
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyS);
-    app.update();
-
-    assert_eq!(
-        *app.world().resource::<ActiveView>(),
-        ActiveView::DebugScene
+    reset_active_screen_model_for_hot_reload(
+        ActiveView::GameScene,
+        Some(&mut gesture_model),
+        Some(&mut slot_board),
+        Some(&mut card_state_model),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        &mut card_state,
+        &mut flip_state,
+        &mut ticks,
     );
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::DebugScene);
-    let mut hud_query = app
-        .world_mut()
-        .query_filtered::<&Visibility, With<DebugHudText>>();
-    assert!(matches!(
-        hud_query.single(app.world()),
-        Ok(Visibility::Visible | Visibility::Inherited)
-    ));
-    assert_eq!(active_child_scene_root_count(&mut app), 2);
-    let mut debug_query = app
-        .world_mut()
-        .query_filtered::<Entity, With<DebugSceneRoot>>();
-    assert_eq!(debug_query.iter(app.world()).count(), 1);
 
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .reset(KeyCode::KeyS);
-    app.update();
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyS);
-    app.update();
-
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
-    assert_debug_hud_targets_active_ui_camera(&mut app, ActiveView::GameScene);
-    assert_eq!(active_child_scene_root_count(&mut app), 1);
-    let mut game_query = app
-        .world_mut()
-        .query_filtered::<&Visibility, With<GameSceneRoot>>();
-    assert!(matches!(
-        game_query.single(app.world()),
-        Ok(Visibility::Visible | Visibility::Inherited)
-    ));
+    assert_eq!(gesture_model.state, CardGestureState::Idle);
+    assert_eq!(slot_board.populated_count(), 0);
+    assert_eq!(card_state_model.state(0), Some(CardState::Hand));
+    assert_eq!(card_state.last_pointer_normalized, Vec2::ZERO);
+    assert_eq!(flip_state.visible_face, CardFace::Front);
+    assert_eq!(ticks.0, 0);
 }
 
 #[test]
-fn s_key_return_preserves_existing_game_scene_entities() {
-    let mut app = App::new();
+fn hot_reload_deck_and_debug_screen_reset_screen_local_state() {
+    let mut deck_screen_model = DeckScreenModel::default();
+    deck_screen_model.open_editor();
+    let mut card_state = CardInspectionState {
+        last_pointer_normalized: Vec2::ONE,
+        target_rotation: Quat::from_rotation_y(1.0),
+    };
+    let mut flip_state = CardFlipState {
+        target_y_rotation: 1.0,
+        visible_face: CardFace::Back,
+        ..Default::default()
+    };
+    let mut ticks = GameTicks(11);
+
+    reset_active_screen_model_for_hot_reload(
+        ActiveView::DeckScene,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(&mut deck_screen_model),
+        None,
+        &mut card_state,
+        &mut flip_state,
+        &mut ticks,
+    );
+
+    assert_eq!(deck_screen_model, DeckScreenModel::default());
+    assert_eq!(card_state.last_pointer_normalized, Vec2::ZERO);
+    assert_eq!(flip_state.visible_face, CardFace::Front);
+    assert_eq!(ticks.0, 0);
+
+    card_state.last_pointer_normalized = Vec2::ONE;
+    flip_state.visible_face = CardFace::Back;
+    ticks.0 = 5;
+
+    reset_active_screen_model_for_hot_reload(
+        ActiveView::DebugScene,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        &mut card_state,
+        &mut flip_state,
+        &mut ticks,
+    );
+
+    assert_eq!(card_state.last_pointer_normalized, Vec2::ZERO);
+    assert_eq!(flip_state.visible_face, CardFace::Front);
+    assert_eq!(ticks.0, 0);
+}
+
+#[derive(Debug, PartialEq)]
+struct RestartGameSnapshot {
+    active_view: ActiveView,
+    game_scene_root_count: usize,
+    deck_scene_root_count: usize,
+    debug_scene_root_count: usize,
+    world_background_count: usize,
+    hand_card_count: usize,
+    game_round: u8,
+    game_energy_available: i32,
+    game_location_round: u8,
+    game_hand_len: usize,
+    slot_board_populated_count: usize,
+    first_card_state: Option<CardState>,
+    gesture_state: CardGestureState,
+    card_last_pointer_normalized: Vec2,
+    card_target_rotation: Quat,
+}
+
+fn add_restart_parity_resources(app: &mut App) {
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
@@ -5128,6 +5616,7 @@ fn s_key_return_preserves_existing_game_scene_entities() {
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .init_resource::<Touches>()
+        .init_resource::<GameTicks>()
         .init_resource::<PrimaryCameraDefaults>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardInspectionState>()
@@ -5141,101 +5630,158 @@ fn s_key_return_preserves_existing_game_scene_entities() {
         .init_resource::<ActiveWorldModel>()
         .init_resource::<LocationModelRegistry>()
         .init_resource::<ActiveLocations>()
-        .init_resource::<ActiveView>()
-        .add_systems(Startup, (setup_app_scene, setup_game_scene).chain())
-        .add_systems(Update, scene_input_system);
+        .init_resource::<PlayerDeckCollectionModel>()
+        .init_resource::<GameDeckModel>()
+        .init_resource::<GameHandModel>()
+        .init_resource::<GameRoundModel>()
+        .init_resource::<GameLocationModel>()
+        .init_resource::<MatchModel>()
+        .init_resource::<CpuBrainModel>()
+        .init_resource::<CardUiState>()
+        .init_resource::<MatchmakingModel>()
+        .init_resource::<MetaGameSettingsModel>()
+        .add_systems(Startup, setup_app_scene);
+}
 
-    app.update();
+fn dirty_restart_parity_state(app: &mut App) {
+    app.world_mut().resource_mut::<ActiveWorldModel>().index = 0;
+    app.world_mut().resource_mut::<ActiveLocations>().indices = [5, 0, 1];
+    app.world_mut().resource_mut::<GameRoundModel>().round = 4;
+    app.world_mut()
+        .resource_mut::<GameRoundModel>()
+        .energy_available = 2;
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .reset_with_active_location_indices(&[5, 0, 1]);
+    app.world_mut()
+        .resource_mut::<GameLocationModel>()
+        .set_round(4);
+    assert_eq!(
+        app.world_mut()
+            .resource_mut::<CardSlotBoardModel>()
+            .place_next_local(1, 0),
+        Some(0)
+    );
+    assert!(
+        app.world_mut()
+            .resource_mut::<CardStateModel>()
+            .place_in_location(0)
+    );
+    app.world_mut().resource_mut::<CardGestureModel>().state = CardGestureState::Dragging;
+    app.world_mut()
+        .resource_mut::<CardInspectionState>()
+        .last_pointer_normalized = Vec2::ONE;
+}
 
-    let game_scene_root = {
-        let mut query = app
+fn restart_game_snapshot(app: &mut App) -> RestartGameSnapshot {
+    RestartGameSnapshot {
+        active_view: *app.world().resource::<ActiveView>(),
+        game_scene_root_count: app
             .world_mut()
-            .query_filtered::<Entity, With<GameSceneRoot>>();
-        query
-            .single(app.world())
-            .expect("GameScene root should spawn")
-    };
-    let expected_transform = Transform::from_xyz(12.0, 34.0, 56.0);
-    let preserved_entity = app
-        .world_mut()
-        .spawn((
-            GameSceneEntity,
-            expected_transform,
-            GlobalTransform::default(),
-            Visibility::Visible,
-        ))
-        .id();
-    let preserved_child = app
-        .world_mut()
-        .spawn((GlobalTransform::default(), Visibility::Visible))
-        .id();
-    app.world_mut()
-        .entity_mut(preserved_entity)
-        .add_child(preserved_child);
-
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .press(KeyCode::KeyS);
-    app.update();
-    app.world_mut()
-        .resource_mut::<ButtonInput<KeyCode>>()
-        .reset(KeyCode::KeyS);
-    app.update();
-
-    assert_eq!(
-        app.world().entity(preserved_entity).get::<Visibility>(),
-        Some(&Visibility::Hidden)
-    );
-    assert_eq!(
-        app.world().entity(preserved_child).get::<Visibility>(),
-        Some(&Visibility::Hidden)
-    );
-
-    for _ in 0..2 {
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .press(KeyCode::KeyS);
-        app.update();
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .reset(KeyCode::KeyS);
-        app.update();
+            .query_filtered::<Entity, With<GameSceneRoot>>()
+            .iter(app.world())
+            .count(),
+        deck_scene_root_count: app
+            .world_mut()
+            .query_filtered::<Entity, With<DeckSceneRoot>>()
+            .iter(app.world())
+            .count(),
+        debug_scene_root_count: app
+            .world_mut()
+            .query_filtered::<Entity, With<DebugSceneRoot>>()
+            .iter(app.world())
+            .count(),
+        world_background_count: app
+            .world_mut()
+            .query_filtered::<Entity, With<WorldBackground>>()
+            .iter(app.world())
+            .count(),
+        hand_card_count: app
+            .world_mut()
+            .query_filtered::<Entity, (With<CardView>, With<LocalPlayerHandCardPreview>)>()
+            .iter(app.world())
+            .count(),
+        game_round: app.world().resource::<GameRoundModel>().round,
+        game_energy_available: app.world().resource::<GameRoundModel>().energy_available,
+        game_location_round: app.world().resource::<GameLocationModel>().round,
+        game_hand_len: app.world().resource::<GameHandModel>().len(),
+        slot_board_populated_count: app
+            .world()
+            .resource::<CardSlotBoardModel>()
+            .populated_count(),
+        first_card_state: app.world().resource::<CardStateModel>().state(0),
+        gesture_state: app.world().resource::<CardGestureModel>().state,
+        card_last_pointer_normalized: app
+            .world()
+            .resource::<CardInspectionState>()
+            .last_pointer_normalized,
+        card_target_rotation: app
+            .world()
+            .resource::<CardInspectionState>()
+            .target_rotation,
     }
+}
 
-    assert_eq!(*app.world().resource::<ActiveView>(), ActiveView::GameScene);
-    let mut root_query = app
-        .world_mut()
-        .query_filtered::<Entity, With<GameSceneRoot>>();
-    assert_eq!(
-        root_query
-            .single(app.world())
-            .expect("GameScene root should be reused"),
-        game_scene_root
-    );
-    let transform = app
-        .world()
-        .entity(preserved_entity)
-        .get::<Transform>()
-        .expect("preserved GameScene entity should survive scene cycling");
-    assert_eq!(*transform, expected_transform);
-    let visibility = app
-        .world()
-        .entity(preserved_entity)
-        .get::<Visibility>()
-        .expect("preserved GameScene entity should keep visibility");
-    assert!(matches!(
-        visibility,
-        Visibility::Visible | Visibility::Inherited
+fn restart_snapshot_from_matchmaking_entry() -> RestartGameSnapshot {
+    let mut app = App::new();
+    add_restart_parity_resources(&mut app);
+    app.insert_resource(ActiveView::MatchmakingScene)
+        .add_systems(Update, matchmaking_update_system);
+    app.update();
+    dirty_restart_parity_state(&mut app);
+    {
+        let mut matchmaking = app.world_mut().resource_mut::<MatchmakingModel>();
+        matchmaking.phase = MatchmakingPhaseModel::Preparing;
+        matchmaking.elapsed_seconds = MATCHMAKING_PREPARING_SECONDS;
+    }
+    fastrand::seed(7);
+    app.update();
+    restart_game_snapshot(&mut app)
+}
+
+fn restart_snapshot_from_r_shortcut() -> RestartGameSnapshot {
+    let mut app = App::new();
+    add_restart_parity_resources(&mut app);
+    app.insert_resource(ActiveView::GameScene)
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, restart_app_scene);
+    app.update();
+    dirty_restart_parity_state(&mut app);
+    fastrand::seed(7);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::KeyR);
+    app.update();
+    restart_game_snapshot(&mut app)
+}
+
+fn restart_snapshot_from_restart_button() -> RestartGameSnapshot {
+    let mut app = App::new();
+    add_restart_parity_resources(&mut app);
+    app.insert_resource(ActiveView::GameScene)
+        .add_systems(Startup, setup_game_scene)
+        .add_systems(Update, restart_game_control_button_system);
+    app.update();
+    dirty_restart_parity_state(&mut app);
+    fastrand::seed(7);
+    app.world_mut().spawn((
+        GameControlButton::new(GameControlAction::Restart),
+        Interaction::Pressed,
+        BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
+        BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
     ));
-    let child_visibility = app
-        .world()
-        .entity(preserved_child)
-        .get::<Visibility>()
-        .expect("preserved GameScene child should restore visibility");
-    assert!(matches!(
-        child_visibility,
-        Visibility::Visible | Visibility::Inherited
-    ));
+    app.update();
+    restart_game_snapshot(&mut app)
+}
+
+#[test]
+fn game_restart_entry_points_land_in_identical_game_state() {
+    let matchmaking_entry = restart_snapshot_from_matchmaking_entry();
+    let r_shortcut = restart_snapshot_from_r_shortcut();
+    let restart_button = restart_snapshot_from_restart_button();
+
+    assert_eq!(r_shortcut, matchmaking_entry);
+    assert_eq!(restart_button, matchmaking_entry);
 }
 
 #[test]
@@ -5272,6 +5818,7 @@ fn restart_key_reloads_game_scene_and_clears_game_model() {
     app.update();
 
     app.world_mut().resource_mut::<GameTicks>().0 = 42;
+    app.world_mut().resource_mut::<ActiveWorldModel>().index = 0;
     assert_eq!(
         app.world_mut()
             .resource_mut::<CardSlotBoardModel>()
@@ -5306,7 +5853,7 @@ fn restart_key_reloads_game_scene_and_clears_game_model() {
         card_query.iter(app.world()).count(),
         STARTING_HAND_CARD_COUNT
     );
-    assert_eq!(app.world().resource::<GameTicks>().0, 0);
+    assert_eq!(app.world().resource::<GameTicks>().0, 42);
     assert_eq!(
         app.world()
             .resource::<CardInspectionState>()
@@ -5327,6 +5874,7 @@ fn restart_key_reloads_game_scene_and_clears_game_model() {
         app.world().resource::<CardGestureModel>().state,
         CardGestureState::Idle
     );
+    assert_ne!(app.world().resource::<ActiveWorldModel>().index, 0);
 }
 
 #[test]

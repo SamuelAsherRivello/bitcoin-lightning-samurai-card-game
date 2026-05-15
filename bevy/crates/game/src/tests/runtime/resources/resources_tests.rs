@@ -344,6 +344,7 @@ fn theme_asset_root_contains_current_japan_cards_locations_and_worlds() {
         "themes/theme_japan/locations/location_market_square/location.png",
         "themes/theme_japan/worlds/world_bamboo_forest/world_background.png",
         "themes/theme_japan/worlds/world_coastal_harbor/world_background.png",
+        "themes/theme_japan/worlds/world_suji_swamp/world_background.png",
     ] {
         assert!(
             asset_root.join(relative_path).is_file(),
@@ -560,7 +561,7 @@ fn card_back_texture_uses_theme_card_asset_path() {
 }
 
 #[test]
-fn world_model_registry_cycles_between_bamboo_forest_and_coastal_harbor() {
+fn world_model_registry_cycles_between_three_japan_worlds() {
     let registry = WorldModelRegistry::default();
     let mut active_world_model = ActiveWorldModel::default();
 
@@ -574,6 +575,12 @@ fn world_model_registry_cycles_between_bamboo_forest_and_coastal_harbor() {
     assert_eq!(
         registry.active_world_model(&active_world_model).id,
         COASTAL_HARBOR_WORLD_ID
+    );
+
+    active_world_model.toggle(&registry);
+    assert_eq!(
+        registry.active_world_model(&active_world_model).id,
+        SUJI_SWAMP_WORLD_ID
     );
 
     active_world_model.toggle(&registry);

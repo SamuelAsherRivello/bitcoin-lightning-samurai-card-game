@@ -42,8 +42,9 @@
 | Contract Item | Requirement |
 | ------------- | ----------- |
 | Category path | `bevy/crates/game/assets/themes/theme_japan/worlds` |
-| World folders | `world_bamboo_forest`, `world_coastal_harbor` |
+| World folders | `world_bamboo_forest`, `world_coastal_harbor`, `world_suji_swamp`, and future `world_<name>` folders. |
 | Naming | World folders start with `world_` and do not include `japan`. |
+| Background art layout | World background image creation follows `specs/008-game-theme-poc` world slot-treatment requirements: exactly six diegetic slot treatments aligned to the runtime slot rectangles, with no extra slot-like clearings outside those areas. |
 | Behavior | Existing active world display and world toggle behavior remain unchanged. |
 
 ## Verification

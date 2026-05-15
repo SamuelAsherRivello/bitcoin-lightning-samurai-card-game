@@ -46,14 +46,14 @@
 
 ## Phase 3: User Story 1 - Show DebugHUD Panel (Priority: P1) MVP
 
-**Goal**: Show one translucent top-left DebugHUD panel by default with title/status text and labels for `W`, `A`, `S`, `D`, `F`, and `I`.
+**Goal**: Show one translucent top-left DebugHUD panel by default with title/status text and labels for `W`, `A`, `S`, `D`, `F`, `I`, and `H`.
 
 **Independent Test**: Launch the prototype and verify that one DebugHUD panel appears inside the aspect-ratio-safe HUD area with the expected text and key labels.
 
 ### Tests for User Story 1
 
 - [ ] T014 [P] [US1] Add a startup test for exactly one DebugHUD panel in `bevy/crates/shared/src/runtime/systems/debug_hud_setup_system.rs`
-- [ ] T015 [P] [US1] Add a content test for title/status text and `W`, `A`, `S`, `D`, `F`, `I` labels in `bevy/crates/shared/src/runtime/systems/debug_hud_update_system.rs`
+- [ ] T015 [P] [US1] Add a content test for title/status text and `W`, `A`, `S`, `D`, `F`, `I`, `H` labels in `bevy/crates/shared/src/runtime/systems/debug_hud_update_system.rs`
 - [ ] T016 [P] [US1] Add an aspect-ratio-safe placement test for DebugHUD under the HUD root in `bevy/crates/shared/src/runtime/systems/debug_hud_setup_system.rs`
 
 ### Implementation for User Story 1
@@ -180,17 +180,44 @@
 
 ---
 
-## Phase 9: Polish & Cross-Cutting Concerns
+## Phase 9: User Story 7 - Rebuild Active Screen On Hot Reload (Priority: P1)
+
+**Goal**: When `H` is enabled, every observed hot-patch event rebuilds the active conceptual screen from scratch; when `H` is disabled, hot patches do not reinitialize the active screen.
+
+**Independent Test**: Start the desktop hot reload workflow, navigate to GameScreen, enable `H`, create screen-local state, trigger a hot-patch event, and verify GameScreen resets as if newly entered. Repeat with `H` disabled and verify screen-local state is preserved. Repeat reset coverage for DeckScreen and DebugScreen.
+
+### Tests for User Story 7
+
+- [X] T054 [P] [US7] Add `H` toggle state tests for hot reload screen reset in `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
+- [X] T055 [P] [US7] Add hot-patch observation model tests in `bevy/crates/game/src/runtime/resources/hot_reload_screen_model.rs`
+- [X] T056 [P] [US7] Add GameScreen hot reload reset tests proving screen-local state is lost when `H` is enabled in `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
+- [X] T057 [P] [US7] Add DeckScreen and DebugScreen hot reload reset tests in `bevy/crates/game/src/tests/runtime/systems/systems_tests.rs`
+- [X] T058 [P] [US7] Add regression tests proving hot-patch events do not reset the active screen when `H` is disabled in `bevy/crates/game/src/runtime/resources/hot_reload_screen_model.rs`
+
+### Implementation for User Story 7
+
+- [X] T059 [US7] Add `H` as an approved DebugHUD toggle key and expose its current state in `bevy/crates/game/src/runtime/resources/mod.rs`
+- [X] T060 [US7] Update DebugHUD key-label rendering for `H` state in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T061 [US7] Implement hot-patch observation and reset request state in `bevy/crates/game/src/runtime/resources/hot_reload_screen_model.rs`
+- [X] T062 [US7] Implement active-screen reset orchestration for GameScreen, DeckScreen, DebugScreen, and meta screens in `bevy/crates/game/src/runtime/systems/mod.rs`
+- [X] T063 [US7] Register hot reload screen reset systems in `bevy/crates/game/src/runtime/plugins/mod.rs`
+- [X] T064 [US7] Document `H` enabled and `H` disabled hot reload acceptance checks in `specs/003-debugging/quickstart.md`
+
+**Checkpoint**: US7 is independently functional and verifies SC-014, SC-015, SC-016, FR-023, FR-024, FR-025, FR-026, FR-027, FR-028.
+
+---
+
+## Phase 10: Polish & Cross-Cutting Concerns
 
 **Purpose**: Final verification, browser parity, documentation consistency, and implementation standards.
 
-- [ ] T054 [P] Add Card UI separation documentation to `specs/003-debugging/contracts/debughud-ui.md`
-- [ ] T055 [P] Add browser WebGPU verification notes and blockers, if any, to `specs/003-debugging/quickstart.md`
-- [ ] T056 Run `scripts/other/RunTests.ps1` and record result in `specs/003-debugging/quickstart.md`
-- [ ] T057 Run `scripts/main/RunAppDesktop.ps1 -CheckOnly` and record result in `specs/003-debugging/quickstart.md`
-- [ ] T058 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` and record result or exact blocker in `specs/003-debugging/quickstart.md`
-- [ ] T059 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept layout, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` comment rules in `bevy/crates/shared/src/runtime/` and `bevy/crates/game/src/runtime/`
-- [ ] T060 Run a final requirements trace from FR-001 through FR-022 and SC-001 through SC-013 in `specs/003-debugging/tasks.md`
+- [ ] T065 [P] Add Card UI separation documentation to `specs/003-debugging/contracts/debughud-ui.md`
+- [ ] T066 [P] Add browser WebGPU verification notes and blockers, if any, to `specs/003-debugging/quickstart.md`
+- [ ] T067 Run `scripts/other/RunTests.ps1` and record result in `specs/003-debugging/quickstart.md`
+- [ ] T068 Run `scripts/main/RunAppDesktop.ps1 -CheckOnly` and record result in `specs/003-debugging/quickstart.md`
+- [ ] T069 Run `scripts/other/RunAppWeb.ps1 -CheckOnly` and record result or exact blocker in `specs/003-debugging/quickstart.md`
+- [ ] T070 Verify changed Bevy runtime files use `bevy/crates/template-crate` as the proper reference and follow one-primary-concept layout, `[domain]_[schedule]_system` naming, and `HUMAN:`/`AI:` comment rules in `bevy/crates/shared/src/runtime/` and `bevy/crates/game/src/runtime/`
+- [ ] T071 Run a final requirements trace from FR-001 through FR-028 and SC-001 through SC-016 in `specs/003-debugging/tasks.md`
 
 ---
 
@@ -208,7 +235,8 @@
 | Phase 6 US4 | Phase 2, US1 labels | Polish |
 | Phase 7 US5 | Phase 2 | Polish |
 | Phase 8 US6 | Phase 2 | Polish |
-| Phase 9 Polish | Desired user stories complete | Final acceptance |
+| Phase 9 US7 | Phase 2, US1 labels | Polish |
+| Phase 10 Polish | Desired user stories complete | Final acceptance |
 
 ### User Story Dependencies
 
@@ -220,6 +248,7 @@
 | US4 | US1 preferred | Hold feedback appears through DebugHUD key labels |
 | US5 | Foundational only | Logging and tests can be added independently |
 | US6 | Foundational only | Debug drawing is game-scene-specific and separate from DebugHUD |
+| US7 | US1 preferred | `H` state appears through DebugHUD and active-screen reset is game-specific |
 
 ### Parallel Opportunities
 
@@ -233,7 +262,8 @@
 | US4 tests | T035, T036, T037 can run in parallel |
 | US5 tests | T041, T042 can run in parallel |
 | US6 tests | T046, T047, T048 can run in parallel |
-| Polish | T054 and T055 can run in parallel |
+| US7 tests | T054, T055, T056, T057, T058 can run in parallel |
+| Polish | T065 and T066 can run in parallel |
 
 ---
 
@@ -243,7 +273,7 @@
 
 ```text
 Task: "T014 [P] [US1] Add a startup test for exactly one DebugHUD panel in bevy/crates/shared/src/runtime/systems/debug_hud_setup_system.rs"
-Task: "T015 [P] [US1] Add a content test for title/status text and W/A/S/D/F/I labels in bevy/crates/shared/src/runtime/systems/debug_hud_update_system.rs"
+Task: "T015 [P] [US1] Add a content test for title/status text and W/A/S/D/F/I/H labels in bevy/crates/shared/src/runtime/systems/debug_hud_update_system.rs"
 Task: "T016 [P] [US1] Add an aspect-ratio-safe placement test for DebugHUD under the HUD root in bevy/crates/shared/src/runtime/systems/debug_hud_setup_system.rs"
 ```
 
@@ -253,6 +283,14 @@ Task: "T016 [P] [US1] Add an aspect-ratio-safe placement test for DebugHUD under
 Task: "T046 [P] [US6] Add debug drawing request/state tests in bevy/crates/game/src/runtime/resources/debug_drawing_model.rs"
 Task: "T047 [P] [US6] Add aspect-ratio-safe debug drawing placement tests in bevy/crates/game/src/runtime/systems/debug_drawing_update_system.rs"
 Task: "T048 [P] [US6] Add debug drawing removal/replacement tests in bevy/crates/game/src/runtime/systems/debug_drawing_update_system.rs"
+```
+
+### User Story 7
+
+```text
+Task: "T055 [P] [US7] Add hot-patch observation model tests in bevy/crates/game/src/runtime/resources/hot_reload_screen_model.rs"
+Task: "T056 [P] [US7] Add GameScreen hot reload reset tests proving screen-local state is lost when H is enabled in bevy/crates/game/src/tests/runtime/systems/systems_tests.rs"
+Task: "T058 [P] [US7] Add regression tests proving hot-patch events do not reset the active screen when H is disabled in bevy/crates/game/src/runtime/resources/hot_reload_screen_model.rs"
 ```
 
 ---
@@ -278,6 +316,7 @@ Task: "T048 [P] [US6] Add debug drawing removal/replacement tests in bevy/crates
 | Increment 4 | US4 WASD hold indicators | `WASD` affects DebugHUD feedback only |
 | Increment 5 | US5 self-QA tooling | Repeatable tests and safe logs |
 | Increment 6 | US6 debug drawing | Temporary scene marks around requested areas |
+| Increment 7 | US7 hot reload screen reset | `H` enabled resets the active screen after hot patches; `H` disabled preserves it |
 
 ### Final Acceptance
 

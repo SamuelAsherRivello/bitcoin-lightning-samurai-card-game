@@ -3,12 +3,17 @@ use std::collections::HashMap;
 use bevy::prelude::Resource;
 
 use crate::runtime::resources::{
-    DeckModel, GORO_TAKESHI_CARD_MODEL_ID, KAGE_REN_CARD_MODEL_ID, LORD_DAICHI_CARD_MODEL_ID,
-    PlayerDeckCollectionModel, SISTER_HOTARU_CARD_MODEL_ID, YOKAI_PLACEHOLDER_CARD_MODEL_ID,
+    DEFAULT_DECK_NAME, DeckModel, PlayerDeckCollectionModel, STARTING_DECK_CARD_COUNT,
+    default_deck_01_cards, game_master_deck_cards,
 };
 
 pub const DECK_SCREEN_DECK_NAME: &str = "Deck 01";
-pub const DECK_SCREEN_CARD_COUNT: usize = 12;
+pub const DECK_SCREEN_CARD_COUNT: usize = STARTING_DECK_CARD_COUNT;
+pub const DECK_SCREEN_VISIBLE_CARD_COUNT: usize = DECK_SCREEN_CARD_COUNT;
+pub const DECK_SCREEN_VALIDATION_TITLE: &str = "Deck Invalid";
+pub const DECK_SCREEN_VALIDATION_MESSAGE: &str = "A deck requires exactly 12 cards";
+pub const DECK_SCREEN_COMING_SOON_TITLE: &str = "Coming Soon";
+pub const DECK_SCREEN_COMING_SOON_MESSAGE: &str = "That feature is not available yet";
 
 /// HUMAN: Current DeckScreen presentation mode.
 /// AI: Keep this screen-local and separate from ActiveView scene identity.
@@ -64,6 +69,8 @@ pub struct DeckScreenModel {
     pub mode: DeckScreenMode,
     pub editor_tab: DeckEditorTabModel,
     pub modal: Option<DeckScreenCardModalModel>,
+    pub validation_prompt: bool,
+    pub coming_soon_prompt: bool,
     pub needs_rebuild: bool,
 }
 
@@ -76,6 +83,8 @@ impl DeckScreenModel {
     pub fn open_deck_selection(&mut self) {
         self.mode = DeckScreenMode::DeckSelection;
         self.modal = None;
+        self.validation_prompt = false;
+        self.coming_soon_prompt = false;
         self.needs_rebuild = true;
     }
 
@@ -110,6 +119,35 @@ impl DeckScreenModel {
         }
     }
 
+    pub fn show_validation_prompt(&mut self) {
+        self.modal = None;
+        self.coming_soon_prompt = false;
+        self.validation_prompt = true;
+        self.needs_rebuild = true;
+    }
+
+    pub fn show_coming_soon_prompt(&mut self) {
+        self.modal = None;
+        self.validation_prompt = false;
+        self.coming_soon_prompt = true;
+        self.needs_rebuild = true;
+    }
+
+    pub fn close_validation_prompt(&mut self) {
+        if self.validation_prompt {
+            self.validation_prompt = false;
+            self.needs_rebuild = true;
+        }
+    }
+
+    pub fn close_prompt(&mut self) {
+        if self.validation_prompt || self.coming_soon_prompt {
+            self.validation_prompt = false;
+            self.coming_soon_prompt = false;
+            self.needs_rebuild = true;
+        }
+    }
+
     pub fn take_rebuild_request(&mut self) -> bool {
         let should_rebuild = self.needs_rebuild;
         self.needs_rebuild = false;
@@ -118,18 +156,7 @@ impl DeckScreenModel {
 }
 
 pub fn deck_screen_full_card_pool() -> Vec<String> {
-    [
-        KAGE_REN_CARD_MODEL_ID,
-        LORD_DAICHI_CARD_MODEL_ID,
-        SISTER_HOTARU_CARD_MODEL_ID,
-        YOKAI_PLACEHOLDER_CARD_MODEL_ID,
-        GORO_TAKESHI_CARD_MODEL_ID,
-    ]
-    .into_iter()
-    .cycle()
-    .take(DECK_SCREEN_CARD_COUNT)
-    .map(str::to_string)
-    .collect()
+    game_master_deck_cards()
 }
 
 pub fn deck_screen_deck_cards(collection: &PlayerDeckCollectionModel) -> Vec<String> {
@@ -143,24 +170,38 @@ pub fn deck_screen_deck_cards(collection: &PlayerDeckCollectionModel) -> Vec<Str
                 .collect()
         })
         .filter(|cards: &Vec<String>| !cards.is_empty())
-        .unwrap_or_else(deck_screen_full_card_pool)
+        .unwrap_or_else(deck_screen_visible_default_cards)
 }
 
 pub fn deck_screen_library_cards(deck_cards: &[String]) -> Vec<String> {
-    let mut remaining_counts = card_counts(deck_cards);
+    let mut deck_counts: HashMap<&String, usize> = HashMap::new();
+    for card_id in deck_cards {
+        *deck_counts.entry(card_id).or_default() += 1;
+    }
+
     let mut library_cards = Vec::new();
 
     for card_id in deck_screen_full_card_pool() {
-        match remaining_counts.get_mut(&card_id) {
-            Some(count) if *count > 0 => *count -= 1,
-            _ => library_cards.push(card_id),
+        if let Some(count) = deck_counts.get_mut(&card_id)
+            && *count > 0
+        {
+            *count -= 1;
+        } else {
+            library_cards.push(card_id);
         }
     }
 
     library_cards
 }
 
-pub fn ensure_deck_screen_collection(collection: &mut PlayerDeckCollectionModel) {
+pub fn deck_screen_visible_default_cards() -> Vec<String> {
+    default_deck_01_cards()
+}
+
+fn ensure_deck_screen_collection_with_repair(
+    collection: &mut PlayerDeckCollectionModel,
+    repair_short_deck: bool,
+) {
     if collection.players.is_empty() {
         collection.players.push(Default::default());
     }
@@ -169,23 +210,37 @@ pub fn ensure_deck_screen_collection(collection: &mut PlayerDeckCollectionModel)
             .decks
             .push(DeckModel::with_name_and_cards(
                 DECK_SCREEN_DECK_NAME,
-                deck_screen_full_card_pool(),
+                default_deck_01_cards(),
             ));
     }
-    collection.players[0].decks[0].name = DECK_SCREEN_DECK_NAME.to_string();
-    if collection.players[0].decks[0].cards.is_empty() {
-        collection.players[0].decks[0].cards = deck_screen_full_card_pool();
+    let deck = &mut collection.players[0].decks[0];
+    if deck.name == DEFAULT_DECK_NAME {
+        deck.cards = default_deck_01_cards();
     }
-    collection.players[0].decks[0]
-        .cards
-        .truncate(DECK_SCREEN_CARD_COUNT);
+    deck.name = DECK_SCREEN_DECK_NAME.to_string();
+    if deck.cards.is_empty() {
+        deck.cards = deck_screen_visible_default_cards();
+    }
+    if repair_short_deck && deck.cards.len() < DECK_SCREEN_CARD_COUNT {
+        for card_id in default_deck_01_cards() {
+            if deck.cards.len() >= DECK_SCREEN_CARD_COUNT {
+                break;
+            }
+            deck.cards.push(card_id);
+        }
+    }
+    deck.cards.truncate(DECK_SCREEN_CARD_COUNT);
+}
+
+pub fn ensure_deck_screen_collection(collection: &mut PlayerDeckCollectionModel) {
+    ensure_deck_screen_collection_with_repair(collection, true);
 }
 
 pub fn move_deck_card_to_library(
     collection: &mut PlayerDeckCollectionModel,
     deck_index: usize,
 ) -> Option<String> {
-    ensure_deck_screen_collection(collection);
+    ensure_deck_screen_collection_with_repair(collection, false);
     let deck = &mut collection.players[0].decks[0];
     (deck_index < deck.cards.len()).then(|| deck.cards.remove(deck_index))
 }
@@ -194,16 +249,18 @@ pub fn move_library_card_to_deck(
     collection: &mut PlayerDeckCollectionModel,
     card_id: &str,
 ) -> bool {
-    ensure_deck_screen_collection(collection);
-    let deck_cards = collection.players[0].decks[0].cards.clone();
+    ensure_deck_screen_collection_with_repair(collection, false);
+    let deck_cards = deck_screen_deck_cards(collection);
     let library_cards = deck_screen_library_cards(&deck_cards);
-    if deck_cards.len() >= DECK_SCREEN_CARD_COUNT || !library_cards.iter().any(|id| id == card_id) {
+    if collection.players[0].decks[0].cards.len() >= DECK_SCREEN_CARD_COUNT
+        || !library_cards.iter().any(|id| id == card_id)
+    {
         return false;
     }
 
     collection.players[0].decks[0]
         .cards
-        .push(card_id.to_string());
+        .insert(0, card_id.to_string());
     true
 }
 
@@ -223,24 +280,19 @@ pub fn modal_actions_for(
     }
 }
 
-fn card_counts(cards: &[String]) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
-    for card in cards {
-        *counts.entry(card.clone()).or_insert(0) += 1;
-    }
-    counts
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::resources::KAGE_REN_CARD_MODEL_ID;
 
     #[test]
-    fn full_deck_has_empty_library() {
-        let deck = deck_screen_full_card_pool();
+    fn master_deck_contains_deck_01_plus_library_cards() {
+        let master_deck = deck_screen_full_card_pool();
+        let deck = deck_screen_visible_default_cards();
 
+        assert_eq!(master_deck.len(), 15);
         assert_eq!(deck.len(), DECK_SCREEN_CARD_COUNT);
-        assert!(deck_screen_library_cards(&deck).is_empty());
+        assert_eq!(deck_screen_library_cards(&deck).len(), 3);
     }
 
     #[test]
@@ -253,12 +305,32 @@ mod tests {
         let library = deck_screen_library_cards(&deck_cards);
 
         assert_eq!(deck_cards.len(), DECK_SCREEN_CARD_COUNT - 1);
-        assert_eq!(library, vec![removed.clone()]);
+        assert!(library.iter().any(|card| card == &removed));
         assert!(
             modal_actions_for(DeckEditableZoneModel::Library, &removed, &deck_cards).move_to_deck
         );
         assert!(move_library_card_to_deck(&mut collection, &removed));
-        assert!(deck_screen_library_cards(&deck_screen_deck_cards(&collection)).is_empty());
+        assert!(
+            !deck_screen_library_cards(&deck_screen_deck_cards(&collection))
+                .iter()
+                .any(|card| card == &removed)
+        );
+    }
+
+    #[test]
+    fn ensure_deck_screen_collection_repairs_short_deck_01() {
+        let mut collection = PlayerDeckCollectionModel::default();
+        ensure_deck_screen_collection(&mut collection);
+        collection.players[0].decks[0]
+            .cards
+            .truncate(DECK_SCREEN_CARD_COUNT - 1);
+
+        ensure_deck_screen_collection(&mut collection);
+
+        assert_eq!(
+            deck_screen_deck_cards(&collection).len(),
+            DECK_SCREEN_CARD_COUNT
+        );
     }
 
     #[test]

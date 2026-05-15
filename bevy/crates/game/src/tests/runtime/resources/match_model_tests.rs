@@ -16,19 +16,34 @@ fn match_mode_cycles_between_two_user_facing_labels() {
 
 #[test]
 fn mode_mapping_assigns_expected_controllers() {
-    let human_vs_cpu = OpponentMatchModel::new(
+    let human_vs_cpu = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
     );
     assert!(!human_vs_cpu.near.controller.is_cpu());
     assert!(human_vs_cpu.far.controller.is_cpu());
 
-    let cpu_vs_cpu = OpponentMatchModel::new(
+    let cpu_vs_cpu = MatchModel::new(
         MatchModeModel::CpuVersusCpu,
         vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
     );
     assert!(cpu_vs_cpu.near.controller.is_cpu());
     assert!(cpu_vs_cpu.far.controller.is_cpu());
+}
+
+#[test]
+fn match_context_tracks_selected_world_and_three_locations() {
+    let mut model = MatchModel::new(
+        MatchModeModel::HumanVersusCpu,
+        vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
+    );
+    let active_world = ActiveWorldModel { index: 2 };
+    let active_locations = ActiveLocations { indices: [4, 1, 5] };
+
+    model.set_context(&active_world, &active_locations);
+
+    assert_eq!(model.world.world_index, 2);
+    assert_eq!(model.locations.indices, [4, 1, 5]);
 }
 
 #[test]
@@ -46,7 +61,7 @@ fn winner_status_uses_player_number_and_controller_type_without_brain_wording() 
 
 #[test]
 fn current_round_placements_hide_from_opponent_until_revealed() {
-    let mut model = OpponentMatchModel::new(
+    let mut model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
     );
@@ -63,7 +78,7 @@ fn current_round_placements_hide_from_opponent_until_revealed() {
 
 #[test]
 fn current_round_reveal_targets_skip_empty_slots_and_follow_location_order() {
-    let mut model = OpponentMatchModel::new(
+    let mut model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
     );
@@ -102,7 +117,7 @@ fn current_round_reveal_targets_skip_empty_slots_and_follow_location_order() {
 
 #[test]
 fn reveal_targets_use_side_specific_slot_order() {
-    let mut model = OpponentMatchModel::new(
+    let mut model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["a".to_string(); STARTING_DECK_CARD_COUNT],
     );

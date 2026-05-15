@@ -7,6 +7,46 @@ use crate::runtime::resources::{DeckEditableZoneModel, DeckEditorTabModel};
 #[derive(Component, Debug, Default)]
 pub struct DeckScreenContentRoot;
 
+/// HUMAN: Reusable titled card-grid design element for deck editing surfaces.
+/// AI: CardGrid owns the UI frame and title; world-space card views align to the same grid math.
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
+pub struct CardGrid {
+    pub title: String,
+    pub zone: DeckEditableZoneModel,
+}
+
+impl CardGrid {
+    pub fn new(title: impl Into<String>, zone: DeckEditableZoneModel) -> Self {
+        Self {
+            title: title.into(),
+            zone,
+        }
+    }
+}
+
+/// HUMAN: Menu area inside a DeckScreen grid panel.
+/// AI: Grid panels use Menu, Title, and Content areas so controls stay separate from cells.
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GridViewMenuArea;
+
+/// HUMAN: Title area inside a DeckScreen grid panel.
+/// AI: Keep this marker separate from card content for layout and tests.
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GridViewTitleArea;
+
+/// HUMAN: Content area inside a DeckScreen grid panel.
+/// AI: Card hit targets are spawned under this marker.
+#[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct GridViewContentArea;
+
+/// HUMAN: Deck-level editor command button.
+/// AI: Edit and delete are presentational until deck management behavior is added.
+#[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeckScreenDeckCommandButton {
+    EditDeckName,
+    DeleteDeck,
+}
+
 /// HUMAN: View marker for a rendered deck tile.
 /// AI: DeckViewBundle renders the existing card back plus deck name.
 #[derive(Component, Debug)]
@@ -23,7 +63,7 @@ impl DeckView {
 }
 
 /// HUMAN: Selectable button for the single Deck 01 deck tile.
-/// AI: New Deck is visual-only for this feature.
+/// AI: Existing deck opens the editor; New Deck reuses the edit-name coming-soon prompt.
 #[derive(Component, Debug, Default)]
 pub struct DeckScreenDeckTileButton;
 
@@ -117,3 +157,8 @@ pub enum DeckScreenModalActionButton {
 /// AI: Presence means lower DeckScreen and top-nav input is blocked.
 #[derive(Component, Debug, Default)]
 pub struct DeckScreenModalRoot;
+
+/// HUMAN: Confirmation button for the DeckScreen validation prompt.
+/// AI: The prompt blocks navigation until the user acknowledges the 12-card rule.
+#[derive(Component, Debug, Default)]
+pub struct DeckScreenValidationOkButton;

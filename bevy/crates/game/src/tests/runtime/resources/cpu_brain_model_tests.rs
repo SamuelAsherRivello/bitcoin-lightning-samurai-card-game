@@ -1,12 +1,12 @@
 use super::*;
 use crate::runtime::resources::{
-    CardModelRegistry, CardSlotBoardModel, MatchModeModel, MatchPlayerSide, OpponentMatchModel,
+    CardModelRegistry, CardSlotBoardModel, MatchModeModel, MatchModel, MatchPlayerSide,
     STARTING_DECK_CARD_COUNT,
 };
 
 #[test]
-fn level1_brain_selects_affordable_legal_move_with_seeded_choice() {
-    let mut match_model = OpponentMatchModel::new(
+fn level1_brain_selects_random_affordable_move_with_seeded_choice() {
+    let mut match_model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["kage_ren".to_string(); STARTING_DECK_CARD_COUNT],
     );
@@ -31,7 +31,7 @@ fn level1_brain_selects_affordable_legal_move_with_seeded_choice() {
 
 #[test]
 fn level1_brain_can_plan_multiple_moves_without_mutating_match_or_slots() {
-    let mut match_model = OpponentMatchModel::new(
+    let mut match_model = MatchModel::new(
         MatchModeModel::HumanVersusCpu,
         vec!["kage_ren".to_string(); STARTING_DECK_CARD_COUNT],
     );

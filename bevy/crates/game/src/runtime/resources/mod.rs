@@ -14,7 +14,10 @@ pub mod deck_screen_model;
 pub mod font_model;
 pub mod game_location_model;
 pub mod game_round_model;
-pub mod opponent_match_model;
+pub mod hot_reload_screen_model;
+pub mod match_model;
+pub mod matchmaking_model;
+pub mod meta_game_settings_model;
 pub mod point_model;
 pub mod selected_card_modal_model;
 pub mod top_navigation_model;
@@ -28,7 +31,10 @@ pub use deck_screen_model::*;
 pub use font_model::*;
 pub use game_location_model::*;
 pub use game_round_model::*;
-pub use opponent_match_model::*;
+pub use hot_reload_screen_model::*;
+pub use match_model::*;
+pub use matchmaking_model::*;
+pub use meta_game_settings_model::*;
 pub use point_model::*;
 pub use selected_card_modal_model::*;
 pub use top_navigation_model::*;
@@ -49,12 +55,13 @@ pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
 pub const CARD_MODEL_SLOT_COUNT: usize = 5;
+pub const GAME_MASTER_DECK_CARD_COUNT: usize = 15;
 pub const STARTING_DECK_CARD_COUNT: usize = 12;
 pub const STARTING_HAND_CARD_COUNT: usize = 5;
 pub const STARTING_HAND_REPEATS_PER_CARD: usize = 3;
 pub const DEFAULT_PLAYER_NAME: &str = "Player 01";
 pub const DEFAULT_DECK_NAME: &str = "Deck01";
-pub const WORLD_MODEL_COUNT: usize = 2;
+pub const WORLD_MODEL_COUNT: usize = 3;
 pub const LOCATION_MODEL_COUNT: usize = 6;
 pub const ACTIVE_LOCATION_COUNT: usize = 3;
 pub const CARD_DEPTH_FACTOR_DEFAULT: f32 = 10.0;
@@ -78,6 +85,7 @@ pub const GORO_TAKESHI_CARD_MODEL_ID: &str = "goro_takeshi";
 pub const GORO_TAKESHI_CARD_MODEL_NAME: &str = "GORO TAKESHI";
 pub const BAMBOO_FOREST_WORLD_ID: &str = "bamboo_forest";
 pub const COASTAL_HARBOR_WORLD_ID: &str = "coastal_harbor";
+pub const SUJI_SWAMP_WORLD_ID: &str = "suji_swamp";
 
 /// HUMAN: Frame counter shared by runtime systems.
 /// AI: Keep as the lightweight app tick resource; do not mix with gameplay round state.
@@ -88,9 +96,13 @@ pub struct GameTicks(pub u64);
 /// AI: Variants are views, not scenes; AppScene remains always present.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Resource)]
 pub enum ActiveView {
+    MainMenuScene,
+    LightningScene,
+    MatchmakingScene,
     #[default]
     GameScene,
     DeckScene,
+    SettingsScene,
     DebugScene,
 }
 
@@ -474,8 +486,10 @@ impl GameHandModel {
     }
 }
 
-pub fn random_shuffled_default_deck_cards() -> Vec<String> {
-    let mut cards: Vec<String> = vec![
+/// HUMAN: Hidden card library that future player decks choose from.
+/// AI: This is card-entry data, so repeated IDs represent separate deck-building copies.
+pub fn game_master_deck_cards() -> Vec<String> {
+    vec![
         KAGE_REN_CARD_MODEL_ID.to_string(),
         LORD_DAICHI_CARD_MODEL_ID.to_string(),
         SISTER_HOTARU_CARD_MODEL_ID.to_string(),
@@ -484,8 +498,21 @@ pub fn random_shuffled_default_deck_cards() -> Vec<String> {
     ]
     .into_iter()
     .cycle()
-    .take(STARTING_DECK_CARD_COUNT)
-    .collect();
+    .take(GAME_MASTER_DECK_CARD_COUNT)
+    .collect()
+}
+
+/// HUMAN: Default Deck 01 card-entry list used by both players during gameplay.
+/// AI: Keep this exactly STARTING_DECK_CARD_COUNT entries and derive it from the hidden master deck.
+pub fn default_deck_01_cards() -> Vec<String> {
+    game_master_deck_cards()
+        .into_iter()
+        .take(STARTING_DECK_CARD_COUNT)
+        .collect()
+}
+
+pub fn random_shuffled_default_deck_cards() -> Vec<String> {
+    let mut cards = default_deck_01_cards();
 
     fastrand::shuffle(&mut cards);
     cards
@@ -540,6 +567,14 @@ impl WorldModel {
             background_texture: "themes/theme_japan/worlds/world_coastal_harbor/world_background.png",
         }
     }
+
+    pub const fn suji_swamp() -> Self {
+        Self {
+            id: SUJI_SWAMP_WORLD_ID,
+            display_name: "Suji Swamp",
+            background_texture: "themes/theme_japan/worlds/world_suji_swamp/world_background.png",
+        }
+    }
 }
 
 /// HUMAN: Registry of available world data models.
@@ -552,7 +587,11 @@ pub struct WorldModelRegistry {
 impl Default for WorldModelRegistry {
     fn default() -> Self {
         Self {
-            themes: vec![WorldModel::bamboo_forest(), WorldModel::coastal_harbor()],
+            themes: vec![
+                WorldModel::bamboo_forest(),
+                WorldModel::coastal_harbor(),
+                WorldModel::suji_swamp(),
+            ],
         }
     }
 }
@@ -594,6 +633,23 @@ impl Default for ActiveWorldModel {
 impl ActiveWorldModel {
     pub fn toggle(&mut self, registry: &WorldModelRegistry) {
         self.index = registry.next_index(self.index);
+    }
+
+    pub fn randomize(&mut self, registry: &WorldModelRegistry) {
+        self.randomize_with_len(registry.len());
+    }
+
+    pub fn randomize_with_len(&mut self, len: usize) {
+        if len <= 1 {
+            self.index = 0;
+            return;
+        }
+
+        let mut next_index = fastrand::usize(..len);
+        if next_index == self.index {
+            next_index = (next_index + 1) % len;
+        }
+        self.index = next_index;
     }
 }
 

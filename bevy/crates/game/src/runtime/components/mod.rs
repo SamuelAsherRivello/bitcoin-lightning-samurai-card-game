@@ -71,6 +71,45 @@ pub struct GameSceneRoot;
 #[derive(Component, Debug, Default)]
 pub struct GameSceneEntity;
 
+/// HUMAN: Root marker for lightweight meta-game UI screens.
+/// AI: Main, LightningLogin, Matchmaking, and Settings share this UI-only view root.
+#[derive(Component, Debug, Default)]
+pub struct MetaSceneRoot;
+
+/// HUMAN: Marker for entities owned by a meta-game UI screen.
+/// AI: Use this for despawn/reload of non-gameplay screens.
+#[derive(Component, Debug, Default)]
+pub struct MetaSceneEntity;
+
+/// HUMAN: Click action for buttons owned by meta-game screens.
+/// AI: Route all non-top-nav meta buttons through this enum.
+#[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
+pub enum MetaScreenButtonAction {
+    LightningLogin,
+    LearnLightning,
+    StartGame,
+    MatchmakingBack,
+    CpuBrain,
+    MatchMode,
+    ToggleSfx,
+    ToggleMusic,
+    CycleFramerate,
+    CycleQuality,
+}
+
+/// HUMAN: Marker for clickable meta-game screen buttons.
+/// AI: Keep screen action routing independent from rendered text.
+#[derive(Component, Debug)]
+pub struct MetaScreenButton {
+    pub action: MetaScreenButtonAction,
+}
+
+impl MetaScreenButton {
+    pub const fn new(action: MetaScreenButtonAction) -> Self {
+        Self { action }
+    }
+}
+
 #[derive(Component, Debug, Default)]
 pub struct WorldBackground;
 

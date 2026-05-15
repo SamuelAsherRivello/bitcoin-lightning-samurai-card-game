@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use super::{
-    CardModelRegistry, CardSlotBoardModel, MatchPlayerSide, OpponentMatchModel,
-    cpu_slot_hand_index, maximum_cpu_decision_delay_seconds, minimum_cpu_decision_delay_seconds,
+    CardModelRegistry, CardSlotBoardModel, MatchModel, MatchPlayerSide, cpu_slot_hand_index,
+    maximum_cpu_decision_delay_seconds, minimum_cpu_decision_delay_seconds,
 };
 
 /// HUMAN: One legal card placement choice selected by CPU Brain.
@@ -153,8 +153,10 @@ impl CpuBrainModel {
     }
 }
 
+/// HUMAN: Pick one legal card placement at random for the current Level 1 CPU step.
+/// AI: Filter by energy and open slots, then randomly choose one candidate with the same seed.
 pub fn choose_level1_move(
-    match_model: &OpponentMatchModel,
+    match_model: &MatchModel,
     side: MatchPlayerSide,
     slot_board: &CardSlotBoardModel,
     card_registry: &CardModelRegistry,
@@ -162,6 +164,8 @@ pub fn choose_level1_move(
 ) -> Option<CpuBrainMoveModel> {
     let player = match_model.player(side);
     let mut moves = Vec::new();
+    let mut rng = fastrand::Rng::with_seed(seed ^ ((side.player_number() as u64) << 32));
+
     for (hand_index, card_id) in player.hand.iter().enumerate() {
         let Some(card_model) = card_registry.card_model_for_id(card_id) else {
             continue;
@@ -174,10 +178,6 @@ pub fn choose_level1_move(
             else {
                 continue;
             };
-            let score = card_model.base_power.value
-                + card_model.cost.value
-                + location_index as i32
-                + if side == MatchPlayerSide::Near { 1 } else { 0 };
             moves.push(CpuBrainMoveModel {
                 instance_id: player
                     .hand_instance_id(hand_index)
@@ -187,23 +187,23 @@ pub fn choose_level1_move(
                 location_index,
                 slot_index,
                 energy_cost: card_model.cost.value,
-                score,
+                score: 0,
             });
         }
     }
 
-    let best_score = moves.iter().map(|candidate| candidate.score).max()?;
-    let mut best_moves: Vec<_> = moves
-        .into_iter()
-        .filter(|candidate| candidate.score == best_score)
-        .collect();
-    let mut rng = fastrand::Rng::with_seed(seed ^ ((side.player_number() as u64) << 32));
-    let index = rng.usize(0..best_moves.len());
-    Some(best_moves.swap_remove(index))
+    if moves.is_empty() {
+        return None;
+    }
+
+    let index = rng.usize(0..moves.len());
+    Some(moves.swap_remove(index))
 }
 
+/// HUMAN: Plan CPU moves repeatedly until no affordable legal placement remains this round.
+/// AI: Re-simulate state per selected move so each random pick consumes real remaining energy and slots.
 pub fn choose_level1_moves(
-    match_model: &OpponentMatchModel,
+    match_model: &MatchModel,
     side: MatchPlayerSide,
     slot_board: &CardSlotBoardModel,
     card_registry: &CardModelRegistry,

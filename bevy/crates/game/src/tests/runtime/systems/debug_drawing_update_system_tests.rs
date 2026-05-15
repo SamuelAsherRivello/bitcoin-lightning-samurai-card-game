@@ -22,7 +22,7 @@ fn reference_debug_drawings_spawn_under_game_scene() {
         .query_filtered::<Entity, With<DebugDrawing>>()
         .iter(app.world())
         .collect();
-    assert_eq!(drawings.len(), 11);
+    assert_eq!(drawings.len(), 10);
     assert!(
         app.world()
             .entity(game_scene)

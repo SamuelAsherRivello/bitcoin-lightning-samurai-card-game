@@ -5,6 +5,7 @@ use bevy::prelude::*;
 #[derive(Clone, Copy, Component, Debug, Eq, PartialEq)]
 pub enum GameControlAction {
     Mode,
+    QuitGame,
     Restart,
     Undo,
     EndRound,

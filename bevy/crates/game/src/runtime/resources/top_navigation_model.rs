@@ -2,8 +2,8 @@
 /// AI: Mount this on DeckScreen first; other screens can reuse the same model later.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum TopNavigationDestination {
-    PlayGame,
     #[default]
+    PlayGame,
     MyDecks,
     Settings,
     Debug,
@@ -34,7 +34,7 @@ pub struct TopNavigationModel {
 impl Default for TopNavigationModel {
     fn default() -> Self {
         Self {
-            selected: TopNavigationDestination::MyDecks,
+            selected: TopNavigationDestination::PlayGame,
         }
     }
 }
@@ -60,10 +60,10 @@ mod tests {
     }
 
     #[test]
-    fn top_navigation_defaults_to_my_decks() {
+    fn top_navigation_defaults_to_play_game() {
         let model = TopNavigationModel::default();
 
-        assert!(model.is_selected(TopNavigationDestination::MyDecks));
-        assert!(!model.is_selected(TopNavigationDestination::PlayGame));
+        assert!(model.is_selected(TopNavigationDestination::PlayGame));
+        assert!(!model.is_selected(TopNavigationDestination::MyDecks));
     }
 }

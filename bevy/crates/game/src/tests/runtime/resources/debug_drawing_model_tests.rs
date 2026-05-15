@@ -38,7 +38,7 @@ fn replacing_target_updates_generation() {
 fn default_model_requests_reference_debug_drawing_layout() {
     let model = DebugDrawingModel::default();
 
-    assert_eq!(model.requests().len(), 11);
+    assert_eq!(model.requests().len(), 10);
     assert_eq!(
         model
             .request_for(DebugDrawingTarget::LocationAreaTwo)
@@ -93,13 +93,7 @@ fn default_model_requests_reference_debug_drawing_layout() {
             .label,
         "Slots Area"
     );
-    assert_eq!(
-        model
-            .request_for(DebugDrawingTarget::HandArea)
-            .unwrap()
-            .label,
-        "hand area"
-    );
+    assert!(model.request_for(DebugDrawingTarget::HandArea).is_none());
     assert_eq!(
         model
             .request_for(DebugDrawingTarget::GameArea)

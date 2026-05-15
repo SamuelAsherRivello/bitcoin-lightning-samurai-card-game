@@ -14,13 +14,16 @@
 - Q: Should `006-card-bundle` and `003-debugging` explicitly require both Windows desktop and browser WebGPU verification? -> A: Both specs require final Windows desktop and browser WebGPU verification; iterative builds may target desktop only.
 - Q: How should debug overlay scripts, tasks, docs, and source-facing labels be named? -> A: Rename all debug overlay scripts, tasks, docs, and source-facing labels to use `DebugHUD` so generic `HUD` remains available for a future user-facing HUD.
 - Q: Should `WASD` labels visually react to key presses? -> A: `WASD` labels may visually highlight while pressed through a DebugHUD/InputSystem key-state capture, but no gameplay, camera, card, or other non-DebugHUD system may consume those keys in this spec.
-- Q: Which approved DebugHUD keys are toggles? -> A: DebugHUD key labels are classified as toggle or non-toggle: `F` and `I` are toggles; `W`, `A`, `S`, and `D` are non-toggle hold indicators.
+- Q: Which approved DebugHUD keys are toggles? -> A: DebugHUD key labels are classified as toggle or non-toggle: `F`, `I`, and `H` are toggles; `W`, `A`, `S`, and `D` are non-toggle hold indicators.
 - Q: Where should DebugHUD and its input capture live? -> A: DebugHUD UI, inspector toggling, diagnostic key classification, and the DebugHUD/InputSystem-style key-state capture are reusable system-level diagnostics and belong in `bevy/crates/shared`; `bevy/crates/game` should only compose them with card-specific features.
 - Q: What is the broader purpose of this feature after renaming? -> A: `003-debugging` owns developer-facing diagnostics and QA tooling, including the rendered DebugHUD, inspector access, Card UI separation guidance, terminal self-logging, and repeatable tests.
 - Q: Is Card UI part of the DebugHUD? -> A: No. Card UI is a temporary developer/prototype control surface that may render to the reviewer, but it remains separate from DebugHUD and must not be promoted to final player-facing UI by this spec.
 - Q: How should implementers use logs and tests while working? -> A: Implementers may emit scoped terminal logs for their own debugging and must use repeatable tests and documented manual checks to QA their own work before handoff.
 - Q: What is debug drawing? -> A: Debug drawing is runtime visual annotation used to mark requested game scene areas, such as drawing around the hand area, so implementers and reviewers can visually discuss layout, behavior, and QA observations.
 - Q: How long should debug drawings remain? -> A: Debug drawings generally remain visible in the game until explicitly removed, but they are temporary debugging scaffolds and should eventually be removed or replaced by real UI, art, or production visualization.
+- Q: Should hot reload behavior live in `001-project-setup` or `003-debugging`? -> A: `001-project-setup` owns the desktop hot reload script/tooling entry point; `003-debugging` owns the in-app DebugHUD `H` toggle, runtime hot reload observation, and screen reinitialization behavior.
+- Q: What should happen when `H` is enabled and a hot-patch event arrives? -> A: The app should completely rebuild the currently active conceptual screen, losing that screen's local state and restarting it as if the user had just arrived on that screen.
+- Q: What should happen when `H` is disabled and a hot-patch event arrives? -> A: The app may accept the hot patch, but it must not reinitialize the current screen, reset screen-local state, or restart scene presentation because of the patch.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -35,7 +38,7 @@ A reviewer sees a top-left DebugHUD panel adapted from the bevy-jam-1 HUD patter
 **Acceptance Scenarios**:
 
 1. **Given** the prototype is running, **When** the reviewer observes the top-left corner, **Then** a translucent DebugHUD panel is visible by default.
-2. **Given** the HUD is visible, **When** the reviewer reads it, **Then** it shows the prototype title, frame/status text, and key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
+2. **Given** the HUD is visible, **When** the reviewer reads it, **Then** it shows the prototype title, frame/status text, and key labels for `W`, `A`, `S`, `D`, `F`, `I`, and `H`.
 
 ---
 
@@ -117,6 +120,23 @@ An implementer can add runtime visual marks around requested game scene areas so
 2. **Given** a debug drawing is present, **When** the reviewer continues discussing or testing the scene, **Then** the drawing remains available until the reviewer asks for it to be removed or replaced.
 3. **Given** a debug drawing is present, **When** implementation moves toward production polish, **Then** the drawing is treated as temporary and is removed or replaced with real UI, art, or production visualization.
 
+---
+
+### User Story 7 - Rebuild Active Screen On Hot Reload (Priority: P1)
+
+A developer can turn on the DebugHUD `H` toggle, stay on any current screen, edit hot-reload-enabled code, and see that screen rebuild from scratch after the hot patch arrives.
+
+**Why this priority**: The hot reload loop is only useful for screen iteration if the visible screen re-runs its setup path and drops stale screen-local state without requiring a manual app restart.
+
+**Independent Test**: Start the desktop hot reload workflow, navigate to a screen such as GameScreen, enable `H`, create screen-local state, trigger a hot-patch event, and verify the same screen is rebuilt with fresh initial state. Repeat with `H` disabled and verify the patch does not reinitialize the screen.
+
+**Acceptance Scenarios**:
+
+1. **Given** the desktop hot reload workflow is running, `H` is enabled, and the reviewer is on GameScreen, **When** a hot-patch event is observed, **Then** GameScreen is completely rebuilt, loses screen-local state, and restarts as if the reviewer had just arrived on GameScreen.
+2. **Given** `H` is enabled and the reviewer is on DeckScreen, DebugScreen, or another current app screen, **When** a hot-patch event is observed, **Then** the active screen is rebuilt using the same complete reinitialization semantics as GameScreen.
+3. **Given** `H` is disabled, **When** a hot-patch event is observed, **Then** the app may apply hot-patched code but must not reinitialize the active screen, reset screen-local state, or restart scene presentation because of that patch.
+4. **Given** `H` is enabled and a screen rebuild completes, **When** the DebugHUD is visible, **Then** the DebugHUD reports the current `H` state and the active screen after rebuild.
+
 ### Edge Cases
 
 - If the application window size changes, the HUD should scale consistently with the window while staying anchored near the top-left.
@@ -128,6 +148,10 @@ An implementer can add runtime visual marks around requested game scene areas so
 - If a debug drawing marks a scene area, it should be visually clear enough to support discussion without being mistaken for final art or permanent player-facing UI.
 - If a debug drawing becomes obsolete because the scene layout changes, it should be updated, removed, or explicitly documented as stale.
 - If the window or browser viewport changes size, DebugHUD, Card UI, inspector offsets, and debug drawings should remain inside or aligned to the aspect-ratio-safe game view.
+- If a hot-patch event arrives while `H` is enabled, the active conceptual screen should be fully rebuilt even when the screen currently contains modal, selected-card, deck-editor, debug drawing, animation, or match state.
+- If a hot-patch event arrives while `H` is disabled, the app should avoid any screen reinitialization side effect even if the patched code affects systems that would normally run during screen setup.
+- If a hot-patch event arrives while navigation between screens is in progress, the rebuild should target the screen that is active after navigation settles, or defer until the active screen identity is stable.
+- If the current target does not support desktop hot patch events, the `H` toggle may still be visible as a diagnostic toggle, but it should not imply that browser WebGPU hot reload is supported.
 
 ## Requirements *(mandatory)*
 
@@ -136,17 +160,17 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **FR-001**: The prototype MUST include one top-left DebugHUD panel adapted from the bevy-jam-1 HUD pattern.
 - **FR-001A**: This debugging feature replaces the old no-HUD rule now consolidated into `006-card-bundle` for the final combined app; the DebugHUD MUST be visible by default.
 - **FR-002**: The DebugHUD MUST show the prototype title and frame/status text.
-- **FR-003**: The DebugHUD MUST show key labels for `W`, `A`, `S`, `D`, `F`, and `I`.
+- **FR-003**: The DebugHUD MUST show key labels for `W`, `A`, `S`, `D`, `F`, `I`, and `H`.
 - **FR-004**: The `F` key MUST toggle FPS visibility in the DebugHUD.
 - **FR-005**: The `I` key MUST toggle inspector visibility.
 - **FR-006**: The `W`, `A`, `S`, and `D` keys MAY be captured by the DebugHUD/InputSystem for visible key-state feedback, but MUST NOT trigger movement, gameplay, camera, card, selection, scoring, deck behavior, or any other non-DebugHUD behavior in this spec.
-- **FR-006A**: Approved DebugHUD keys MUST be classified as toggle or non-toggle: `F` and `I` are toggles, while `W`, `A`, `S`, and `D` are non-toggle hold indicators.
+- **FR-006A**: Approved DebugHUD keys MUST be classified as toggle or non-toggle: `F`, `I`, and `H` are toggles, while `W`, `A`, `S`, and `D` are non-toggle hold indicators.
 - **FR-007**: The HUD MUST use a translucent top-left panel style comparable to the bevy-jam-1 HUD.
 - **FR-008**: The HUD MUST scale responsively when the application window size changes.
 - **FR-009**: The implementation MUST include automated tests for HUD creation, `F` toggle behavior, `I` toggle behavior, and non-functional `WASD` behavior.
 - **FR-010**: The repository MUST include a `RunTests` script that runs the automated test suite.
 - **FR-010A**: Debug overlay scripts, tasks, docs, and source-facing labels MUST use `DebugHUD` naming rather than generic `HUD` naming so generic `HUD` remains available for a future user-facing HUD.
-- **FR-010B**: The feature MUST include an InputSystem-style key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, and `I`.
+- **FR-010B**: The feature MUST include an InputSystem-style key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, `I`, and `H`.
 - **FR-011**: This feature MUST NOT include bevy-jam-1 toast, minimap, reticle, autopilot, reset, shooting, health, score, or gameplay HUD behavior.
 - **FR-012**: The DebugHUD MUST support both Windows desktop and browser WebGPU before completion; during implementation iterations, desktop-only builds are acceptable for fast feedback.
 - **FR-013**: DebugHUD UI, inspector visibility, approved diagnostic input capture, and key classification MUST be implemented as reusable shared runtime functionality under `bevy/crates/shared`; game-specific code in `bevy/crates/game` may consume these diagnostics but MUST NOT own them.
@@ -159,6 +183,12 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **FR-020**: Debug drawings MUST be scoped to the requested visual target, such as a hand area, card zone, interaction region, layout boundary, or other concrete game scene area.
 - **FR-021**: All visible debugging surfaces, including DebugHUD, Card UI, inspector offsets, and debug drawings, MUST derive placement from the aspect-ratio-safe game view rather than raw window pixels or ad hoc world coordinates.
 - **FR-022**: Card UI and scene-specific debug drawing implementation MUST remain under `bevy/crates/game`; shared debugging runtime under `bevy/crates/shared` MUST own only reusable DebugHUD, inspector, and diagnostic input behavior.
+- **FR-023**: The DebugHUD MUST include an `H` toggle that controls whether observed hot-patch events reinitialize the active conceptual screen.
+- **FR-024**: When `H` is enabled and a hot-patch event is observed, the app MUST completely rebuild the currently active screen, including GameScreen, DeckScreen, DebugScreen, and any other screen hosted under the persistent AppScene.
+- **FR-025**: A hot reload screen rebuild MUST lose screen-local state and restart the active screen as if the user had just navigated to that screen.
+- **FR-026**: When `H` is disabled and a hot-patch event is observed, the app MUST NOT reinitialize the active screen, reset screen-local state, or restart scene presentation because of that patch.
+- **FR-027**: Hot reload screen rebuild state and patch-observation state SHOULD be implemented under `bevy/crates/game` because screen identity and screen-local reset behavior are app-specific; shared DebugHUD input may expose only the reusable `H` toggle state.
+- **FR-028**: The `H` toggle MUST affect runtime reinitialization only; `scripts/main/RunAppDesktopHotReload.ps1` remains the approved tool/script entry point defined by `001-project-setup`.
 
 ### Key Entities
 
@@ -166,10 +196,14 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **DebugHUD Panel**: The top-left diagnostic UI surface showing prototype status and key labels.
 - **FPS Toggle**: The `F` key behavior that shows or hides FPS text in the HUD.
 - **Inspector Toggle**: The `I` key behavior that shows or hides inspector visibility.
-- **DebugHUD InputSystem**: The debug-only key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, and `I`, including each key's toggle or non-toggle classification.
+- **DebugHUD InputSystem**: The debug-only key-state capture for approved DebugHUD keys: `W`, `A`, `S`, `D`, `F`, `I`, and `H`, including each key's toggle or non-toggle classification.
 - **Non-Gameplay WASD Labels**: Visible `W`, `A`, `S`, and `D` key labels that preserve the copied HUD pattern and may show pressed state without adding gameplay controls.
 - **Card UI**: A temporary developer/prototype control surface that may be rendered during card work, remains separate from DebugHUD, and is not final player-facing UI.
 - **Debug Drawing**: A runtime visual annotation that marks a requested game scene area, such as the hand area, to support shared visual discussion and QA.
+- **Hot Reload Screen Reset**: Runtime behavior controlled by the DebugHUD `H` toggle that rebuilds the active conceptual screen after a hot-patch event.
+- **Conceptual Screen**: A user-visible app screen such as GameScreen, DeckScreen, DebugScreen, MainMenuScreen, LightningScreen, MatchmakingScreen, or SettingsScreen, implemented as AppScene plus the active sub-screen view/root.
+- **Screen-Local State**: Runtime state owned by the active conceptual screen, including modal state, selected cards, generated screen entities, view roots, animations, temporary match state, and other non-persistent presentation state.
+- **Hot-Patch Event**: A runtime notification that desktop hot-patched code has been applied or observed by the running app.
 - **Terminal Self-Logging**: Scoped diagnostic log output used by implementers to inspect runtime behavior while keeping output safe and focused.
 - **RunTests Script**: A repeatable project script for running the automated test suite.
 - **DebugHUD Naming**: The canonical naming convention for debug overlay scripts, tasks, docs, and source-facing labels.
@@ -180,11 +214,11 @@ An implementer can add runtime visual marks around requested game scene areas so
 ### Measurable Outcomes
 
 - **SC-001**: In 100% of launch checks, one top-left DebugHUD panel is visible.
-- **SC-002**: In HUD content checks, the HUD includes title/status text and labels for `W`, `A`, `S`, `D`, `F`, and `I`.
+- **SC-002**: In HUD content checks, the HUD includes title/status text and labels for `W`, `A`, `S`, `D`, `F`, `I`, and `H`.
 - **SC-003**: In toggle tests, pressing `F` changes FPS visibility state on each press and does not change inspector visibility.
 - **SC-004**: In toggle tests, pressing `I` changes inspector visibility state on each press and does not change FPS visibility.
 - **SC-005**: In keyboard behavior tests, pressing `W`, `A`, `S`, and `D` may update DebugHUD key-state feedback but produces no card movement, gameplay action, FPS toggle, inspector toggle, camera behavior, or non-DebugHUD behavior.
-- **SC-005A**: In key classification tests, `F` and `I` behave as toggles while `W`, `A`, `S`, and `D` behave as non-toggle hold indicators.
+- **SC-005A**: In key classification tests, `F`, `I`, and `H` behave as toggles while `W`, `A`, `S`, and `D` behave as non-toggle hold indicators.
 - **SC-006**: The `RunTests` script completes the automated test suite from the repository root.
 - **SC-006A**: Review of scripts, tasks, docs, and source-facing labels finds `DebugHUD` naming for debug overlay-specific items and no generic debug overlay item named only `HUD`.
 - **SC-007**: Reviewers identify no toast, minimap, reticle, autopilot, reset, shooting, health, score, or gameplay HUD behavior in this feature.
@@ -194,6 +228,9 @@ An implementer can add runtime visual marks around requested game scene areas so
 - **SC-011**: When a debug drawing is requested for a concrete scene area, the running app shows a clear temporary mark around that area in 100% of accepted debug-drawing checks.
 - **SC-012**: Review of debug drawings finds that each one is identified as temporary and either still useful, explicitly requested to remain, removed, or replaced with production UI/art.
 - **SC-013**: In desktop and browser layout checks, DebugHUD, Card UI, inspector offsets, and debug drawings remain inside or aligned to the aspect-ratio-safe game view after viewport resize.
+- **SC-014**: In desktop hot reload checks with `H` enabled, hot-patch events rebuild the active conceptual screen and reset screen-local state in 100% of checked screens.
+- **SC-015**: In desktop hot reload checks with `H` disabled, hot-patch events do not reinitialize the active screen or reset screen-local state in 100% of checked screens.
+- **SC-016**: Manual or automated checks cover at least GameScreen, DeckScreen, and DebugScreen hot reload reset behavior, or record the exact blocker for any unchecked screen.
 
 ## Assumptions
 
@@ -204,6 +241,8 @@ An implementer can add runtime visual marks around requested game scene areas so
 - Card UI is temporary developer/prototype UI and remains separate from DebugHUD.
 - Debug drawings are temporary visual annotations for collaboration and QA; they are expected to remain until removal is requested, but they are not final game art or player-facing UI.
 - Visible debugging surfaces follow the same aspect-ratio-safe layout rules as other runtime overlays and presentation elements.
+- The desktop hot reload tooling entry point remains specified by `001-project-setup`; this feature specifies only the app's runtime response after a hot-patch event is observed.
+- Hot reload screen reset is for development iteration and does not preserve screen-local state by design when `H` is enabled.
 - Terminal logs are acceptable for implementer self-debugging when scoped, safe, and paired with repeatable tests.
 - Toast, minimap, reticle, and gameplay HUD systems are intentionally excluded from this feature.
 - Desktop-only builds are acceptable while iterating, but final completion requires Windows desktop and browser WebGPU verification.

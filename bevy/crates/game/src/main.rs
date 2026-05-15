@@ -2,7 +2,7 @@
 
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
-use bevy::window::{WindowMode, WindowResolution};
+use bevy::window::{PresentMode, WindowMode, WindowResolution};
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
 use bevy_card_game::runtime::plugins::{
     AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AiRuntimePlugin,
@@ -58,6 +58,8 @@ fn main() {
                     resolution: window_resolution,
                     position: window_position,
                     mode: window_mode,
+                    present_mode: PresentMode::Mailbox,
+                    desired_maximum_frame_latency: Some(std::num::NonZeroU32::new(2).unwrap()),
                     ..default()
                 }),
                 ..default()

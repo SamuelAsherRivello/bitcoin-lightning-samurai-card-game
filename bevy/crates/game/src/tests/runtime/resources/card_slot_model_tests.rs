@@ -102,6 +102,33 @@ fn next_available_local_slot_uses_upper_left_upper_right_lower_left_lower_right_
 }
 
 #[test]
+fn next_available_opponent_slot_uses_lower_left_lower_right_upper_left_upper_right_order() {
+    let mut board = CardSlotBoardModel::default();
+
+    assert_eq!(
+        board.next_available_slot(1, CardSlotSide::Opponent),
+        Some(2)
+    );
+    assert!(board.place_for_side_with_card_id(1, CardSlotSide::Opponent, 2, 20, "card_20"));
+    assert_eq!(
+        board.next_available_slot(1, CardSlotSide::Opponent),
+        Some(3)
+    );
+    assert!(board.place_for_side_with_card_id(1, CardSlotSide::Opponent, 3, 21, "card_21"));
+    assert_eq!(
+        board.next_available_slot(1, CardSlotSide::Opponent),
+        Some(0)
+    );
+    assert!(board.place_for_side_with_card_id(1, CardSlotSide::Opponent, 0, 22, "card_22"));
+    assert_eq!(
+        board.next_available_slot(1, CardSlotSide::Opponent),
+        Some(1)
+    );
+    assert!(board.place_for_side_with_card_id(1, CardSlotSide::Opponent, 1, 23, "card_23"));
+    assert_eq!(board.next_available_slot(1, CardSlotSide::Opponent), None);
+}
+
+#[test]
 fn replacing_a_local_card_moves_it_instead_of_duplicating_slots() {
     let mut board = CardSlotBoardModel::default();
 

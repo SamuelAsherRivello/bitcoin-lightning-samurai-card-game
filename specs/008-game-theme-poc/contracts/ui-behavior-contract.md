@@ -27,8 +27,21 @@
 | Asset Type | Required Direction | Excluded Direction |
 | ---------- | ------------------ | ------------------ |
 | Cards | 2:3 vertical Japan Realism character-poster composition, mostly full-body, 70-80% character height unless breakout layers intentionally exceed the frame. | Comic-book splash framing, arcade fantasy, magic glow. |
-| Worlds | Grounded cinematic environments with mist, rain, smoke, torch or lantern fire where appropriate. | Supernatural energy effects or glowing fantasy lighting. |
+| Worlds | Grounded cinematic environments with mist, rain, smoke, torch or lantern fire where appropriate. Each world background must include exactly six diegetic card-slot treatments aligned to the runtime slot layout. | Supernatural energy effects, glowing fantasy lighting, UI borders, labels, guide lines, or slot-like clearings outside the six required slot areas. |
 | Weapons/materials | Believable silhouettes, realistic armor, cloth, wood, metal, rope, smoke, and fire. | Non-believable weapons or exaggerated magical materials. |
+
+## World Background Slot Layout Contract
+
+World backgrounds are authored as `1600 x 1000` textures and rendered by GameScene with `GAME_SCENE_WORLD_BACKGROUND_BLEED = 1.18`. The authored texture must place diegetic slot treatments at the bleed-corrected texture rectangles below so they align with the runtime debug layout.
+
+| Slot Area | Runtime Logical Rect | Required Texture Rect |
+| --------- | -------------------- | --------------------- |
+| Top left | `x=364, y=44, w=184, h=180` | `x=508, y=123, w=195, h=191` |
+| Top center | `x=548, y=44, w=184, h=180` | `x=703, y=123, w=195, h=191` |
+| Top right | `x=732, y=44, w=184, h=180` | `x=897, y=123, w=195, h=191` |
+| Bottom left | `x=364, y=432, w=184, h=180` | `x=508, y=534, w=195, h=191` |
+| Bottom center | `x=548, y=432, w=184, h=180` | `x=703, y=534, w=195, h=191` |
+| Bottom right | `x=732, y=432, w=184, h=180` | `x=897, y=534, w=195, h=191` |
 
 ## Card Front Layer Contract
 

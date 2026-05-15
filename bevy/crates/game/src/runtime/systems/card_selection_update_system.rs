@@ -287,6 +287,10 @@ fn selectable_card_contains_pointer(
                 card_defaults,
             )
         }
+        ActiveView::MainMenuScene
+        | ActiveView::LightningScene
+        | ActiveView::MatchmakingScene
+        | ActiveView::SettingsScene => false,
     }
 }
 
@@ -302,6 +306,10 @@ fn selection_source_matches_view(
             ActiveView::GameScene => game_scene.is_some(),
             ActiveView::DeckScene => deck.is_some(),
             ActiveView::DebugScene => debug.is_some(),
+            ActiveView::MainMenuScene
+            | ActiveView::LightningScene
+            | ActiveView::MatchmakingScene
+            | ActiveView::SettingsScene => false,
         },
         CardSelectionSource::LocalHand { .. }
         | CardSelectionSource::LocalLocation { .. }

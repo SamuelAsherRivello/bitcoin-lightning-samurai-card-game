@@ -15,6 +15,8 @@ const CARD_SLOT_OPPONENT_TOP_Y: f32 = 44.0;
 const CARD_SLOT_LOCAL_TOP_Y: f32 = 432.0;
 const CARD_SLOT_ROW_OFFSET: f32 = 90.0;
 const CARD_SLOT_LOCATION_AREA_TOP_Y: f32 = 224.0;
+const CARD_SLOT_NEAR_FILL_ORDER: [usize; CARD_SLOT_ROW_COUNT] = [0, 1, 2, 3];
+const CARD_SLOT_FAR_FILL_ORDER: [usize; CARD_SLOT_ROW_COUNT] = [2, 3, 0, 1];
 
 /// HUMAN: Player side for a board slot around a shared location.
 /// AI: LocalPlayer slots accept direct human drag placement; Opponent slots do not.
@@ -325,14 +327,19 @@ impl CardSlotBoardModel {
     }
 
     pub fn next_available_slot(&self, location_index: usize, side: CardSlotSide) -> Option<usize> {
-        (0..CARD_SLOT_ROW_COUNT)
+        side_slot_fill_order(side)
+            .iter()
+            .copied()
             .find(|slot_index| self.can_place_for_side(location_index, side, *slot_index))
     }
 
     pub fn next_available_local_slot(&self, location_index: usize) -> Option<usize> {
-        (0..CARD_SLOT_ROW_COUNT).find(|slot_index| {
-            self.can_place_local(location_index, CardSlotSide::LocalPlayer, *slot_index)
-        })
+        side_slot_fill_order(CardSlotSide::LocalPlayer)
+            .iter()
+            .copied()
+            .find(|slot_index| {
+                self.can_place_local(location_index, CardSlotSide::LocalPlayer, *slot_index)
+            })
     }
 
     pub fn place_next_local(&mut self, location_index: usize, hand_index: usize) -> Option<usize> {
@@ -538,6 +545,13 @@ pub fn card_slot_rect(
 
 fn card_slot_location_left(location_index: usize) -> Option<f32> {
     CARD_SLOT_LOCATION_LEFTS.get(location_index).copied()
+}
+
+fn side_slot_fill_order(side: CardSlotSide) -> &'static [usize; CARD_SLOT_ROW_COUNT] {
+    match side {
+        CardSlotSide::LocalPlayer => &CARD_SLOT_NEAR_FILL_ORDER,
+        CardSlotSide::Opponent => &CARD_SLOT_FAR_FILL_ORDER,
+    }
 }
 
 #[cfg(test)]

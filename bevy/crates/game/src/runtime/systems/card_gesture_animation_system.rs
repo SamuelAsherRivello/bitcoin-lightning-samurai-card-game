@@ -313,6 +313,7 @@ pub(super) fn hand_insertion_index(game_scene_position: Vec2, hand_card_count: u
     hand_card_count
 }
 
+#[cfg(test)]
 pub(super) fn local_slots_area_hit_target(
     game_scene_position: Vec2,
     slot_board: &CardSlotBoardModel,

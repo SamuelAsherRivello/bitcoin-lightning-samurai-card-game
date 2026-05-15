@@ -150,11 +150,6 @@ impl DebugDrawingModel {
                 DebugDrawingColor::blue(),
             );
         }
-        self.replace(
-            DebugDrawingTarget::HandArea,
-            "hand area",
-            DebugDrawingTarget::HandArea.quantized_rect(),
-        );
     }
 
     pub fn request_hand_area(&mut self, label: impl Into<String>) {

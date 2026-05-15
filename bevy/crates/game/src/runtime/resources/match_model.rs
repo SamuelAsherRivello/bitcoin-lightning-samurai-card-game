@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use super::CpuBrainMoveModel;
 use super::{
-    ActiveLocations, ActiveWorldModel, CARD_SLOT_LOCATION_COUNT, CardInstanceId, CardModelRegistry,
-    CardOwnerModel, CardSlotBoardModel, CardSlotSide, CardSlotState, DeckModel, GameDeckModel,
-    GameHandModel, GameLocationModel, GameRoundModel, LocationModelRegistry, PlayerSide,
-    PowerPointModel, STARTING_DECK_CARD_COUNT, STARTING_HAND_CARD_COUNT,
-    random_shuffled_default_deck_cards,
+    ACTIVE_LOCATION_COUNT, ActiveLocations, ActiveWorldModel, CARD_SLOT_LOCATION_COUNT,
+    CardInstanceId, CardModelRegistry, CardOwnerModel, CardSlotBoardModel, CardSlotSide,
+    CardSlotState, DeckModel, GameDeckModel, GameHandModel, GameLocationModel, GameRoundModel,
+    LocationModelRegistry, PlayerSide, PowerPointModel, STARTING_DECK_CARD_COUNT,
+    STARTING_HAND_CARD_COUNT, random_shuffled_default_deck_cards,
 };
 
 /// HUMAN: User-facing match mode selection for two-player gameplay.
@@ -279,11 +279,35 @@ impl Default for MatchRoundModel {
     }
 }
 
-/// HUMAN: Runtime two-player match model for opponent modes.
-/// AI: Bridge existing single-player hand/slot state into two-controller gameplay.
+/// HUMAN: World selected for one active match.
+/// AI: Store the registry index here so reset and replay can keep a stable match context.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct MatchWorldModel {
+    pub world_index: usize,
+}
+
+/// HUMAN: Three locations selected for one active match.
+/// AI: This mirrors ActiveLocations at match start without owning location definitions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MatchLocationSelectionModel {
+    pub indices: [usize; ACTIVE_LOCATION_COUNT],
+}
+
+impl Default for MatchLocationSelectionModel {
+    fn default() -> Self {
+        Self {
+            indices: ActiveLocations::default().indices,
+        }
+    }
+}
+
+/// HUMAN: Runtime two-player match model for one complete game.
+/// AI: Own match context, players, round state, hidden placements, and CPU planning queues.
 #[derive(Resource, Clone, Debug, PartialEq)]
-pub struct OpponentMatchModel {
+pub struct MatchModel {
     pub mode: MatchModeModel,
+    pub world: MatchWorldModel,
+    pub locations: MatchLocationSelectionModel,
     pub near: MatchPlayerModel,
     pub far: MatchPlayerModel,
     pub round: MatchRoundModel,
@@ -294,13 +318,13 @@ pub struct OpponentMatchModel {
     pub next_reveal_delay_seconds: f32,
 }
 
-impl Default for OpponentMatchModel {
+impl Default for MatchModel {
     fn default() -> Self {
         Self::new(MatchModeModel::default(), default_master_deck())
     }
 }
 
-impl OpponentMatchModel {
+impl MatchModel {
     pub fn new(mode: MatchModeModel, master_deck: Vec<String>) -> Self {
         let near_controller = match mode {
             MatchModeModel::HumanVersusCpu => PlayerControllerModel::human(),
@@ -309,6 +333,8 @@ impl OpponentMatchModel {
         let far_controller = PlayerControllerModel::cpu();
         Self {
             mode,
+            world: MatchWorldModel::default(),
+            locations: MatchLocationSelectionModel::default(),
             near: MatchPlayerModel::new(
                 MatchPlayerSide::Near,
                 near_controller,
@@ -326,6 +352,19 @@ impl OpponentMatchModel {
 
     pub fn reset_for_mode(&mut self, mode: MatchModeModel, master_deck: Vec<String>) {
         *self = Self::new(mode, master_deck);
+    }
+
+    pub fn set_context(
+        &mut self,
+        active_world_model: &ActiveWorldModel,
+        active_locations: &ActiveLocations,
+    ) {
+        self.world = MatchWorldModel {
+            world_index: active_world_model.index,
+        };
+        self.locations = MatchLocationSelectionModel {
+            indices: active_locations.indices,
+        };
     }
 
     pub fn player(&self, side: MatchPlayerSide) -> &MatchPlayerModel {
@@ -594,12 +633,13 @@ pub fn master_deck_from_deck_model(deck: Option<&DeckModel>) -> Vec<String> {
     if cards.is_empty() {
         default_master_deck()
     } else {
+        fastrand::shuffle(&mut cards);
         cards
     }
 }
 
 pub fn start_match_round(
-    match_model: &mut OpponentMatchModel,
+    match_model: &mut MatchModel,
     game_round_model: &GameRoundModel,
     game_deck_model: &mut GameDeckModel,
     game_hand_model: &mut GameHandModel,
@@ -629,7 +669,7 @@ pub fn start_match_round(
 
 pub fn reset_two_player_match(
     mode: MatchModeModel,
-    match_model: &mut OpponentMatchModel,
+    match_model: &mut MatchModel,
     game_deck_model: &mut GameDeckModel,
     game_hand_model: &mut GameHandModel,
     game_round_model: &mut GameRoundModel,
@@ -648,6 +688,7 @@ pub fn reset_two_player_match(
         active_world_model,
     ) {
         active_locations.reroll(location_model_registry, active_world_model);
+        match_model.set_context(active_world_model, active_locations);
         game_location_model.reset_with_active_location_indices(&active_locations.indices);
     } else {
         game_location_model.reset();
@@ -663,7 +704,7 @@ pub fn reset_two_player_match(
 }
 
 pub fn sync_near_human_from_game_models(
-    match_model: &mut OpponentMatchModel,
+    match_model: &mut MatchModel,
     game_deck_model: &GameDeckModel,
     game_hand_model: &GameHandModel,
     game_round_model: &GameRoundModel,
@@ -772,5 +813,5 @@ pub fn default_round_hand_size() -> usize {
 }
 
 #[cfg(test)]
-#[path = "../../tests/runtime/resources/opponent_match_model_tests.rs"]
-mod opponent_match_model_tests;
+#[path = "../../tests/runtime/resources/match_model_tests.rs"]
+mod match_model_tests;

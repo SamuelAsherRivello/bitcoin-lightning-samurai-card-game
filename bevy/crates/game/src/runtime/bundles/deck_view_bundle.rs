@@ -2,6 +2,9 @@ use bevy::prelude::*;
 
 use crate::runtime::components::DeckView;
 
+pub const DECK_VIEW_TILE_WIDTH: f32 = 132.0;
+pub const DECK_VIEW_TILE_HEIGHT: f32 = 214.0;
+
 /// HUMAN: Visual bundle for a deck tile.
 /// AI: Children should render the existing card back image and the deck name.
 #[derive(Bundle, Debug)]
@@ -22,8 +25,8 @@ impl DeckViewBundle {
             deck_view: DeckView::new(deck_name),
             button: Button,
             node: Node {
-                width: Val::Px(132.0),
-                height: Val::Px(214.0),
+                width: Val::Px(DECK_VIEW_TILE_WIDTH),
+                height: Val::Px(DECK_VIEW_TILE_HEIGHT),
                 border: UiRect::all(Val::Px(2.0)),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceBetween,
