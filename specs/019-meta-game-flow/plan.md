@@ -12,7 +12,7 @@ Introduce a meta-game app shell that starts on MainMenuScreen, uses reusable top
 **Language/Version**: Rust with the repository-pinned toolchain in `rust-toolchain.toml`  
 **Primary Dependencies**: Bevy, `bevy_persistent`, existing `bevy_aspect_ratio_mask`, existing card/theme assets  
 **Storage**: Local JSON persistence under `data/local_storage/` using existing Bevy persistent patterns  
-**Testing**: `scripts/other/RunTests.ps1` plus focused `cargo test -p bevy_card_game` when iterating  
+**Testing**: `scripts/other/RunTests.ps1` plus focused `cargo test -p samurai_card_game` when iterating
 **Target Platform**: Windows desktop and browser WebGPU  
 **Project Type**: Bevy ECS game workspace under `bevy/crates/game`  
 **Performance Goals**: Screen reload/navigation should complete in a single update tick except fake matchmaking timers  

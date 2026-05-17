@@ -488,8 +488,8 @@ impl MatchModel {
             .collect::<Vec<_>>();
         targets.sort_by_key(|target| {
             (
-                target.location_index,
                 reveal_side_order(target.owner),
+                target.location_index,
                 reveal_slot_order(target.owner, target.slot_index),
             )
         });
@@ -572,8 +572,8 @@ impl MatchModel {
 
 fn reveal_side_order(owner: MatchPlayerSide) -> usize {
     match owner {
-        MatchPlayerSide::Far => 0,
-        MatchPlayerSide::Near => 1,
+        MatchPlayerSide::Near => 0,
+        MatchPlayerSide::Far => 1,
     }
 }
 
@@ -679,6 +679,66 @@ pub fn reset_two_player_match(
     active_world_model: Option<&ActiveWorldModel>,
     player_deck: Option<&DeckModel>,
 ) {
+    reset_two_player_match_to_round_one(
+        mode,
+        match_model,
+        game_deck_model,
+        game_hand_model,
+        game_round_model,
+        game_location_model,
+        location_model_registry,
+        active_locations,
+        active_world_model,
+        player_deck,
+    );
+    start_match_round(
+        match_model,
+        game_round_model,
+        game_deck_model,
+        game_hand_model,
+    );
+}
+
+/// HUMAN: Resets a match to round one without dealing the first cards yet.
+/// AI: GameScene intro uses this so the first deal can happen after the reveal sequence.
+pub fn reset_two_player_match_without_starting_round(
+    mode: MatchModeModel,
+    match_model: &mut MatchModel,
+    game_deck_model: &mut GameDeckModel,
+    game_hand_model: &mut GameHandModel,
+    game_round_model: &mut GameRoundModel,
+    game_location_model: &mut GameLocationModel,
+    location_model_registry: Option<&LocationModelRegistry>,
+    active_locations: Option<&mut ActiveLocations>,
+    active_world_model: Option<&ActiveWorldModel>,
+    player_deck: Option<&DeckModel>,
+) {
+    reset_two_player_match_to_round_one(
+        mode,
+        match_model,
+        game_deck_model,
+        game_hand_model,
+        game_round_model,
+        game_location_model,
+        location_model_registry,
+        active_locations,
+        active_world_model,
+        player_deck,
+    );
+}
+
+fn reset_two_player_match_to_round_one(
+    mode: MatchModeModel,
+    match_model: &mut MatchModel,
+    game_deck_model: &mut GameDeckModel,
+    game_hand_model: &mut GameHandModel,
+    game_round_model: &mut GameRoundModel,
+    game_location_model: &mut GameLocationModel,
+    location_model_registry: Option<&LocationModelRegistry>,
+    active_locations: Option<&mut ActiveLocations>,
+    active_world_model: Option<&ActiveWorldModel>,
+    player_deck: Option<&DeckModel>,
+) {
     let master_deck = master_deck_from_deck_model(player_deck);
     match_model.reset_for_mode(mode, master_deck);
     game_round_model.reset();
@@ -695,12 +755,6 @@ pub fn reset_two_player_match(
     }
     game_hand_model.cards.clear();
     game_deck_model.cards.clear();
-    start_match_round(
-        match_model,
-        game_round_model,
-        game_deck_model,
-        game_hand_model,
-    );
 }
 
 pub fn sync_near_human_from_game_models(

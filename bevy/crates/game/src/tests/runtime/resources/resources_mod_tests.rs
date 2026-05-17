@@ -144,6 +144,34 @@ fn game_deck_deals_every_round_from_initial_deck_schedule_without_energy_gate() 
 }
 
 #[test]
+fn screen_transition_defaults_to_startup_black_fade() {
+    let model = ScreenTransitionResource::default();
+
+    assert_eq!(model.phase, ScreenTransitionPhase::StartupFadeIn);
+    assert_eq!(model.overlay_alpha, 1.0);
+    assert_eq!(model.color, Color::srgba(0.0, 0.0, 0.0, 1.0));
+    assert_eq!(
+        model.total_duration_seconds,
+        SCREEN_TRANSITION_TOTAL_DURATION_SECONDS
+    );
+    assert!(model.pending_view.is_none());
+    assert!(model.queued_view.is_none());
+}
+
+#[test]
+fn screen_transition_queues_follow_up_request_while_active() {
+    let mut model = ScreenTransitionResource::default();
+    model.phase = ScreenTransitionPhase::Idle;
+
+    model.request_view_change(ActiveView::MainMenuScene, ActiveView::DeckScene);
+    assert_eq!(model.phase, ScreenTransitionPhase::FadeOutPendingSwitch);
+    assert_eq!(model.pending_view, Some(ActiveView::DeckScene));
+
+    model.request_view_change(ActiveView::MainMenuScene, ActiveView::DebugScene);
+    assert_eq!(model.queued_view, Some(ActiveView::DebugScene));
+}
+
+#[test]
 fn game_deck_deal_to_hand_deals_only_remaining_cards() {
     let mut deck = GameDeckModel {
         cards: vec![KAGE_REN_CARD_MODEL_ID.to_string()],

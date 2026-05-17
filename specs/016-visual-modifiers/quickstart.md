@@ -35,7 +35,7 @@
 
 | Date | Check | Result |
 | ---- | ----- | ------ |
-| 2026-05-13 | `cargo test -p bevy-card-game visual_modifier --no-default-features` | Passed: 8 VMS-focused tests. Existing warning remains for `local_slots_area_hit_target`. |
-| 2026-05-13 | `cargo test -p bevy-card-game visual_modifier --features fast-dev` | Passed: 8 VMS-focused tests. Existing warning remains for `local_slots_area_hit_target`. |
+| 2026-05-13 | `cargo test -p samurai-card-game visual_modifier --no-default-features` | Passed: 8 VMS-focused tests. Existing warning remains for `local_slots_area_hit_target`. |
+| 2026-05-13 | `cargo test -p samurai-card-game visual_modifier --features fast-dev` | Passed: 8 VMS-focused tests. Existing warning remains for `local_slots_area_hit_target`. |
 | 2026-05-13 | `scripts/other/RunTests.ps1` | Failed: all 8 VMS-focused tests passed, but 19 broader `systems_tests` failed in existing card/view setup and visibility cases. |
 | 2026-05-13 | `git diff --check` | Passed with line-ending warnings only. |

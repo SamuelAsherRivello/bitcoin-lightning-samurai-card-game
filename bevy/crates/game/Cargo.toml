@@ -1,5 +1,5 @@
 [package]
-name = "bevy-card-game"
+name = "samurai-card-game"
 version = "0.2.0"
 edition.workspace = true
 license.workspace = true
@@ -18,7 +18,7 @@ bevy_aspect_ratio_mask.workspace = true
 bevy-inspector-egui.workspace = true
 bevy_tweening = "0.15"
 bevy-persistent = { version = "0.10.0", features = ["json", "pretty"] }
-bevy_card_game_shared.workspace = true
+samurai_card_game_shared.workspace = true
 bevy_hotpatching_experiments = { version = "0.4.0", optional = true }
 fastrand = "2.4.1"
 serde = { version = "1.0", features = ["derive"] }

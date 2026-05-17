@@ -8,6 +8,11 @@ pub enum ButtonUiStyle {
     Default,
 }
 
+/// HUMAN: Stores the baseline background color for hover-state derivation.
+/// AI: Keep this synchronized with ButtonUiBundle::with_colors so hover can brighten consistently.
+#[derive(Clone, Copy, Component, Debug)]
+pub struct ButtonUiBaseColor(pub Color);
+
 /// HUMAN: Shared bundle used by all game UI buttons.
 /// AI: Callers may override layout and colors while retaining the common button/style marker.
 #[derive(Bundle, Debug)]
@@ -16,6 +21,7 @@ pub struct ButtonUiBundle {
     pub button: Button,
     pub style: ButtonUiStyle,
     pub node: Node,
+    pub base_color: ButtonUiBaseColor,
     pub background_color: BackgroundColor,
     pub border_color: BorderColor,
 }
@@ -34,6 +40,7 @@ impl ButtonUiBundle {
                 align_items: AlignItems::Center,
                 ..Default::default()
             },
+            base_color: ButtonUiBaseColor(Color::srgb(0.20, 0.24, 0.32)),
             background_color: BackgroundColor(Color::srgb(0.20, 0.24, 0.32)),
             border_color: BorderColor::all(Color::srgb(0.60, 0.64, 0.72)),
         }
@@ -45,6 +52,7 @@ impl ButtonUiBundle {
     }
 
     pub fn with_colors(mut self, background: Color, border: Color) -> Self {
+        self.base_color = ButtonUiBaseColor(background);
         self.background_color = BackgroundColor(background);
         self.border_color = BorderColor::all(border);
         self

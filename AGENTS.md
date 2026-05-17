@@ -1,4 +1,4 @@
-# Bevy Card Game Agent Instructions
+# Samurai Card Game Agent Instructions
 
 This repository is a Bevy ECS card game built from the Codex Project Template. Keep Codex and Specify infrastructure at the root, and keep game implementation under the Bevy workspace.
 
@@ -43,6 +43,7 @@ Default assistant model for this project: `gpt-5.5`.
 - Keep repeatable project scripts under `scripts/`.
 - Keep README-visible images under `documentation/images/`.
 - Keep Bevy source organized by ECS role under `bevy/crates/game/src/runtime/`.
+- Keep runtime `resources` split so each `Resource` type lives in its own dedicated file (for example, `screen_transition_resource.rs` containing `ScreenTransitionResource`), and keep `resources/mod.rs` for module wiring/re-exports only.
 - Use `bevy/crates/template-crate` as the proper reference for Bevy crate folders, representative files, and Rust coding standards.
 - Keep changed Bevy runtime files focused on one primary concept per file; use purposeful names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem`.
 - Use `Scene` for the persistent app-level scene, `Model` for data, and `View` for rendering/presentation. `AppScene` is always present; active sub-screen presentations are views such as `GameScene`, `DeckScene`, and `DebugScene`.
@@ -56,7 +57,7 @@ Default assistant model for this project: `gpt-5.5`.
 - Treat `AppScene` as the always-present app-level scene and report the currently active view, such as `GameScene`, `DeckScene`, or `DebugScene`, when describing runtime scene state.
 
 <!-- SPECKIT START -->
-Active implementation plan: `specs/021-card-view-vfx/plan.md`
+Active implementation plan: `specs/024-shared-app-camera/plan.md`
 <!-- SPECKIT END -->
 
 ## Markdown Format Rules

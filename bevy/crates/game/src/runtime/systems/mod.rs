@@ -8,7 +8,6 @@ use bevy::{
     ecs::system::SystemParam,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
-    render::view::NoIndirectDrawing,
     sprite::Anchor,
     text::{Justify, Underline, UnderlineColor},
     window::{
@@ -18,10 +17,6 @@ use bevy::{
     winit::{UpdateMode, WinitSettings},
 };
 use bevy_aspect_ratio_mask::Hud;
-use bevy_card_game_shared::{
-    GameTitle,
-    window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH},
-};
 #[cfg(feature = "desktop-hot-reload")]
 use bevy_hotpatching_experiments::{HotPatched, hot};
 use bevy_inspector_egui::{
@@ -30,8 +25,13 @@ use bevy_inspector_egui::{
     bevy_inspector::EntityFilter,
 };
 use bevy_persistent::prelude::Persistent;
+use samurai_card_game_shared::{
+    GameTitle,
+    window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH},
+};
 use std::time::Duration;
 
+pub mod app_camera_update_system;
 pub mod audio_update_system;
 pub mod card_gesture_animation_system;
 pub mod card_gesture_update_system;
@@ -39,8 +39,11 @@ pub mod card_point_overlay_selection_update_system;
 pub mod card_selected_modal_update_system;
 pub mod card_selection_update_system;
 pub mod debug_drawing_update_system;
+pub mod shared_overlay_update_system;
+pub mod transition_update_system;
 pub mod visual_modifier_update_system;
 
+pub use app_camera_update_system::*;
 pub use audio_update_system::*;
 pub use card_gesture_animation_system::*;
 pub use card_gesture_update_system::*;
@@ -48,48 +51,53 @@ pub use card_point_overlay_selection_update_system::*;
 pub use card_selected_modal_update_system::*;
 pub use card_selection_update_system::*;
 pub use debug_drawing_update_system::*;
+pub use shared_overlay_update_system::*;
+pub use transition_update_system::*;
 pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
-    ButtonUiBundle, CardViewBundle, DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH, DebugScreenBundle,
-    DeckScreenBundle, DeckViewBundle, GameScreenBundle, GridViewUiBundle, LightningScreenBundle,
-    LocationViewBundle, MainMenuScreenBundle, MatchmakingScreenBundle, ModalButtonUiBundle,
-    ModalMenuUiBundle, ModalPromptUiBundle, ModalUiBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE,
-    PointLocationView, PointModel, PointType, PointView, PointViewBundle, SettingsScreenBundle,
-    TopNavigationViewBundle,
+    AppCameraBundle, ButtonUiBaseColor, ButtonUiBundle, ButtonUiStyle, CardViewBundle,
+    DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH, DebugScreenBundle, DeckScreenBundle,
+    DeckViewBundle, GameScreenBundle, GridViewUiBundle, LightningScreenBundle, LocationViewBundle,
+    MainMenuScreenBundle, MatchmakingScreenBundle, ModalButtonUiBundle, ModalMenuUiBundle,
+    ModalPromptUiBundle, ModalUiBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView,
+    PointModel, PointType, PointView, PointViewBundle, PointViewLayering, ScreenTransitionUiBundle,
+    SettingsScreenBundle, TopNavigationViewBundle, WorldFadeOverlayBundle, WorldViewBundle,
 };
 use crate::runtime::components::{
-    AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
-    CardGestureView, CardGrid, CardLayerRole, CardParallaxLayer, CardSelectionSource,
-    CardSlotGestureTarget, CardView, CpuHandCardView, CpuPlacedCardAnimation,
-    CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText,
-    DebugHudKeyText, DebugHudText, DebugSceneEntity, DebugSceneRoot, DeckSceneEntity,
-    DeckSceneRoot, DeckScreenCardView, DeckScreenDeckCommandButton, DeckScreenDeckTileButton,
-    DeckScreenGridBackdrop, DeckScreenGridBackdropRole, DeckScreenModalActionButton,
-    DeckScreenModalRoot, DeckScreenSelectedCardMenuRoot, DeckScreenTabButton,
-    DeckScreenValidationOkButton, DropTargetHint, EndRoundButton, GameControlAction,
-    GameControlButton, GameControlLabel, GameLocation, GameLocationBodyText, GameLocationBorder,
-    GameLocationTitleText, GameSceneEntity, GameSceneRoot, GridViewContentArea, GridViewMenuArea,
-    GridViewTitleArea, HandCardGestureTarget, InspectorState, LocalPlayerHand,
-    LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, MetaSceneEntity,
-    MetaSceneRoot, MetaScreenButton, MetaScreenButtonAction, Player, PointViewCircle,
-    PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard, TopNavigationButton,
-    TopNavigationRoot, VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget,
-    VisualModifier, WorldBackground,
+    AppSceneCamera, AppSceneEntity, AppSceneRoot, CardAnimation, CardAnimationFaceLayer,
+    CardAnimationFlipStyle, CardAnimationMarker, CardAnimationPhase, CardBackgroundLayer,
+    CardFaceLayer, CardFrameLayer, CardGestureView, CardGrid, CardLayerRole, CardParallaxLayer,
+    CardSelectionSource, CardSlotGestureTarget, CardView, CpuHandCardView, CpuPlacedCardView,
+    DebugHudFpsText, DebugHudKeyText, DebugHudText, DebugSceneEntity, DebugSceneRoot,
+    DeckPromptBackdropBlur, DeckSceneEntity, DeckSceneRoot, DeckScreenCardView,
+    DeckScreenDeckCommandButton, DeckScreenDeckTileButton, DeckScreenGridBackdrop,
+    DeckScreenGridBackdropRole, DeckScreenModalActionButton, DeckScreenModalRoot,
+    DeckScreenSelectedCardMenuRoot, DeckScreenTabButton, DeckScreenValidationOkButton,
+    DropTargetHint, EndRoundButton, GameControlAction, GameControlButton, GameControlLabel,
+    GameLocation, GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameSceneEntity,
+    GameSceneRoot, GridViewContentArea, GridViewMenuArea, GridViewTitleArea, HandCardGestureTarget,
+    InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationBundle,
+    LocationBundleIntro, LocationBundleIntroSample, LocationBundleIntroVisual,
+    LocationBundleOverlay, LocationBundleSurface, LocationRevealState, MatchStatusText,
+    MetaSceneEntity, MetaSceneRoot, MetaScreenButton, MetaScreenButtonAction, Player,
+    PointViewCircle, PointViewOutlineTreatment, RoundUi, SelectableCard, SettingsButtonLabel,
+    TopNavigationButton, TopNavigationRoot, VISUAL_MODIFIER_CARD_OUTLINE_SCALE,
+    VisualModificationTarget, VisualModifier, WORLD_THEME_BLACK_HOLD_SECONDS,
+    WORLD_THEME_FADE_SECONDS, WorldBackground, WorldFadeOverlay, WorldThemeTransition,
+    WorldThemeTransitionPhase,
 };
-#[cfg(test)]
-use crate::runtime::resources::CardState;
 #[cfg(test)]
 use crate::runtime::resources::MatchModeModel;
 use crate::runtime::resources::{
-    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, AudioEnum, AudioManagerModel,
-    CARD_BACK_TEXTURE_PATH, CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX,
+    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, AppCameraModel, AudioEnum,
+    AudioManagerModel, CARD_BACK_TEXTURE_PATH, CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX,
     CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX, CARD_LAYER_SCALE_MIN,
     CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
     CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
     CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
-    CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
-    CpuBrainModel, CpuPlacementMotionSourceModel, DECK_SCREEN_CARD_COUNT,
+    CardSlotBoardModel, CardSlotSide, CardSlotState, CardState, CardStateModel, CardUiState,
+    CostPointModel, CpuBrainModel, CpuPlacementMotionSourceModel, DECK_SCREEN_CARD_COUNT,
     DECK_SCREEN_COMING_SOON_MESSAGE, DECK_SCREEN_COMING_SOON_TITLE, DECK_SCREEN_DECK_NAME,
     DECK_SCREEN_VALIDATION_MESSAGE, DECK_SCREEN_VALIDATION_TITLE, DebugHudInputStore,
     DebugHudState, DeckEditableZoneModel, DeckEditorTabModel, DeckModel, DeckScreenModel,
@@ -97,17 +105,26 @@ use crate::runtime::resources::{
     GameRoundModel, GameTicks, LocationModelRegistry, LocationScoreModel,
     MATCH_ASSETS_PRELOAD_ENABLED, MatchModePreferenceStore, MatchModel, MatchPlayerSide,
     MatchResolutionPhase, MatchWinnerModel, MatchmakingModel, MatchmakingPhaseModel,
-    MetaGameSettingsModel, PRIMARY_CAMERA_FOV_RADIANS, PlacementVisibility,
-    PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
-    SelectedCardModalModel, TopNavigationDestination, TopNavigationModel, WORLD_MODEL_COUNT,
-    WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
-    choose_level1_moves, cpu_slot_hand_index, deck_screen_deck_cards, deck_screen_library_cards,
-    ensure_deck_screen_collection_no_auto_fill, ensure_player_deck_collection_model,
-    final_winner_from_slots, load_window_placement, modal_actions_for, move_deck_card_to_library,
-    move_library_card_to_deck, random_shuffled_default_deck_cards, reset_two_player_match,
-    start_match_round, sync_near_human_from_game_models, valid_window_placement,
+    MetaGameSettingsModel, PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN, PRIMARY_CAMERA_FOV_RADIANS,
+    PendingRoundDealResource, PlacementVisibility, PlayerDeckCollectionModel, PowerPointModel,
+    PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT, ScreenTransitionPhase,
+    ScreenTransitionResource, SelectedCardModalModel, TopNavigationDestination, TopNavigationModel,
+    WORLD_MODEL_COUNT, WindowPlacement, WindowPlacementState, WindowPlacementStore,
+    WorldModelRegistry, choose_level1_moves, cpu_slot_hand_index, deck_screen_deck_cards,
+    deck_screen_library_cards, ensure_deck_screen_collection_no_auto_fill,
+    ensure_player_deck_collection_model, final_winner_from_slots, load_window_placement,
+    modal_actions_for, move_deck_card_to_library, move_library_card_to_deck,
+    random_shuffled_default_deck_cards, reset_two_player_match,
+    reset_two_player_match_without_starting_round, start_match_round,
+    sync_near_human_from_game_models, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
+use crate::runtime::tweens::{
+    GAME_TWEEN_CARD_MOVE_TO_SLOT_SECONDS, GAME_TWEEN_DEAL_SLIDE_SECONDS, GAME_TWEEN_FLIP_SECONDS,
+    GAME_TWEEN_SWAN_FLIP_SECONDS, GAME_TWEEN_SWAN_SCALE_UP_SECONDS, GameTweenPreset,
+    ease_out_cubic, location_intro_hold_gate_seconds, sample_card_move_scale,
+    sample_card_move_scale_multiplier, sample_flip_y_rotation, sample_swan_scale_multiplier,
+};
 
 #[cfg(feature = "desktop-hot-reload")]
 use crate::runtime::resources::{
@@ -136,11 +153,11 @@ const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
 const TITLE_APPARENT_DEPTH: f32 = 2.0;
 const LAYER_RENDER_Z_STEP: f32 = 0.0001;
 const BACKGROUND_DEPTH_BIAS: f32 = 0.0;
-const FRAME_DEPTH_BIAS: f32 = 8.0;
-const SAFE_AREA_DEPTH_BIAS: f32 = 12.0;
-const FOREGROUND_DEPTH_BIAS: f32 = 16.0;
-const TITLE_DEPTH_BIAS: f32 = 24.0;
-const POINT_DEPTH_BIAS: f32 = 32.0;
+const FRAME_DEPTH_BIAS: f32 = 0.0;
+const SAFE_AREA_DEPTH_BIAS: f32 = 0.0;
+const FOREGROUND_DEPTH_BIAS: f32 = 0.0;
+const TITLE_DEPTH_BIAS: f32 = 0.0;
+const POINT_DEPTH_BIAS: f32 = 0.0;
 const PARALLAX_OFFSET_RATIO: f32 = 0.065;
 const FRAME_THICKNESS_RATIO: f32 = 0.05;
 const BACKGROUND_APERTURE_SCALE: f32 = 1.0;
@@ -163,11 +180,11 @@ const GAME_SCENE_HAND_CARD_Z_STEP: f32 = 0.035;
 const GAME_SCENE_HAND_CARD_HOVER_Z: f32 = 0.74;
 const GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y: f32 = GAME_SCENE_HEIGHT + 140.0;
 const GAME_SCENE_FAR_HAND_Y: f32 = -142.0;
-const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
-const GAME_SCENE_WORLD_BACKGROUND_BLEED: f32 = 1.18;
 const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -0.16;
+const GAME_SCENE_LOCATION_BUNDLE_Z: f32 = -0.10;
 const CARD_RENDER_LAYER: usize = 1;
 const CARD_POINT_TEXT_RENDER_LAYER: usize = 2;
+const CARD_POINT_TEXT_Z: f32 = 10.0;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
 const DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const DECK_SCENE_CARD_HEIGHT_FRACTION: f32 = 0.9;
@@ -201,19 +218,19 @@ const SETTINGS_COLUMN_WIDTH_PERCENT: f32 = 100.0 / 3.0;
 const SETTINGS_COLUMN_GAP_PX: f32 = 20.0;
 const DEBUG_HUD_Z_INDEX: i32 = 1_200;
 const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
-const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
 const END_ROUND_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.95);
 const END_ROUND_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
-const END_ROUND_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
 const END_ROUND_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
 const GAME_CONTROL_DISABLED_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.55);
 const GAME_CONTROL_DISABLED_BORDER_COLOR: Color = Color::srgb(0.28, 0.28, 0.28);
-const CPU_CARD_MOVE_SECONDS: f32 = 0.5;
+#[cfg(test)]
+const CPU_CARD_MOVE_SECONDS: f32 = GAME_TWEEN_CARD_MOVE_TO_SLOT_SECONDS;
 const CPU_HAND_SETTLED_PAUSE_SECONDS: f32 = 0.5;
-const CPU_CARD_FLIP_SECONDS: f32 = 0.5;
 const CPU_CARD_REVEAL_STAGGER_SECONDS: f32 = 0.25;
 const CPU_CARD_MOVING_FRONT_Z: f32 = 0.99;
-const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.5;
+#[cfg(test)]
+const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 =
+    crate::runtime::tweens::GAME_TWEEN_CARD_MOVE_SCALE_MULTIPLIER;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
@@ -221,15 +238,16 @@ const DEBUG_SCENE_CARD_GAP_TO_CARD_UI: f32 = 20.0;
 const DEBUG_SCENE_CARD_VERTICAL_OFFSET: f32 = 100.0;
 const DEBUG_SCENE_CARD_EXTRA_DOWN_OFFSET_PX: f32 = 100.0;
 const DEBUG_SCENE_CARD_LEFT_OFFSET_PX: f32 = 200.0;
+const DEBUG_SCENE_LOCATION_WIDTH: f32 = 240.0;
+const DEBUG_SCENE_LOCATION_HEIGHT: f32 = 180.0;
 const POINT_VIEW_WIDTH: f32 = 46.0;
 const POINT_VIEW_HEIGHT: f32 = 36.0;
 const LOCATION_POINT_VIEW_WIDTH: f32 = POINT_VIEW_WIDTH.min(POINT_VIEW_HEIGHT);
 const LOCATION_POINT_VIEW_HEIGHT: f32 = LOCATION_POINT_VIEW_WIDTH;
-const LOCATION_POINT_VIEW_HALF_HEIGHT: f32 = LOCATION_POINT_VIEW_HEIGHT / 2.0;
+const LOCATION_POINT_TEXT_FONT_SIZE: f32 = 42.0;
 const CARD_POINT_BADGE_SIZE: f32 = 0.17;
 const CARD_POINT_BADGE_INSET_RATIO: f32 = 0.16;
 const CARD_POINT_TEXT_FONT_SIZE: f32 = POINT_VIEW_BASE_TEXT_FONT_SIZE;
-const CARD_POINT_TEXT_Z: f32 = 10.0;
 const GENERIC_QR_CODE_TEXTURE_PATH: &str = "ui/generic_qr_code.png";
 const LIGHTNING_BOLT_ICON_TEXTURE_PATH: &str = "ui/lightning_bolt_icon.png";
 #[cfg(not(target_arch = "wasm32"))]
@@ -242,74 +260,28 @@ pub fn setup_game(mut commands: Commands) {
 }
 
 pub fn setup_primary_camera(mut commands: Commands, camera_defaults: Res<PrimaryCameraDefaults>) {
-    spawn_primary_camera(&mut commands, &camera_defaults);
+    let _ = (&mut commands, &camera_defaults);
 }
 
 pub fn constrain_deck_camera_to_safe_area(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<
-        &mut Camera,
-        (
-            With<DeckSceneEntity>,
-            Or<(With<Camera3d>, With<CardPointTextCamera>)>,
-        ),
-    >,
+    _primary_window: Query<&Window, With<PrimaryWindow>>,
+    _camera_query: Query<&mut Camera, With<DeckSceneEntity>>,
 ) {
-    let Ok(window) = primary_window.single() else {
-        return;
-    };
-    let safe_area_viewport = game_scene_safe_area_viewport_for_window(window);
-
-    for mut camera in &mut camera_query {
-        camera.viewport = safe_area_viewport.clone();
-    }
 }
 
 pub fn constrain_debug_camera_to_safe_area(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<
-        &mut Camera,
-        (
-            With<DebugSceneEntity>,
-            Or<(With<Camera3d>, With<CardPointTextCamera>)>,
-        ),
-    >,
+    _primary_window: Query<&Window, With<PrimaryWindow>>,
+    _camera_query: Query<&mut Camera, With<DebugSceneEntity>>,
 ) {
-    let Ok(window) = primary_window.single() else {
-        return;
-    };
-    let safe_area_viewport = game_scene_safe_area_viewport_for_window(window);
-
-    for mut camera in &mut camera_query {
-        camera.viewport = safe_area_viewport.clone();
-    }
 }
 
 /// HUMAN: Keeps GameScene card cameras aligned with the aspect-ratio-safe area.
 /// AI: Align 3D cards and their Text2d point overlay camera to the same viewport.
 pub fn constrain_game_scene_3d_cameras_to_safe_area(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    _primary_window: Query<&Window, With<PrimaryWindow>>,
     mut fullscreen_viewport_transition: Option<ResMut<FullscreenViewportTransitionState>>,
-    mut camera_query: Query<
-        &mut Camera,
-        (
-            With<GameSceneEntity>,
-            Or<(With<Camera3d>, With<CardPointTextCamera>)>,
-        ),
-    >,
+    _camera_query: Query<&mut Camera, With<GameSceneEntity>>,
 ) {
-    let Ok(window) = primary_window.single() else {
-        return;
-    };
-    let safe_area_viewport = game_scene_safe_area_viewport_for_window_transition(
-        window,
-        fullscreen_viewport_transition.as_deref(),
-    );
-
-    for mut camera in &mut camera_query {
-        camera.viewport = safe_area_viewport.clone();
-    }
-
     if let Some(ref mut transition) = fullscreen_viewport_transition
         && transition.frames_remaining > 0
     {
@@ -317,14 +289,12 @@ pub fn constrain_game_scene_3d_cameras_to_safe_area(
     }
 }
 
+#[allow(dead_code)]
 fn game_scene_safe_area_viewport_for_window(window: &Window) -> Option<Viewport> {
-    if should_use_default_camera_viewport(window) {
-        return None;
-    }
-
-    game_scene_safe_area_viewport(window.resolution.physical_size())
+    app_camera_safe_area_viewport_for_window(window)
 }
 
+#[allow(dead_code)]
 fn game_scene_safe_area_viewport_for_window_transition(
     window: &Window,
     fullscreen_viewport_transition: Option<&FullscreenViewportTransitionState>,
@@ -336,16 +306,7 @@ fn game_scene_safe_area_viewport_for_window_transition(
     game_scene_safe_area_viewport_for_window(window)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn should_use_default_camera_viewport(window: &Window) -> bool {
-    !matches!(window.mode, WindowMode::Windowed)
-}
-
-#[cfg(target_arch = "wasm32")]
-fn should_use_default_camera_viewport(_window: &Window) -> bool {
-    false
-}
-
+#[allow(dead_code)]
 fn game_scene_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
     if window_size.x == 0 || window_size.y == 0 {
         return None;
@@ -370,187 +331,85 @@ fn game_scene_safe_area_viewport(window_size: UVec2) -> Option<Viewport> {
     })
 }
 
-fn spawn_primary_camera(
+/// HUMAN: Marks the 2D camera that draws card point Text2d above point circles.
+/// AI: Text2d needs this 2D camera even while cards share the AppScene 3D camera.
+#[derive(Clone, Copy, Component, Debug, Default, Eq, PartialEq)]
+pub struct CardPointTextCamera;
+
+#[cfg_attr(feature = "desktop-hot-reload", hot)]
+/// HUMAN: Spawns the persistent AppScene and debug HUD.
+/// AI: AppScene remains present while GameScene, DeckScene, and DebugScene swap on top.
+pub fn setup_app_scene(
+    mut commands: Commands,
+    app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
+    hud: Option<Res<Hud>>,
+) {
+    if !app_scene_query.is_empty() {
+        return;
+    }
+
+    let _ = spawn_app_scene_contents(
+        &mut commands,
+        hud.as_ref().map(|hud| hud.0),
+        app_camera_query.iter().next(),
+    );
+}
+
+fn spawn_app_scene_contents(
     commands: &mut Commands,
-    camera_defaults: &PrimaryCameraDefaults,
-) -> Entity {
-    let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
-
-    commands
+    hud_parent: Option<Entity>,
+    app_camera_entity: Option<Entity>,
+) -> (Entity, Entity) {
+    let app_scene = commands
         .spawn((
-            Name::new("Primary 3D Camera"),
-            PrimaryViewCamera,
-            DeckSceneEntity,
-            Camera3d::default(),
-            NoIndirectDrawing,
-            Projection::Perspective(PerspectiveProjection {
-                fov: camera_defaults.fov_radians,
-                near: camera_defaults.near,
-                far: camera_defaults.far,
-                ..Default::default()
-            }),
-            RenderLayers::layer(CARD_RENDER_LAYER),
-            camera_transform.transform(),
-        ))
-        .id()
-}
-
-fn spawn_deck_ui_camera(commands: &mut Commands) -> Entity {
-    commands
-        .spawn((
-            Name::new("DeckScene UI Camera"),
-            DeckSceneEntity,
-            Camera2d,
-            Camera {
-                order: 1,
-                clear_color: ClearColorConfig::None,
+            Name::new("AppScene"),
+            AppSceneRoot,
+            AppSceneEntity,
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 ..Default::default()
             },
-            IsDefaultUiCamera,
-            PrimaryEguiContext,
-            Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_SCENE_WIDTH,
-                    min_height: GAME_SCENE_HEIGHT,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
+            Transform::default(),
+            GlobalTransform::default(),
+            Visibility::default(),
         ))
-        .id()
+        .id();
+    let app_camera = ensure_shared_app_camera(commands, Some(app_scene), app_camera_entity);
+    commands.spawn((
+        ScreenTransitionUiBundle::default(),
+        UiTargetCamera(app_camera),
+        AppSceneEntity,
+    ));
+    let debug_hud = spawn_debug_hud(commands);
+    if let Some(hud_parent) = hud_parent {
+        commands.entity(hud_parent).add_child(debug_hud);
+    } else {
+        commands.entity(app_scene).add_child(debug_hud);
+    }
+    (app_scene, app_camera)
 }
 
-fn spawn_debug_primary_camera(
+/// HUMAN: Ensures normal runtime screens share the persistent AppScene camera.
+/// AI: Use this only at AppScene setup boundaries; screen setup must reuse the returned entity.
+fn ensure_shared_app_camera(
     commands: &mut Commands,
-    camera_defaults: &PrimaryCameraDefaults,
+    app_scene_parent: Option<Entity>,
+    app_camera_entity: Option<Entity>,
 ) -> Entity {
-    let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
+    if let Some(app_camera) = app_camera_entity {
+        return app_camera;
+    }
 
-    commands
-        .spawn((
-            Name::new("DebugScene 3D Camera"),
-            PrimaryViewCamera,
-            DebugSceneEntity,
-            Camera3d::default(),
-            NoIndirectDrawing,
-            Projection::Perspective(PerspectiveProjection {
-                fov: camera_defaults.fov_radians,
-                near: camera_defaults.near,
-                far: camera_defaults.far,
-                ..Default::default()
-            }),
-            RenderLayers::layer(CARD_RENDER_LAYER),
-            camera_transform.transform(),
-        ))
-        .id()
-}
-
-fn spawn_debug_ui_camera(commands: &mut Commands) -> Entity {
-    commands
-        .spawn((
-            Name::new("DebugScene UI Camera"),
-            DebugSceneEntity,
-            Camera2d,
-            Camera {
-                order: 1,
-                clear_color: ClearColorConfig::None,
-                ..Default::default()
-            },
-            IsDefaultUiCamera,
-            PrimaryEguiContext,
-            Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_SCENE_WIDTH,
-                    min_height: GAME_SCENE_HEIGHT,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
-        ))
-        .id()
-}
-
-fn spawn_game_scene_camera(commands: &mut Commands) -> Entity {
-    commands
-        .spawn((
-            Name::new("GameScene UI Camera"),
-            GameSceneEntity,
-            Camera2d,
-            Camera {
-                order: 1,
-                clear_color: ClearColorConfig::None,
-                ..Default::default()
-            },
-            IsDefaultUiCamera,
-            Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_SCENE_WIDTH,
-                    min_height: GAME_SCENE_HEIGHT,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
-        ))
-        .id()
-}
-
-fn spawn_game_scene_card_camera(
-    commands: &mut Commands,
-    camera_defaults: &PrimaryCameraDefaults,
-) -> Entity {
-    let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
-
-    commands
-        .spawn((
-            Name::new("GameScene 3D Card Camera"),
-            PrimaryViewCamera,
-            GameSceneEntity,
-            Camera3d::default(),
-            Camera {
-                order: 0,
-                ..Default::default()
-            },
-            NoIndirectDrawing,
-            Projection::Perspective(PerspectiveProjection {
-                fov: camera_defaults.fov_radians,
-                near: camera_defaults.near,
-                far: camera_defaults.far,
-                ..Default::default()
-            }),
-            camera_transform.transform(),
-        ))
-        .id()
-}
-
-fn spawn_game_scene_card_overlay_camera(
-    commands: &mut Commands,
-    camera_defaults: &PrimaryCameraDefaults,
-) -> Entity {
-    let mut camera_transform = camera_defaults.clone();
-    camera_transform.position.z = GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
-
-    commands
-        .spawn((
-            Name::new("GameScene 3D Card Overlay Camera"),
-            PrimaryViewCamera,
-            GameSceneEntity,
-            Camera3d::default(),
-            Camera {
-                order: 2,
-                clear_color: ClearColorConfig::None,
-                ..Default::default()
-            },
-            NoIndirectDrawing,
-            Projection::Perspective(PerspectiveProjection {
-                fov: camera_defaults.fov_radians,
-                near: camera_defaults.near,
-                far: camera_defaults.far,
-                ..Default::default()
-            }),
-            RenderLayers::layer(CARD_RENDER_LAYER),
-            camera_transform.transform(),
-        ))
-        .id()
+    let app_camera = commands
+        .spawn(AppCameraBundle::new(&AppCameraModel::active()))
+        .id();
+    if let Some(parent) = app_scene_parent {
+        commands.entity(parent).add_child(app_camera);
+    }
+    app_camera
 }
 
 fn spawn_card_point_text_camera(
@@ -581,52 +440,6 @@ fn spawn_card_point_text_camera(
         .id()
 }
 
-/// HUMAN: Marks the 2D camera that draws card point Text2d above point circles.
-/// AI: Each card-rendering scene keeps this camera aligned with its 3D card camera.
-#[derive(Clone, Copy, Component, Debug, Default, Eq, PartialEq)]
-pub struct CardPointTextCamera;
-
-#[cfg_attr(feature = "desktop-hot-reload", hot)]
-/// HUMAN: Spawns the persistent AppScene and debug HUD.
-/// AI: AppScene remains present while GameScene, DeckScene, and DebugScene swap on top.
-pub fn setup_app_scene(
-    mut commands: Commands,
-    app_scene_query: Query<Entity, With<AppSceneRoot>>,
-    hud: Option<Res<Hud>>,
-) {
-    if !app_scene_query.is_empty() {
-        return;
-    }
-
-    spawn_app_scene_contents(&mut commands, hud.as_ref().map(|hud| hud.0));
-}
-
-fn spawn_app_scene_contents(commands: &mut Commands, hud_parent: Option<Entity>) -> Entity {
-    let app_scene = commands
-        .spawn((
-            Name::new("AppScene"),
-            AppSceneRoot,
-            AppSceneEntity,
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..Default::default()
-            },
-            Transform::default(),
-            GlobalTransform::default(),
-            Visibility::default(),
-        ))
-        .id();
-    let debug_hud = spawn_debug_hud(commands);
-    if let Some(hud_parent) = hud_parent {
-        commands.entity(hud_parent).add_child(debug_hud);
-    } else {
-        commands.entity(app_scene).add_child(debug_hud);
-    }
-    app_scene
-}
-
 /// HUMAN: Spawns the gameplay sub-screen view.
 /// AI: GameScene is a view, not the persistent scene; keep AppScene parenting intact.
 #[derive(SystemParam)]
@@ -634,6 +447,7 @@ pub struct SetupGameSceneParams<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub active_view: Option<Res<'w, ActiveView>>,
     pub app_scene_query: Query<'w, 's, Entity, With<AppSceneRoot>>,
+    pub app_camera_query: Query<'w, 's, Entity, With<AppSceneCamera>>,
     pub hud: Option<Res<'w, Hud>>,
     pub asset_server: Res<'w, AssetServer>,
     pub camera_defaults: Option<Res<'w, PrimaryCameraDefaults>>,
@@ -652,6 +466,7 @@ pub struct SetupGameSceneParams<'w, 's> {
     pub game_location_model: Option<ResMut<'w, GameLocationModel>>,
     pub match_model: Option<ResMut<'w, MatchModel>>,
     pub card_states: Option<ResMut<'w, CardStateModel>>,
+    pub pending_round_deal: Option<ResMut<'w, PendingRoundDealResource>>,
     pub meshes: ResMut<'w, Assets<Mesh>>,
     pub materials: ResMut<'w, Assets<StandardMaterial>>,
     pub masked_background_materials: Option<ResMut<'w, Assets<CardBackgroundMaskMaterial>>>,
@@ -694,18 +509,36 @@ pub fn setup_game_scene(mut params: SetupGameSceneParams) {
             Some(match_model),
             Some(card_states),
         ) => {
-            reset_two_player_match(
-                match_model.mode,
-                &mut *match_model,
-                &mut *game_deck_model,
-                &mut *game_hand_model,
-                &mut *game_round_model,
-                &mut *game_location_model,
-                Some(&params.location_model_registry),
-                Some(&mut *params.active_locations),
-                Some(&params.active_world_model),
-                player_deck_collection.primary_deck(),
-            );
+            if let Some(pending_round_deal) = params.pending_round_deal.as_deref_mut() {
+                reset_two_player_match_without_starting_round(
+                    match_model.mode,
+                    &mut *match_model,
+                    &mut *game_deck_model,
+                    &mut *game_hand_model,
+                    &mut *game_round_model,
+                    &mut *game_location_model,
+                    Some(&params.location_model_registry),
+                    Some(&mut *params.active_locations),
+                    Some(&params.active_world_model),
+                    player_deck_collection.primary_deck(),
+                );
+                pending_round_deal.is_pending = true;
+                pending_round_deal.is_round_deal_complete = false;
+                pending_round_deal.waits_for_location_intro = true;
+            } else {
+                reset_two_player_match(
+                    match_model.mode,
+                    &mut *match_model,
+                    &mut *game_deck_model,
+                    &mut *game_hand_model,
+                    &mut *game_round_model,
+                    &mut *game_location_model,
+                    Some(&params.location_model_registry),
+                    Some(&mut *params.active_locations),
+                    Some(&params.active_world_model),
+                    player_deck_collection.primary_deck(),
+                );
+            }
             card_states.reset_to_size(game_hand_model.len());
             game_hand_model.cards.clone()
         }
@@ -728,15 +561,26 @@ pub fn setup_game_scene(mut params: SetupGameSceneParams) {
             fallback_game_hand_model.cards.clone()
         }
     };
-    let app_scene_parent = params.app_scene_query.iter().next().or_else(|| {
-        Some(spawn_app_scene_contents(
+    let existing_app_camera = params.app_camera_query.iter().next();
+    let (app_scene_parent, app_camera) = if let Some(app_scene) =
+        params.app_scene_query.iter().next()
+    {
+        (
+            Some(app_scene),
+            ensure_shared_app_camera(&mut params.commands, Some(app_scene), existing_app_camera),
+        )
+    } else {
+        let (app_scene, app_camera) = spawn_app_scene_contents(
             &mut params.commands,
             params.hud.as_ref().map(|hud| hud.0),
-        ))
-    });
+            existing_app_camera,
+        );
+        (Some(app_scene), app_camera)
+    };
     spawn_game_scene_contents(
         &mut params.commands,
         app_scene_parent,
+        app_camera,
         params.hud.as_ref().map(|hud| hud.0),
         &params.asset_server,
         camera_defaults,
@@ -781,50 +625,47 @@ pub fn setup_initial_meta_scene(
     mut commands: Commands,
     active_view: Res<ActiveView>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
     asset_server: Res<AssetServer>,
     matchmaking: Res<MatchmakingModel>,
     settings: Res<MetaGameSettingsModel>,
 ) {
     let app_scene_parent = app_scene_query.single().ok();
+    let app_camera = ensure_shared_app_camera(
+        &mut commands,
+        app_scene_parent,
+        app_camera_query.iter().next(),
+    );
     match *active_view {
         ActiveView::MainMenuScene => {
-            spawn_main_menu_scene_contents(&mut commands, app_scene_parent, &asset_server);
+            spawn_main_menu_scene_contents(
+                &mut commands,
+                app_scene_parent,
+                app_camera,
+                &asset_server,
+            );
         }
         ActiveView::LightningScene => {
-            spawn_lightning_login_scene_contents(&mut commands, app_scene_parent, &asset_server);
+            spawn_lightning_login_scene_contents(
+                &mut commands,
+                app_scene_parent,
+                app_camera,
+                &asset_server,
+            );
         }
         ActiveView::MatchmakingScene => {
-            spawn_matchmaking_scene_contents(&mut commands, app_scene_parent, &matchmaking);
+            spawn_matchmaking_scene_contents(
+                &mut commands,
+                app_scene_parent,
+                app_camera,
+                &matchmaking,
+            );
         }
         ActiveView::SettingsScene => {
-            spawn_settings_scene_contents(&mut commands, app_scene_parent, &settings);
+            spawn_settings_scene_contents(&mut commands, app_scene_parent, app_camera, &settings);
         }
         ActiveView::GameScene | ActiveView::DeckScene | ActiveView::DebugScene => {}
     }
-}
-
-fn spawn_meta_ui_camera(commands: &mut Commands, name: &'static str) -> Entity {
-    commands
-        .spawn((
-            Name::new(name),
-            MetaSceneEntity,
-            Camera2d,
-            Camera {
-                order: 1,
-                clear_color: ClearColorConfig::None,
-                ..Default::default()
-            },
-            IsDefaultUiCamera,
-            PrimaryEguiContext,
-            Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::AutoMin {
-                    min_width: GAME_SCENE_WIDTH,
-                    min_height: GAME_SCENE_HEIGHT,
-                },
-                ..OrthographicProjection::default_2d()
-            }),
-        ))
-        .id()
 }
 
 fn spawn_screen_root(
@@ -923,10 +764,12 @@ fn spawn_menu_button_with_optional_icon(
 fn spawn_main_menu_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
+    app_camera: Entity,
     asset_server: &AssetServer,
 ) {
     let root = spawn_screen_root(commands, app_scene_parent, MainMenuScreenBundle::default());
-    let ui_camera = spawn_meta_ui_camera(commands, "MainMenuScene UI Camera");
+    let ui_camera = app_camera;
+    commands.entity(root).insert(UiTargetCamera(ui_camera));
     commands.entity(root).with_children(|parent| {
         spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::PlayGame, false);
         parent
@@ -959,16 +802,17 @@ fn spawn_main_menu_scene_contents(
                 );
             });
     });
-    commands.entity(root).add_child(ui_camera);
 }
 
 fn spawn_lightning_login_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
+    app_camera: Entity,
     asset_server: &AssetServer,
 ) {
     let root = spawn_screen_root(commands, app_scene_parent, LightningScreenBundle::default());
-    let ui_camera = spawn_meta_ui_camera(commands, "LightningScene UI Camera");
+    let ui_camera = app_camera;
+    commands.entity(root).insert(UiTargetCamera(ui_camera));
     commands.entity(root).with_children(|parent| {
         spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::PlayGame, false);
         parent.spawn((
@@ -1046,12 +890,12 @@ fn spawn_lightning_login_scene_contents(
                 );
             });
     });
-    commands.entity(root).add_child(ui_camera);
 }
 
 fn spawn_matchmaking_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
+    app_camera: Entity,
     matchmaking: &MatchmakingModel,
 ) {
     let root = spawn_screen_root(
@@ -1059,7 +903,8 @@ fn spawn_matchmaking_scene_contents(
         app_scene_parent,
         MatchmakingScreenBundle::default(),
     );
-    let ui_camera = spawn_meta_ui_camera(commands, "MatchmakingScene UI Camera");
+    let ui_camera = app_camera;
+    commands.entity(root).insert(UiTargetCamera(ui_camera));
     commands.entity(root).with_children(|parent| {
         parent
             .spawn((
@@ -1126,7 +971,6 @@ fn spawn_matchmaking_scene_contents(
                 ));
             });
     });
-    commands.entity(root).add_child(ui_camera);
 }
 
 fn spawn_matchmaking_text_panel(
@@ -1170,10 +1014,12 @@ fn spawn_matchmaking_text_panel(
 fn spawn_settings_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
+    app_camera: Entity,
     settings: &MetaGameSettingsModel,
 ) {
     let root = spawn_screen_root(commands, app_scene_parent, SettingsScreenBundle::default());
-    let ui_camera = spawn_meta_ui_camera(commands, "SettingsScene UI Camera");
+    let ui_camera = app_camera;
+    commands.entity(root).insert(UiTargetCamera(ui_camera));
     commands.entity(root).with_children(|parent| {
         spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::Settings, false);
         parent
@@ -1245,7 +1091,6 @@ fn spawn_settings_scene_contents(
                 );
             });
     });
-    commands.entity(root).add_child(ui_camera);
 }
 
 /// HUMAN: Builds one settings column with title and two action buttons.
@@ -1281,6 +1126,7 @@ fn spawn_settings_group(
                     parent,
                     "Settings Button",
                     label,
+                    action,
                     MetaScreenButton::new(action),
                 );
             }
@@ -1293,6 +1139,7 @@ fn spawn_settings_button(
     parent: &mut ChildSpawnerCommands,
     name: &'static str,
     text: impl Into<String>,
+    action: MetaScreenButtonAction,
     marker: impl Bundle,
 ) {
     parent
@@ -1310,6 +1157,7 @@ fn spawn_settings_button(
         .with_children(|parent| {
             parent.spawn((
                 Text::new(text.into()),
+                SettingsButtonLabel::new(action),
                 TextFont {
                     font_size: 24.0,
                     ..Default::default()
@@ -1322,6 +1170,7 @@ fn spawn_settings_button(
 fn spawn_game_scene_contents(
     commands: &mut Commands,
     app_scene_parent: Option<Entity>,
+    app_camera: Entity,
     hud_parent: Option<Entity>,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
@@ -1340,23 +1189,20 @@ fn spawn_game_scene_contents(
     materials: &mut Assets<StandardMaterial>,
     mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
 ) {
-    let ui_camera = spawn_game_scene_camera(commands);
+    let ui_camera = app_camera;
     let mut scene = commands.spawn(GameScreenBundle::default());
+    scene.insert(UiTargetCamera(ui_camera));
     scene.with_children(|parent| {
         spawn_game_scene_ui(
             parent,
             ui_camera,
             asset_server,
-            location_model_registry,
-            active_locations,
             game_round_model,
-            game_location_model,
             slot_board,
         );
     });
     let scene_entity = scene.id();
-    spawn_game_scene_card_camera(commands, camera_defaults);
-    spawn_game_scene_card_overlay_camera(commands, camera_defaults);
+    let _ = camera_defaults;
     spawn_card_point_text_camera(
         commands,
         "GameScene Card Point Text Camera",
@@ -1367,6 +1213,16 @@ fn spawn_game_scene_contents(
         asset_server,
         world_model_registry,
         active_world_model,
+        meshes,
+        materials,
+    );
+    spawn_location_bundle_surfaces(
+        commands,
+        asset_server,
+        slot_board,
+        location_model_registry,
+        active_locations,
+        game_location_model,
         meshes,
         materials,
     );
@@ -1477,12 +1333,9 @@ fn spawn_drop_target_hints(parent: &mut ChildSpawnerCommands, slot_board: &CardS
 
 fn spawn_game_scene_ui(
     parent: &mut ChildSpawnerCommands,
-    _ui_camera: Entity,
+    ui_camera: Entity,
     asset_server: &AssetServer,
-    location_model_registry: &LocationModelRegistry,
-    active_locations: &ActiveLocations,
     game_round_model: &GameRoundModel,
-    game_location_model: &GameLocationModel,
     slot_board: &CardSlotBoardModel,
 ) {
     parent
@@ -1500,14 +1353,7 @@ fn spawn_game_scene_ui(
             Visibility::Visible,
         ))
         .with_children(|parent| {
-            spawn_location_area_bundles(
-                parent,
-                asset_server,
-                slot_board,
-                location_model_registry,
-                active_locations,
-                game_location_model,
-            );
+            spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::PlayGame, false);
             spawn_drop_target_hints(parent, slot_board);
             spawn_local_player_hand(parent);
             spawn_game_controls(parent, asset_server, game_round_model);
@@ -1524,34 +1370,43 @@ fn spawn_game_scene_world_background(
 ) -> Entity {
     let world_model = world_model_registry.active_world_model(active_world_model);
     let background_size = game_scene_world_background_size();
+    let background_mesh = meshes.add(Rectangle::new(background_size.x, background_size.y));
+    let background_material = card_model_material(
+        asset_server,
+        materials,
+        world_model.background_texture,
+        AlphaMode::Opaque,
+        BACKGROUND_DEPTH_BIAS,
+    );
+    let fade_overlay_material = world_fade_overlay_material(materials, 1.0);
     commands
-        .spawn((
-            Name::new(format!("{} World Background", world_model.display_name)),
-            WorldBackground,
-            GameSceneEntity,
-            Mesh3d(meshes.add(Rectangle::new(background_size.x, background_size.y))),
-            MeshMaterial3d(card_model_material(
-                asset_server,
-                materials,
-                world_model.background_texture,
-                AlphaMode::Opaque,
-                BACKGROUND_DEPTH_BIAS,
-            )),
+        .spawn(WorldViewBundle::new(
+            world_model.display_name,
+            active_world_model.index,
+            background_mesh.clone(),
+            background_material,
             Transform::from_translation(Vec3::new(0.0, 0.0, GAME_SCENE_WORLD_BACKGROUND_Z)),
-            Visibility::Visible,
         ))
+        .with_children(|parent| {
+            parent.spawn(WorldFadeOverlayBundle::new(
+                background_mesh,
+                fade_overlay_material,
+            ));
+        })
         .id()
 }
 
-/// HUMAN: Spawns one visual overlay in each runtime location area.
-/// AI: Draws the bundle background at the bundle rect and overlays the yellow border.
-fn spawn_location_area_bundles(
-    parent: &mut ChildSpawnerCommands,
+/// HUMAN: Spawns the 3D background surface for each GameScene location bundle.
+/// AI: World-space placement comes from the same safe-area location rects as card slots.
+fn spawn_location_bundle_surfaces(
+    commands: &mut Commands,
     asset_server: &AssetServer,
     slot_board: &CardSlotBoardModel,
     location_model_registry: &LocationModelRegistry,
     active_locations: &ActiveLocations,
     game_location_model: &GameLocationModel,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
 ) {
     let selected_locations = location_model_registry.selected_locations(active_locations);
 
@@ -1559,90 +1414,259 @@ fn spawn_location_area_bundles(
         let Some(area_rect) = slot_board.location_area_rect(location_index) else {
             continue;
         };
+        let Some(location) = selected_locations.get(location_index) else {
+            continue;
+        };
+        let location_definition = game_location_model.definition(location_index);
+        let reveal_state = if location_definition
+            .is_some_and(|definition| definition.is_open(game_location_model.round))
+        {
+            LocationRevealState::Revealed
+        } else {
+            LocationRevealState::Unrevealed
+        };
+        let title = location_definition
+            .map(|definition| definition.display_title(game_location_model.round))
+            .unwrap_or(location.display_name);
+        let body = location_definition
+            .map(|definition| definition.display_body(game_location_model.round))
+            .unwrap_or("");
         let bundle_size = LocationViewBundle::scaled_size(area_rect);
+        let world_width = game_scene_world_width_for_game_scene_width(
+            bundle_size.x,
+            GAME_SCENE_LOCATION_BUNDLE_Z,
+        );
+        let world_height = game_scene_world_height_for_game_scene_height(
+            bundle_size.y,
+            GAME_SCENE_LOCATION_BUNDLE_Z,
+        );
+        let game_scene_center = Vec2::new(
+            area_rect.left + (area_rect.width * 0.5),
+            area_rect.top + (area_rect.height * 0.5),
+        );
+        let transform = Transform {
+            translation: game_scene_world_position_from_game_scene(
+                game_scene_center,
+                GAME_SCENE_LOCATION_BUNDLE_Z,
+            ),
+            scale: Vec3::splat(LocationBundleIntroSample::at(location_index, 0.0).scale),
+            ..Default::default()
+        };
+        let intro_sample = LocationBundleIntroSample::at(location_index, 0.0);
+        let border_color = game_location_model.border_color(location_index);
+        let border_material = flat_color_material(
+            materials,
+            color_with_alpha(border_color, intro_sample.opacity),
+        );
+        let point_circle_mesh = meshes.add(Circle::new(
+            game_scene_world_height_for_game_scene_height(
+                LOCATION_POINT_VIEW_HEIGHT,
+                GAME_SCENE_LOCATION_BUNDLE_Z,
+            ) * 0.5,
+        ));
+        let location_score = LocationScoreModel::empty(location_index);
 
-        if let Some(location) = selected_locations.get(location_index) {
-            let location_definition = game_location_model.definition(location_index);
-            let title = location_definition
-                .map(|definition| definition.display_title(game_location_model.round))
-                .unwrap_or(location.display_name);
-            let body = location_definition
-                .map(|definition| definition.display_body(game_location_model.round))
-                .unwrap_or("");
-            let border_color = game_location_model.border_color(location_index);
-            let mut bundle_entity = parent.spawn((
-                LocationViewBundle::new(area_rect),
-                GameLocation::new(
+        commands
+            .spawn((
+                Name::new(format!("location_bundle Surface {location_index}")),
+                LocationBundle::new(location_index),
+                LocationBundleSurface::new(location_index),
+                LocationBundleOverlay::new(location_index),
+                LocationBundleIntro::new(location_index),
+                GameLocation::new(location_index, reveal_state),
+                GameSceneEntity,
+                Mesh3d(meshes.add(Rectangle::new(world_width, world_height))),
+                MeshMaterial3d(location_bundle_material(
+                    asset_server,
+                    materials,
+                    location.texture,
+                    intro_sample.opacity,
+                )),
+                transform,
+                Visibility::Visible,
+                NoCpuCulling,
+                NoFrustumCulling,
+            ))
+            .with_children(|parent| {
+                spawn_location_border_meshes(
+                    parent,
                     location_index,
-                    if location_definition
-                        .is_some_and(|definition| definition.is_open(game_location_model.round))
-                    {
-                        LocationRevealState::Revealed
-                    } else {
-                        LocationRevealState::Unrevealed
-                    },
-                ),
-            ));
-            bundle_entity.with_children(|parent| {
-                parent.spawn((
-                    Name::new(format!("Game Location Background {location_index}")),
-                    ImageNode::new(asset_server.load(location.texture))
-                        .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(0.0),
-                        top: Val::Px(0.0),
-                        width: Val::Px(bundle_size.x),
-                        height: Val::Px(bundle_size.y),
-                        ..Default::default()
-                    },
-                ));
-
-                spawn_location_title_and_body(parent, location_index, title, body, bundle_size);
-
-                parent.spawn((
-                    Name::new(format!("Game Location Border {location_index}")),
-                    GameLocationBorder::new(location_index),
-                    BackgroundColor(Color::NONE),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(0.0),
-                        top: Val::Px(0.0),
-                        width: Val::Px(bundle_size.x),
-                        height: Val::Px(bundle_size.y),
-                        border: UiRect::all(Val::Px(LocationViewBundle::BORDER_THICKNESS)),
-                        ..Default::default()
-                    },
-                    BorderColor::all(border_color),
-                    GlobalZIndex(2),
-                ));
-
-                let location_score = LocationScoreModel::empty(location_index);
+                    world_width,
+                    world_height,
+                    border_material,
+                    meshes,
+                );
+                spawn_location_title_and_body_3d(
+                    parent,
+                    location_index,
+                    title,
+                    body,
+                    world_height,
+                    intro_sample.opacity,
+                );
                 spawn_location_power_point_view(
                     parent,
-                    asset_server,
+                    materials,
                     location_score.opponent_total,
                     location_index,
                     CardSlotSide::Opponent,
-                    bundle_size.x,
+                    world_height,
+                    point_circle_mesh.clone(),
                     true,
+                    intro_sample.opacity,
                 );
                 spawn_location_power_point_view(
                     parent,
-                    asset_server,
+                    materials,
                     location_score.local_total,
                     location_index,
                     CardSlotSide::LocalPlayer,
-                    bundle_size.x,
+                    world_height,
+                    point_circle_mesh,
                     false,
+                    intro_sample.opacity,
                 );
             });
-        }
     }
 }
 
+fn flat_color_material(
+    materials: &mut Assets<StandardMaterial>,
+    color: Color,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color: color,
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        unlit: true,
+        ..Default::default()
+    })
+}
+
+fn location_bundle_material(
+    asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
+    texture_path: &'static str,
+    initial_opacity: f32,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color: Color::srgba(1.0, 1.0, 1.0, initial_opacity.clamp(0.0, 1.0)),
+        base_color_texture: Some(asset_server.load(texture_path)),
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        unlit: true,
+        ..Default::default()
+    })
+}
+
+/// HUMAN: Spawns four 3D strips that form the border of a location surface.
+/// AI: Keep these as children of the location mesh so background and border share projection.
+fn spawn_location_border_meshes(
+    parent: &mut ChildSpawnerCommands,
+    location_index: usize,
+    world_width: f32,
+    world_height: f32,
+    border_material: Handle<StandardMaterial>,
+    meshes: &mut Assets<Mesh>,
+) {
+    let horizontal_thickness = game_scene_world_height_for_game_scene_height(
+        LocationViewBundle::BORDER_THICKNESS,
+        GAME_SCENE_LOCATION_BUNDLE_Z,
+    );
+    let vertical_thickness = game_scene_world_width_for_game_scene_width(
+        LocationViewBundle::BORDER_THICKNESS,
+        GAME_SCENE_LOCATION_BUNDLE_Z,
+    );
+    let half_width = world_width * 0.5;
+    let half_height = world_height * 0.5;
+
+    for (name, size, translation) in [
+        (
+            "Top",
+            Vec2::new(world_width, horizontal_thickness),
+            Vec3::new(0.0, half_height, LAYER_RENDER_Z_STEP),
+        ),
+        (
+            "Bottom",
+            Vec2::new(world_width, horizontal_thickness),
+            Vec3::new(0.0, -half_height, LAYER_RENDER_Z_STEP),
+        ),
+        (
+            "Left",
+            Vec2::new(vertical_thickness, world_height),
+            Vec3::new(-half_width, 0.0, LAYER_RENDER_Z_STEP),
+        ),
+        (
+            "Right",
+            Vec2::new(vertical_thickness, world_height),
+            Vec3::new(half_width, 0.0, LAYER_RENDER_Z_STEP),
+        ),
+    ] {
+        parent.spawn((
+            Name::new(format!("Game Location Border {location_index} {name}")),
+            GameLocationBorder::new(location_index),
+            LocationBundleIntroVisual::new(location_index),
+            Mesh3d(meshes.add(Rectangle::new(size.x, size.y))),
+            MeshMaterial3d(border_material.clone()),
+            Transform::from_translation(translation),
+            NoCpuCulling,
+            NoFrustumCulling,
+        ));
+    }
+}
+
+/// HUMAN: Spawns location title/body as world-space text above the location surface.
+/// AI: Use Text2d here so location copy follows the same 3D projection as the surface.
+fn spawn_location_title_and_body_3d(
+    parent: &mut ChildSpawnerCommands,
+    location_index: usize,
+    title: &'static str,
+    body: &'static str,
+    world_height: f32,
+    initial_opacity: f32,
+) {
+    parent.spawn((
+        Name::new("Game Location Title Text"),
+        GameLocationTitleText::new(location_index),
+        LocationBundleIntroVisual::new(location_index),
+        Text2d::new(title),
+        TextLayout::new_with_justify(Justify::Center),
+        TextFont {
+            font_size: 20.0,
+            ..Default::default()
+        },
+        TextColor(Color::srgba(1.0, 1.0, 1.0, initial_opacity.clamp(0.0, 1.0))),
+        Anchor::CENTER,
+        Transform::from_translation(Vec3::new(
+            0.0,
+            world_height * 0.2,
+            LAYER_RENDER_Z_STEP * 2.0,
+        )),
+        NoCpuCulling,
+    ));
+    parent.spawn((
+        Name::new("Game Location Body Text"),
+        GameLocationBodyText::new(location_index),
+        LocationBundleIntroVisual::new(location_index),
+        Text2d::new(body),
+        TextLayout::new_with_justify(Justify::Center),
+        TextFont {
+            font_size: 13.0,
+            ..Default::default()
+        },
+        TextColor(Color::srgba(1.0, 1.0, 1.0, initial_opacity.clamp(0.0, 1.0))),
+        Anchor::CENTER,
+        Transform::from_translation(Vec3::new(
+            0.0,
+            world_height * 0.04,
+            LAYER_RENDER_Z_STEP * 2.0,
+        )),
+        NoCpuCulling,
+    ));
+}
+
 fn game_scene_perspective_view_size_at_z(z: f32) -> Vec2 {
-    let distance = (GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
+    let distance = (PRIMARY_CAMERA_DISTANCE_FROM_ORIGIN - z).abs();
     let height = 2.0 * (PRIMARY_CAMERA_FOV_RADIANS * 0.5).tan() * distance;
 
     Vec2::new(height * GAME_SCENE_ASPECT_RATIO, height)
@@ -1652,7 +1676,6 @@ fn game_scene_perspective_view_size_at_z(z: f32) -> Vec2 {
 /// AI: Keep this tied to the GameScene camera projection so background tests match runtime framing.
 fn game_scene_world_background_size() -> Vec2 {
     game_scene_perspective_view_size_at_z(GAME_SCENE_WORLD_BACKGROUND_Z)
-        * GAME_SCENE_WORLD_BACKGROUND_BLEED
 }
 
 /// HUMAN: Scales the deck card to fill most of the centered presentation view.
@@ -1683,16 +1706,16 @@ fn game_scene_position_from_world_position(world_position: Vec3) -> Vec2 {
     )
 }
 
-fn game_scene_world_units_per_game_scene_pixel(z: f32) -> f32 {
-    game_scene_perspective_view_size_at_z(z).y / GAME_SCENE_HEIGHT
-}
-
 fn game_scene_text2d_position_from_game_scene(game_scene_position: Vec2, z: f32) -> Vec3 {
     Vec3::new(
         game_scene_position.x - (GAME_SCENE_WIDTH * 0.5),
         (GAME_SCENE_HEIGHT * 0.5) - game_scene_position.y,
         z,
     )
+}
+
+fn game_scene_world_units_per_game_scene_pixel(z: f32) -> f32 {
+    game_scene_perspective_view_size_at_z(z).y / GAME_SCENE_HEIGHT
 }
 
 fn game_scene_world_height_for_game_scene_height(game_scene_height: f32, z: f32) -> f32 {
@@ -1703,67 +1726,19 @@ fn game_scene_world_width_for_game_scene_width(game_scene_width: f32, z: f32) ->
     game_scene_perspective_view_size_at_z(z).x * (game_scene_width / GAME_SCENE_WIDTH)
 }
 
-fn spawn_location_title_and_body(
-    parent: &mut ChildSpawnerCommands,
-    location_index: usize,
-    title: &'static str,
-    body: &'static str,
-    bundle_size: Vec2,
-) {
-    parent.spawn((
-        Name::new("Game Location Title Text"),
-        GameLocationTitleText::new(location_index),
-        Text::new(title),
-        TextLayout::new_with_justify(Justify::Center),
-        TextFont {
-            font_size: 20.0,
-            ..Default::default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(8.0),
-            top: Val::Px(bundle_size.y * 0.3),
-            width: Val::Px(bundle_size.x - 16.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..Default::default()
-        },
-        GlobalZIndex(3),
-    ));
-    parent.spawn((
-        Name::new("Game Location Body Text"),
-        GameLocationBodyText::new(location_index),
-        Text::new(body),
-        TextLayout::new_with_justify(Justify::Center),
-        TextFont {
-            font_size: 13.0,
-            ..Default::default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(8.0),
-            top: Val::Px((bundle_size.y * 0.3) + 50.0),
-            width: Val::Px(bundle_size.x - 16.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..Default::default()
-        },
-        GlobalZIndex(3),
-    ));
-}
-
 /// HUMAN: Refreshes visible location reveal state after round changes.
 /// AI: Keep spawned GameScene location components in sync with GameLocationModel.
 pub fn update_game_location_views_system(
     game_location_model: Option<Res<GameLocationModel>>,
+    mut materials: Option<ResMut<Assets<StandardMaterial>>>,
     mut location_query: Query<&mut GameLocation>,
     mut text_queries: ParamSet<(
         Query<(&GameLocationTitleText, &mut Text)>,
         Query<(&GameLocationBodyText, &mut Text)>,
+        Query<(&GameLocationTitleText, &mut Text2d)>,
+        Query<(&GameLocationBodyText, &mut Text2d)>,
     )>,
-    mut border_query: Query<(&GameLocationBorder, &mut BorderColor)>,
+    border_query: Query<(&GameLocationBorder, &MeshMaterial3d<StandardMaterial>)>,
 ) {
     let Some(game_location_model) = game_location_model.as_deref() else {
         return;
@@ -1794,76 +1769,324 @@ pub fn update_game_location_views_system(
         }
     }
 
-    for (border, mut color) in &mut border_query {
-        *color = BorderColor::all(game_location_model.border_color(border.location_index));
+    for (title, mut text) in &mut text_queries.p2() {
+        if let Some(definition) = game_location_model.definition(title.location_index) {
+            text.0 = definition
+                .display_title(game_location_model.round)
+                .to_string();
+        }
+    }
+
+    for (body, mut text) in &mut text_queries.p3() {
+        if let Some(definition) = game_location_model.definition(body.location_index) {
+            text.0 = definition
+                .display_body(game_location_model.round)
+                .to_string();
+        }
+    }
+
+    if let Some(materials) = materials.as_deref_mut() {
+        for (border, material) in &border_query {
+            if let Some(material) = materials.get_mut(&material.0) {
+                let alpha = material.base_color.to_srgba().alpha;
+                material.base_color = color_with_alpha(
+                    game_location_model.border_color(border.location_index),
+                    alpha,
+                );
+                material.alpha_mode = AlphaMode::Blend;
+            }
+        }
     }
 }
 
+/// HUMAN: Runs the start-of-game location reveal sequence.
+/// AI: One system drives 3D surface opacity and safe-area overlay opacity/scale together.
+pub fn location_intro_update_system(
+    time: Res<Time>,
+    world_query: Query<&WorldThemeTransition, With<WorldBackground>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut intro_query: Query<(
+        &mut LocationBundleIntro,
+        &mut Transform,
+        Option<&MeshMaterial3d<StandardMaterial>>,
+    )>,
+    mut visual_query: Query<(
+        &LocationBundleIntroVisual,
+        Option<&mut ImageNode>,
+        Option<&mut BackgroundColor>,
+        Option<&mut BorderColor>,
+        Option<&mut TextColor>,
+        Option<&MeshMaterial3d<StandardMaterial>>,
+    )>,
+) {
+    if !world_intro_sequence_complete(&world_query) {
+        return;
+    }
+
+    let mut samples: [Option<LocationBundleIntroSample>; CARD_SLOT_LOCATION_COUNT] =
+        [None; CARD_SLOT_LOCATION_COUNT];
+
+    for (mut intro, mut transform, material) in &mut intro_query {
+        intro.elapsed_seconds += time.delta_secs();
+        let sample = intro.sample();
+        transform.scale = Vec3::splat(sample.scale);
+
+        if let Some(material) = material
+            && let Some(material) = materials.get_mut(&material.0)
+        {
+            material.base_color = color_with_alpha(material.base_color, sample.opacity);
+            material.alpha_mode = AlphaMode::Blend;
+        }
+
+        if intro.location_index < CARD_SLOT_LOCATION_COUNT {
+            samples[intro.location_index] = Some(sample);
+        }
+    }
+
+    for (visual, image, background, border, text, material) in &mut visual_query {
+        let Some(sample) = samples.get(visual.location_index).copied().flatten() else {
+            continue;
+        };
+
+        if let Some(mut image) = image {
+            image.color = color_with_alpha(image.color, sample.opacity);
+        }
+        if let Some(mut background) = background {
+            background.0 = color_with_alpha(background.0, sample.opacity);
+        }
+        if let Some(mut border) = border {
+            border.top = color_with_alpha(border.top, sample.opacity);
+            border.right = color_with_alpha(border.right, sample.opacity);
+            border.bottom = color_with_alpha(border.bottom, sample.opacity);
+            border.left = color_with_alpha(border.left, sample.opacity);
+        }
+        if let Some(mut text) = text {
+            text.0 = color_with_alpha(text.0, sample.opacity);
+        }
+        if let Some(material) = material
+            && let Some(material) = materials.get_mut(&material.0)
+        {
+            material.base_color = color_with_alpha(material.base_color, sample.opacity);
+            material.alpha_mode = AlphaMode::Blend;
+        }
+    }
+}
+
+fn world_intro_sequence_complete(
+    world_query: &Query<&WorldThemeTransition, With<WorldBackground>>,
+) -> bool {
+    world_query
+        .iter()
+        .all(|transition| transition.phase == WorldThemeTransitionPhase::Idle)
+}
+
+fn location_intro_sequence_complete(intro_query: &Query<&LocationBundleIntro>) -> bool {
+    let mut saw_intro = false;
+    let mut completed_locations = [false; CARD_SLOT_LOCATION_COUNT];
+    let mut elapsed_seconds = None;
+    for intro in intro_query {
+        saw_intro = true;
+        elapsed_seconds = Some(intro.elapsed_seconds);
+        if intro.location_index < CARD_SLOT_LOCATION_COUNT && intro.sample().opacity >= 1.0 {
+            completed_locations[intro.location_index] = true;
+        }
+    }
+
+    if !saw_intro {
+        return true;
+    }
+
+    let Some(elapsed_seconds) = elapsed_seconds else {
+        return false;
+    };
+    let hold_gate_seconds = location_intro_hold_gate_seconds(CARD_SLOT_LOCATION_COUNT);
+
+    completed_locations.iter().all(|is_complete| *is_complete)
+        && elapsed_seconds >= hold_gate_seconds
+}
+
+/// HUMAN: Starts pending round dealing only after the active Round Start sequence completes.
+/// AI: Round one waits for location intro; later rounds wait for this explicit sequence boundary.
+pub fn start_pending_round_deal_after_round_start_system(
+    active_view: Option<Res<ActiveView>>,
+    mut pending_round_deal: ResMut<PendingRoundDealResource>,
+    intro_query: Query<&LocationBundleIntro>,
+    mut game_deck_model: ResMut<GameDeckModel>,
+    mut game_hand_model: ResMut<GameHandModel>,
+    game_round_model: Res<GameRoundModel>,
+    mut match_model: ResMut<MatchModel>,
+    mut card_states: ResMut<CardStateModel>,
+) {
+    let waits_for_location_intro = pending_round_deal.waits_for_location_intro;
+    if !is_game_scene_active(active_view.as_deref())
+        || !pending_round_deal.is_pending
+        || (waits_for_location_intro && !location_intro_sequence_complete(&intro_query))
+    {
+        return;
+    }
+
+    if waits_for_location_intro {
+        if let Some(elapsed_seconds) = intro_query.iter().next().map(|intro| intro.elapsed_seconds)
+        {
+            pending_round_deal.location_intro_completed_event_count += 1;
+            pending_round_deal.last_location_intro_completed_elapsed_ms =
+                (elapsed_seconds.max(0.0) * 1000.0).round() as u64;
+            info!(
+                "GameScene location intro sequence complete: event={}, elapsed_ms={}",
+                pending_round_deal.location_intro_completed_event_count,
+                pending_round_deal.last_location_intro_completed_elapsed_ms
+            );
+        }
+    }
+
+    let near_count_before = game_hand_model.len();
+    pending_round_deal.is_round_deal_complete = false;
+    start_match_round(
+        &mut match_model,
+        &game_round_model,
+        &mut game_deck_model,
+        &mut game_hand_model,
+    );
+    let near_count_after = game_hand_model.len();
+    if near_count_after > near_count_before {
+        pending_round_deal.near_deal_completed_event_count += 1;
+        pending_round_deal.last_near_deal_completed_card_count =
+            near_count_after - near_count_before;
+        info!(
+            "GameScene near deal complete: event={}, dealt_cards={}",
+            pending_round_deal.near_deal_completed_event_count,
+            pending_round_deal.last_near_deal_completed_card_count
+        );
+    }
+    card_states.ensure_size(game_hand_model.len());
+    pending_round_deal.is_pending = false;
+    pending_round_deal.waits_for_location_intro = false;
+}
+
+/// HUMAN: Opens player interaction only after both local and CPU dealt hand visuals settle.
+/// AI: Keeps the setup sequence world fade -> locations -> deal -> player input deterministic.
+pub fn round_deal_completion_update_system(
+    active_view: Option<Res<ActiveView>>,
+    mut pending_round_deal: ResMut<PendingRoundDealResource>,
+    card_defaults: Res<CardInspectionDefaults>,
+    card_states: Res<CardStateModel>,
+    local_hand_query: Query<(&HandCardGestureTarget, &Transform), With<CardGestureView>>,
+    cpu_hand_query: Query<Option<&CardAnimation>, With<CpuHandCardView>>,
+) {
+    if !is_game_scene_active(active_view.as_deref())
+        || pending_round_deal.is_pending
+        || pending_round_deal.is_round_deal_complete
+    {
+        return;
+    }
+
+    if round_deal_visuals_are_complete(
+        &card_defaults,
+        &card_states,
+        &local_hand_query,
+        &cpu_hand_query,
+    ) {
+        pending_round_deal.is_round_deal_complete = true;
+    }
+}
+
+fn round_deal_visuals_are_complete(
+    card_defaults: &CardInspectionDefaults,
+    card_states: &CardStateModel,
+    local_hand_query: &Query<(&HandCardGestureTarget, &Transform), With<CardGestureView>>,
+    cpu_hand_query: &Query<Option<&CardAnimation>, With<CpuHandCardView>>,
+) -> bool {
+    let hand_indices = card_states.indices_with_state(CardState::Hand);
+    for (order_index, hand_index) in hand_indices.iter().enumerate() {
+        let Some((_, transform)) = local_hand_query
+            .iter()
+            .find(|(target, _)| target.hand_index == *hand_index)
+        else {
+            return false;
+        };
+        let target_transform =
+            hand_source_transform(order_index, hand_indices.len(), card_defaults);
+        if transform.translation.distance(target_transform.translation) > 0.01
+            || transform.scale.distance(target_transform.scale) > 0.01
+            || transform.rotation.angle_between(target_transform.rotation) > 0.01
+        {
+            return false;
+        }
+    }
+
+    cpu_hand_query.iter().all(|animation| animation.is_none())
+}
+
+fn color_with_alpha(color: Color, alpha: f32) -> Color {
+    let srgba = color.to_srgba();
+    if srgba.alpha <= 0.0 && srgba.red == 0.0 && srgba.green == 0.0 && srgba.blue == 0.0 {
+        return Color::NONE;
+    }
+    Color::srgba(srgba.red, srgba.green, srgba.blue, alpha.clamp(0.0, 1.0))
+}
+
 /// HUMAN: Spawns top and bottom location power badges centered on bundle edges.
-/// AI: Reuses the point root bundle and child circle/text structure used by card badges.
+/// AI: Keeps text world-space with its location parent so the 3D camera can render it.
 fn spawn_location_power_point_view(
     parent: &mut ChildSpawnerCommands,
-    _asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
     model: PowerPointModel,
     location_index: usize,
     side: CardSlotSide,
-    location_width: f32,
+    location_world_height: f32,
+    circle_mesh: Handle<Mesh>,
     is_top: bool,
+    initial_opacity: f32,
 ) {
     let point_model = PointModel::from_power_point(PointType::LocationPower, model);
-    let point_width = LOCATION_POINT_VIEW_WIDTH;
-    let point_height = LOCATION_POINT_VIEW_HEIGHT;
-    let point_offset = LOCATION_POINT_VIEW_HALF_HEIGHT;
-    let x_offset = (location_width - point_width) / 2.0;
-    let mut node = Node {
-        width: Val::Px(point_width),
-        height: Val::Px(point_height),
-        display: Display::Flex,
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        position_type: PositionType::Absolute,
-        left: Val::Px(x_offset),
-        ..Default::default()
-    };
-
-    if is_top {
-        node.top = Val::Px(-point_offset);
+    let point_y = if is_top {
+        location_world_height * 0.5
     } else {
-        node.bottom = Val::Px(-point_offset);
-    }
+        -location_world_height * 0.5
+    };
+    let circle_material = flat_color_material(
+        materials,
+        color_with_alpha(point_model.background_color(), initial_opacity),
+    );
 
     parent
         .spawn((
             PointViewBundle::new("PowerPointView", point_model),
             PointLocationView::new(location_index, side),
-            node,
-            GlobalZIndex(3),
+            Transform::from_translation(Vec3::new(
+                0.0,
+                point_y,
+                PointViewLayering::SURFACE_LOCAL_Z,
+            )),
         ))
         .with_children(|parent| {
             parent.spawn((
                 Name::new("PowerPointView Circle"),
                 PointViewCircle::new(VisualModificationTarget::LocationTotalPointCircle),
-                BackgroundColor(point_model.background_color()),
-                BorderColor::all(Color::NONE),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    width: Val::Px(point_width),
-                    height: Val::Px(point_height),
-                    border_radius: BorderRadius::all(Val::Px(point_height * 0.5)),
-                    ..Default::default()
-                },
+                Mesh3d(circle_mesh),
+                MeshMaterial3d(circle_material),
+                LocationBundleIntroVisual::new(location_index),
+                Transform::from_translation(Vec3::new(0.0, 0.0, PointViewLayering::CIRCLE_LOCAL_Z)),
+                NoCpuCulling,
+                NoFrustumCulling,
             ));
             parent.spawn((
                 Name::new("PowerPointView Text"),
-                Text::new(point_model.display_text()),
+                LocationBundleIntroVisual::new(location_index),
+                Text2d::new(point_model.display_text()),
                 TextFont {
-                    font_size: 22.0,
+                    font_size: LOCATION_POINT_TEXT_FONT_SIZE,
                     ..Default::default()
                 },
-                TextColor(point_model.text_color()),
+                TextColor(color_with_alpha(point_model.text_color(), initial_opacity)),
                 TextLayout::new_with_justify(Justify::Center),
+                Anchor::CENTER,
+                Transform::from_translation(Vec3::new(
+                    0.0,
+                    0.0,
+                    PointViewLayering::TEXT_OVERLAY_LOCAL_Z,
+                )),
+                NoCpuCulling,
             ));
         });
 }
@@ -1934,7 +2157,7 @@ pub fn update_location_power_points(
     game_hand_model: Option<Res<GameHandModel>>,
     match_model: Option<Res<MatchModel>>,
     mut power_query: Query<(&PointLocationView, &mut PointView, &Children)>,
-    mut text_query: Query<&mut Text>,
+    mut text_queries: ParamSet<(Query<&mut Text>, Query<&mut Text2d>)>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
         return;
@@ -1964,7 +2187,10 @@ pub fn update_location_power_points(
         power_view.model = next_model;
         let display_text = next_model.display_text();
         for child in children.iter() {
-            if let Ok(mut text) = text_query.get_mut(child) {
+            if let Ok(mut text) = text_queries.p0().get_mut(child) {
+                text.0 = display_text.clone();
+            }
+            if let Ok(mut text) = text_queries.p1().get_mut(child) {
                 text.0 = display_text.clone();
             }
         }
@@ -1990,8 +2216,12 @@ fn location_side_power_total(
                     CardSlotSide::LocalPlayer => MatchPlayerSide::Near,
                     CardSlotSide::Opponent => MatchPlayerSide::Far,
                 };
-                match_model.placement_visibility(owner, slot.location_index, slot.slot_index)
-                    == PlacementVisibility::Revealed
+                match_model.placements.iter().any(|placement| {
+                    placement.owner == owner
+                        && placement.location_index == slot.location_index
+                        && placement.slot_index == slot.slot_index
+                        && placement.visibility == PlacementVisibility::Revealed
+                })
             })
         })
         .filter_map(|slot| match &slot.state {
@@ -2107,7 +2337,7 @@ fn spawn_card_point_view_world(
         },
     ));
     if uses_cpu_face_control {
-        point_entity.insert(CpuPlacedCardFaceLayer);
+        point_entity.insert(CardAnimationFaceLayer);
     }
     point_entity
         .with_children(|parent| {
@@ -2169,8 +2399,8 @@ fn spawn_card_point_view_world(
         .observe(card_click_navigation);
 }
 
-/// HUMAN: Projects card-owned point Text2d onto the 2D text camera while keeping PointView ownership.
-/// AI: Text2d is a 2D renderable, so derive its 2D world transform from the 3D point root.
+/// HUMAN: Keeps point Text2d above its badge in a dedicated overlay depth band.
+/// AI: Projects every PointView text child onto the dedicated overlay layer above surfaces.
 pub(crate) fn update_card_point_text2d_overlay_system(
     point_query: Query<&GlobalTransform, With<PointView>>,
     mut text_query: Query<(&ChildOf, &mut Transform), With<CardPointTextView>>,
@@ -2362,6 +2592,7 @@ pub fn sync_game_scene_hand_card_entities_system(
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
     game_hand_model: Option<Res<GameHandModel>>,
+    card_states: Option<Res<CardStateModel>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -2389,6 +2620,12 @@ pub fn sync_game_scene_hand_card_entities_system(
 
     for (hand_index, card_id) in game_hand_model.cards.iter().enumerate() {
         if existing_indices.contains(&hand_index) {
+            continue;
+        }
+        if card_states
+            .as_deref()
+            .is_some_and(|states| states.state(hand_index) != Some(CardState::Hand))
+        {
             continue;
         }
         let Some(card_model) = card_model_registry.card_model_for_id(card_id).cloned() else {
@@ -2436,176 +2673,235 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            ButtonUiBundle::new("Quit Game Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(228.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
+            Name::new("Game Control Left Menu"),
             GameSceneEntity,
-            GameControlButton::new(GameControlAction::QuitGame),
             GlobalZIndex(10),
             Visibility::Visible,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(2.0),
+                bottom: Val::Px(36.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
+                row_gap: Val::Px(14.0),
+                ..Default::default()
+            },
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Quit Game"),
-                TextFont {
-                    font_size: 22.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
+            parent
+                .spawn((
+                    ButtonUiBundle::new("Quit Game Button")
+                        .with_node(Node {
+                            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                            height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                            border: UiRect::all(Val::Px(3.0)),
+                            display: Display::Flex,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        })
+                        .with_colors(
+                            END_ROUND_BUTTON_NORMAL_COLOR,
+                            END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                        ),
+                    GameSceneEntity,
+                    GameControlButton::new(GameControlAction::QuitGame),
+                    GlobalZIndex(10),
+                    Visibility::Visible,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Quit Game"),
+                        TextFont {
+                            font_size: 22.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+            parent
+                .spawn((
+                    ButtonUiBundle::new("Restart Button")
+                        .with_node(Node {
+                            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                            height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                            border: UiRect::all(Val::Px(3.0)),
+                            display: Display::Flex,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        })
+                        .with_colors(
+                            END_ROUND_BUTTON_NORMAL_COLOR,
+                            END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                        ),
+                    GameSceneEntity,
+                    GameControlButton::new(GameControlAction::Restart),
+                    GlobalZIndex(10),
+                    Visibility::Visible,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Restart"),
+                        TextFont {
+                            font_size: 22.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
-
     parent
         .spawn((
-            ButtonUiBundle::new("Restart Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(132.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
+            Name::new("Game Control Right Menu"),
             GameSceneEntity,
-            GameControlButton::new(GameControlAction::Restart),
             GlobalZIndex(10),
             Visibility::Visible,
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Percent(2.0),
+                bottom: Val::Px(36.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
+                row_gap: Val::Px(14.0),
+                ..Default::default()
+            },
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new("Restart"),
-                TextFont {
-                    font_size: 22.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
+            parent
+                .spawn((
+                    ButtonUiBundle::new("Undo Button")
+                        .with_node(Node {
+                            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                            height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                            border: UiRect::all(Val::Px(3.0)),
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        })
+                        .with_colors(
+                            if round_model.has_undoable_moves() {
+                                END_ROUND_BUTTON_NORMAL_COLOR
+                            } else {
+                                GAME_CONTROL_DISABLED_COLOR
+                            },
+                            if round_model.has_undoable_moves() {
+                                END_ROUND_BUTTON_NORMAL_BORDER_COLOR
+                            } else {
+                                GAME_CONTROL_DISABLED_BORDER_COLOR
+                            },
+                        ),
+                    GameSceneEntity,
+                    GameControlButton::new(GameControlAction::Undo),
+                    GlobalZIndex(10),
+                    Visibility::Visible,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(round_model.energy_label()),
+                        TextFont {
+                            font_size: 20.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                        GameControlLabel::new(GameControlAction::Undo),
+                    ));
+                    parent.spawn((
+                        Text::new("Undo"),
+                        TextFont {
+                            font_size: 22.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
+            parent
+                .spawn((
+                    ButtonUiBundle::new("RoundUI")
+                        .with_node(Node {
+                            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                            height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                            border: UiRect::all(Val::Px(3.0)),
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        })
+                        .with_colors(
+                            END_ROUND_BUTTON_NORMAL_COLOR,
+                            END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                        ),
+                    RoundUi,
+                    GameSceneEntity,
+                    GameControlButton::new(GameControlAction::EndRound),
+                    GlobalZIndex(10),
+                    Visibility::Visible,
+                    EndRoundButton,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(format!(
+                            "Round {}/{}",
+                            round_model.round, round_model.max_rounds
+                        )),
+                        TextFont {
+                            font_size: 20.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                        GameControlLabel::new(GameControlAction::EndRound),
+                    ));
+                    parent.spawn((
+                        Text::new("Next"),
+                        TextFont {
+                            font_size: 24.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
+}
 
-    parent
-        .spawn((
-            ButtonUiBundle::new("Undo Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(36.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    if round_model.has_undoable_moves() {
-                        END_ROUND_BUTTON_NORMAL_COLOR
-                    } else {
-                        GAME_CONTROL_DISABLED_COLOR
-                    },
-                    if round_model.has_undoable_moves() {
-                        END_ROUND_BUTTON_NORMAL_BORDER_COLOR
-                    } else {
-                        GAME_CONTROL_DISABLED_BORDER_COLOR
-                    },
-                ),
-            GameSceneEntity,
-            GameControlButton::new(GameControlAction::Undo),
-            GlobalZIndex(10),
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(round_model.energy_label()),
-                TextFont {
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-                GameControlLabel::new(GameControlAction::Undo),
-            ));
-            parent.spawn((
-                Text::new("Undo"),
-                TextFont {
-                    font_size: 22.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-
-    parent
-        .spawn((
-            ButtonUiBundle::new("RoundUI")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Percent(2.0),
-                    bottom: Val::Percent(3.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
-            RoundUi,
-            GameSceneEntity,
-            GameControlButton::new(GameControlAction::EndRound),
-            GlobalZIndex(10),
-            Visibility::Visible,
-            EndRoundButton,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(format!(
-                    "Round {}/{}",
-                    round_model.round, round_model.max_rounds
-                )),
-                TextFont {
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-                GameControlLabel::new(GameControlAction::EndRound),
-            ));
-            parent.spawn((
-                Text::new("Next"),
-                TextFont {
-                    font_size: 24.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
+/// HUMAN: Refreshes SettingsScreen button labels from the latest settings resource values.
+/// AI: Keeps text in sync when toggles mutate MetaGameSettingsModel without rebuilding the scene.
+pub fn refresh_settings_button_labels_system(
+    settings: Res<MetaGameSettingsModel>,
+    mut labels: Query<(&SettingsButtonLabel, &mut Text)>,
+) {
+    for (label, mut text) in &mut labels {
+        let next_text = match label.action {
+            MetaScreenButtonAction::CpuBrain => {
+                format!("CPU AI Brain: {}", settings.cpu_brain_level.label())
+            }
+            MetaScreenButtonAction::MatchMode => {
+                format!("Mode: {}", settings.selected_mode.label())
+            }
+            MetaScreenButtonAction::CycleFramerate => {
+                format!("Framerate: {}", settings.framerate_label())
+            }
+            MetaScreenButtonAction::ToggleSfx => {
+                format!(
+                    "SFX: {}",
+                    MetaGameSettingsModel::audio_label(settings.sfx_enabled)
+                )
+            }
+            MetaScreenButtonAction::ToggleMusic => {
+                format!(
+                    "Music: {}",
+                    MetaGameSettingsModel::audio_label(settings.music_enabled)
+                )
+            }
+            MetaScreenButtonAction::CycleQuality => "Quality: Med".to_string(),
+            _ => continue,
+        };
+        if text.0 != next_text {
+            text.0 = next_text;
+        }
+    }
 }
 
 fn spawn_deck_light(commands: &mut Commands) -> Entity {
@@ -2652,6 +2948,7 @@ pub fn setup_deck_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
 ) {
     let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
     let player_deck_collection = player_deck_collection
@@ -2663,8 +2960,12 @@ pub fn setup_deck_scene(
     if let Some(deck_screen_model) = deck_screen_model.as_deref_mut() {
         deck_screen_model.needs_rebuild = false;
     }
+    let app_camera = app_camera_query.iter().next().unwrap_or_else(|| {
+        ensure_shared_app_camera(&mut commands, app_scene_query.single().ok(), None)
+    });
     spawn_deck_scene_contents(
         &mut commands,
+        app_camera,
         &asset_server,
         &camera_defaults,
         &card_defaults,
@@ -2683,6 +2984,7 @@ pub fn setup_deck_scene(
 
 fn spawn_deck_scene_contents(
     commands: &mut Commands,
+    app_camera: Entity,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
@@ -2698,8 +3000,8 @@ fn spawn_deck_scene_contents(
     _initial_rotation: Quat,
 ) {
     let scene_root = commands.spawn(DeckScreenBundle::default()).id();
-    let camera = spawn_primary_camera(commands, camera_defaults);
-    let ui_camera = spawn_deck_ui_camera(commands);
+    let ui_camera = app_camera;
+    let _ = camera_defaults;
     let point_text_camera = spawn_card_point_text_camera(
         commands,
         "DeckScene Card Point Text Camera",
@@ -2780,8 +3082,6 @@ fn spawn_deck_scene_contents(
             scene_root,
         );
     }
-    commands.entity(scene_root).add_child(camera);
-    commands.entity(scene_root).add_child(ui_camera);
     commands.entity(scene_root).add_child(point_text_camera);
     commands.entity(scene_root).add_child(light);
     if let Some(parent) = app_scene_parent {
@@ -3701,12 +4001,14 @@ pub fn top_navigation_update_system(
     selected_card_modal: Option<Res<SelectedCardModalModel>>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
     settings: Res<MetaGameSettingsModel>,
+    screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut top_navigation_model: ResMut<TopNavigationModel>,
     active_card_model: Res<ActiveCardModel>,
     flip_state: Res<CardFlipState>,
     mut params: ViewChangeParams,
     mut button_query: Query<(&Interaction, &TopNavigationButton), Changed<Interaction>>,
 ) {
+    let mut screen_transition = screen_transition;
     if deck_screen_model
         .as_ref()
         .is_some_and(|model| model.validation_prompt || model.coming_soon_prompt)
@@ -3723,6 +4025,15 @@ pub fn top_navigation_update_system(
 
     for (interaction, button) in &mut button_query {
         if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let destination_view = match button.destination {
+            TopNavigationDestination::PlayGame => ActiveView::MainMenuScene,
+            TopNavigationDestination::MyDecks => ActiveView::DeckScene,
+            TopNavigationDestination::Settings => ActiveView::SettingsScene,
+            TopNavigationDestination::Debug => ActiveView::DebugScene,
+        };
+        if *params.active_view == destination_view {
             continue;
         }
 
@@ -3744,27 +4055,47 @@ pub fn top_navigation_update_system(
         match button.destination {
             TopNavigationDestination::PlayGame => {
                 top_navigation_model.selected = TopNavigationDestination::PlayGame;
-                params.transition_to_main_menu_scene();
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::MainMenuScene);
+                } else {
+                    params.transition_to_main_menu_scene();
+                }
             }
             TopNavigationDestination::MyDecks => {
                 top_navigation_model.selected = TopNavigationDestination::MyDecks;
-                params.transition_to_deck_scene(
-                    &active_card_model,
-                    flip_state.visible_face,
-                    initial_rotation,
-                );
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::DeckScene);
+                } else {
+                    params.transition_to_deck_scene(
+                        &active_card_model,
+                        flip_state.visible_face,
+                        initial_rotation,
+                    );
+                }
             }
             TopNavigationDestination::Settings => {
                 top_navigation_model.selected = TopNavigationDestination::Settings;
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
             TopNavigationDestination::Debug => {
                 top_navigation_model.selected = TopNavigationDestination::Debug;
-                params.transition_to_debug_scene(
-                    &active_card_model,
-                    flip_state.visible_face,
-                    initial_rotation,
-                );
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::DebugScene);
+                } else {
+                    params.transition_to_debug_scene(
+                        &active_card_model,
+                        flip_state.visible_face,
+                        initial_rotation,
+                    );
+                }
             }
         }
     }
@@ -3780,8 +4111,10 @@ pub fn meta_screen_update_system(
     active_card_model: Res<ActiveCardModel>,
     #[cfg(not(target_arch = "wasm32"))] mut winit_settings: Option<ResMut<WinitSettings>>,
     mut params: ViewChangeParams,
+    screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut button_query: Query<(&Interaction, &MetaScreenButton), Changed<Interaction>>,
 ) {
+    let mut screen_transition = screen_transition;
     for (interaction, button) in &mut button_query {
         if *interaction != Interaction::Pressed {
             continue;
@@ -3789,19 +4122,45 @@ pub fn meta_screen_update_system(
 
         request_button_click(audio_manager.as_deref_mut());
         match button.action {
-            MetaScreenButtonAction::LightningLogin => params.transition_to_lightning_login_scene(),
-            MetaScreenButtonAction::MatchmakingBack => params.transition_to_main_menu_scene(),
+            MetaScreenButtonAction::LightningLogin => {
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::LightningScene);
+                } else {
+                    params.transition_to_lightning_login_scene();
+                }
+            }
+            MetaScreenButtonAction::MatchmakingBack => {
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::MainMenuScene);
+                } else {
+                    params.transition_to_main_menu_scene();
+                }
+            }
             MetaScreenButtonAction::LearnLightning => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Err(error) = webbrowser::open("https://bitbo.io/tools/lightning-wallets/") {
                     warn!("Failed to open Lightning information page: {error}");
                 }
             }
-            MetaScreenButtonAction::StartGame => params.transition_to_matchmaking_scene(),
+            MetaScreenButtonAction::StartGame => {
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::MatchmakingScene);
+                } else {
+                    params.transition_to_matchmaking_scene();
+                }
+            }
             MetaScreenButtonAction::CpuBrain => {
                 settings.cycle_cpu_brain_level();
                 save_meta_game_settings(&settings, persistent_settings.as_deref_mut());
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
             MetaScreenButtonAction::MatchMode => {
                 settings.toggle_mode();
@@ -3816,7 +4175,12 @@ pub fn meta_screen_update_system(
                     warn!("Failed to save match mode preference: {error}");
                 }
                 save_meta_game_settings(&settings, persistent_settings.as_deref_mut());
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
             MetaScreenButtonAction::CycleFramerate => {
                 settings.toggle_framerate();
@@ -3824,18 +4188,33 @@ pub fn meta_screen_update_system(
                     apply_meta_game_framerate_settings(&settings, winit_settings);
                 }
                 save_meta_game_settings(&settings, persistent_settings.as_deref_mut());
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
             MetaScreenButtonAction::CycleQuality => {}
             MetaScreenButtonAction::ToggleSfx => {
                 settings.toggle_sfx();
                 save_meta_game_settings(&settings, persistent_settings.as_deref_mut());
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
             MetaScreenButtonAction::ToggleMusic => {
                 settings.toggle_music();
                 save_meta_game_settings(&settings, persistent_settings.as_deref_mut());
-                params.transition_to_settings_scene(&settings);
+                if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                    screen_transition
+                        .request_view_change(*params.active_view, ActiveView::SettingsScene);
+                } else {
+                    params.transition_to_settings_scene(&settings);
+                }
             }
         }
         let _ = &active_card_model;
@@ -3875,6 +4254,7 @@ pub fn matchmaking_update_system(
     world_model_registry: Res<WorldModelRegistry>,
     location_model_registry: Res<LocationModelRegistry>,
     time: Res<Time>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
 ) {
     let Some(matchmaking_phase) = params.matchmaking_model.as_deref().map(|model| model.phase)
@@ -3914,6 +4294,7 @@ pub fn matchmaking_update_system(
                 params.match_model.as_deref_mut(),
                 params.player_deck_collection.as_deref(),
                 params.cpu_brain_model.as_deref_mut(),
+                params.pending_round_deal.as_deref_mut(),
             );
             if let Some(matchmaking_model) = params.matchmaking_model.as_deref_mut() {
                 matchmaking_model.mark_match_prepared();
@@ -3946,7 +4327,11 @@ pub fn matchmaking_update_system(
         } else if MATCH_ASSETS_PRELOAD_ENABLED && match_is_prepared {
             params.begin_prepared_game_warmup(&active_card_model);
         } else {
-            params.transition_to_game_scene(&active_card_model);
+            if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                screen_transition.request_view_change(*params.active_view, ActiveView::GameScene);
+            } else {
+                params.transition_to_game_scene(&active_card_model);
+            }
         }
     } else if MATCH_ASSETS_PRELOAD_ENABLED
         && match_is_prepared
@@ -3966,16 +4351,7 @@ pub fn matchmaking_update_system(
 #[derive(SystemParam)]
 pub struct DeckScreenUpdateQueries<'w, 's> {
     scene_root_query: Query<'w, 's, Entity, With<DeckSceneRoot>>,
-    ui_camera_query: Query<
-        'w,
-        's,
-        Entity,
-        (
-            With<Camera2d>,
-            With<DeckSceneEntity>,
-            Without<CardPointTextCamera>,
-        ),
-    >,
+    ui_camera_query: Query<'w, 's, Entity, With<AppSceneCamera>>,
     ui_root_query: Query<
         'w,
         's,
@@ -4242,14 +4618,7 @@ fn sync_deck_screen_modal_to_selected_card(
 fn sync_deck_screen_selected_card_menu_view(
     commands: &mut Commands,
     scene_root_query: &Query<Entity, With<DeckSceneRoot>>,
-    ui_camera_query: &Query<
-        Entity,
-        (
-            With<Camera2d>,
-            With<DeckSceneEntity>,
-            Without<CardPointTextCamera>,
-        ),
-    >,
+    ui_camera_query: &Query<Entity, With<AppSceneCamera>>,
     selection_menu_query: &Query<Entity, With<DeckScreenSelectedCardMenuRoot>>,
     modal: Option<&crate::runtime::resources::DeckScreenCardModalModel>,
     prompt_blocks_menu: bool,
@@ -4287,9 +4656,14 @@ pub fn setup_debug_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
 ) {
+    let app_camera = app_camera_query.iter().next().unwrap_or_else(|| {
+        ensure_shared_app_camera(&mut commands, app_scene_query.single().ok(), None)
+    });
     spawn_debug_scene_contents(
         &mut commands,
+        app_camera,
         &asset_server,
         &camera_defaults,
         &card_defaults,
@@ -4306,6 +4680,7 @@ pub fn setup_debug_scene(
 
 fn spawn_debug_scene_contents(
     commands: &mut Commands,
+    app_camera: Entity,
     asset_server: &AssetServer,
     camera_defaults: &PrimaryCameraDefaults,
     card_defaults: &CardInspectionDefaults,
@@ -4319,8 +4694,8 @@ fn spawn_debug_scene_contents(
     initial_rotation: Quat,
 ) {
     let scene_root = commands.spawn(DebugScreenBundle::default()).id();
-    let camera = spawn_debug_primary_camera(commands, camera_defaults);
-    let ui_camera = spawn_debug_ui_camera(commands);
+    let ui_camera = app_camera;
+    let _ = camera_defaults;
     let point_text_camera = spawn_card_point_text_camera(
         commands,
         "DebugScene Card Point Text Camera",
@@ -4330,6 +4705,8 @@ fn spawn_debug_scene_contents(
     commands.entity(scene_root).with_children(|parent| {
         spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::Debug, false);
     });
+    let mut card_transform = debug_scene_initial_card_transform(card_defaults, camera_defaults);
+    card_transform.rotation *= initial_rotation;
     let card = spawn_card_structure(
         commands,
         asset_server,
@@ -4341,12 +4718,13 @@ fn spawn_debug_scene_contents(
         masked_background_materials,
         visible_face,
         false,
-        debug_scene_card_transform(card_defaults, initial_rotation),
+        card_transform,
     );
-    commands.entity(scene_root).add_child(camera);
-    commands.entity(scene_root).add_child(ui_camera);
+    let location =
+        spawn_debug_location_sample(commands, asset_server, camera_defaults, meshes, materials);
     commands.entity(scene_root).add_child(point_text_camera);
     commands.entity(scene_root).add_child(light);
+    commands.entity(scene_root).add_child(location);
     commands.entity(scene_root).add_child(card);
     commands
         .entity(card)
@@ -4361,6 +4739,100 @@ fn spawn_debug_scene_contents(
     if let Some(parent) = app_scene_parent {
         commands.entity(parent).add_child(scene_root);
     }
+}
+
+/// HUMAN: Adds one runtime location specimen to DebugScene beside the card specimen.
+/// AI: Keep it close to GameScene's mesh/text/point composition while using fixed mock values.
+fn spawn_debug_location_sample(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    camera_defaults: &PrimaryCameraDefaults,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) -> Entity {
+    const DEBUG_LOCATION_INDEX: usize = 0;
+    const DEBUG_LOCATION_TITLE: &str = "Debug Location";
+    const DEBUG_LOCATION_BODY: &str = "Mock power totals";
+    const DEBUG_LOCATION_TEXTURE_PATH: &str =
+        "themes/theme_japan/locations/location_bamboo_crossing/location.png";
+
+    let world_width = game_scene_world_width_for_game_scene_width(
+        DEBUG_SCENE_LOCATION_WIDTH,
+        GAME_SCENE_LOCATION_BUNDLE_Z,
+    );
+    let world_height = game_scene_world_height_for_game_scene_height(
+        DEBUG_SCENE_LOCATION_HEIGHT,
+        GAME_SCENE_LOCATION_BUNDLE_Z,
+    );
+    let border_material = flat_color_material(materials, Color::srgb(0.2, 0.95, 0.35));
+    let point_circle_mesh = meshes.add(Circle::new(
+        game_scene_world_height_for_game_scene_height(
+            LOCATION_POINT_VIEW_HEIGHT,
+            GAME_SCENE_LOCATION_BUNDLE_Z,
+        ) * 0.5,
+    ));
+
+    commands
+        .spawn((
+            Name::new("DebugScene Location Sample"),
+            DebugSceneEntity,
+            LocationBundle::new(DEBUG_LOCATION_INDEX),
+            LocationBundleSurface::new(DEBUG_LOCATION_INDEX),
+            LocationBundleOverlay::new(DEBUG_LOCATION_INDEX),
+            GameLocation::new(DEBUG_LOCATION_INDEX, LocationRevealState::Revealed),
+            Mesh3d(meshes.add(Rectangle::new(world_width, world_height))),
+            MeshMaterial3d(location_bundle_material(
+                asset_server,
+                materials,
+                DEBUG_LOCATION_TEXTURE_PATH,
+                1.0,
+            )),
+            debug_scene_location_transform(camera_defaults),
+            Visibility::Visible,
+            NoCpuCulling,
+            NoFrustumCulling,
+        ))
+        .with_children(|parent| {
+            spawn_location_border_meshes(
+                parent,
+                DEBUG_LOCATION_INDEX,
+                world_width,
+                world_height,
+                border_material,
+                meshes,
+            );
+            spawn_location_title_and_body_3d(
+                parent,
+                DEBUG_LOCATION_INDEX,
+                DEBUG_LOCATION_TITLE,
+                DEBUG_LOCATION_BODY,
+                world_height,
+                1.0,
+            );
+            spawn_location_power_point_view(
+                parent,
+                materials,
+                PowerPointModel::new(4),
+                DEBUG_LOCATION_INDEX,
+                CardSlotSide::Opponent,
+                world_height,
+                point_circle_mesh.clone(),
+                true,
+                1.0,
+            );
+            spawn_location_power_point_view(
+                parent,
+                materials,
+                PowerPointModel::new(9),
+                DEBUG_LOCATION_INDEX,
+                CardSlotSide::LocalPlayer,
+                world_height,
+                point_circle_mesh,
+                false,
+                1.0,
+            );
+        })
+        .id()
 }
 
 pub fn setup_card_placeholder(
@@ -4432,17 +4904,7 @@ fn debug_scene_card_transform(card_defaults: &CardInspectionDefaults, rotation: 
         GAME_SCENE_HAND_CARD_WORLD_Z,
     ) / card_defaults.height;
     let card_center = game_scene_world_position_from_game_scene(
-        Vec2::new(
-            GAME_SCENE_WIDTH
-                - SCREEN_PADDING_LEFT
-                - DEBUG_SCENE_CARD_GAP_TO_CARD_UI
-                - DEBUG_SCENE_CARD_LEFT_OFFSET_PX
-                - (target_card_size.x * 1.5),
-            SCREEN_PADDING_TOP
-                + DEBUG_SCENE_CARD_VERTICAL_OFFSET
-                + DEBUG_SCENE_CARD_EXTRA_DOWN_OFFSET_PX
-                + (target_card_size.y * 0.5),
-        ),
+        debug_scene_card_center_game_scene_position(),
         GAME_SCENE_HAND_CARD_WORLD_Z,
     );
 
@@ -4451,6 +4913,64 @@ fn debug_scene_card_transform(card_defaults: &CardInspectionDefaults, rotation: 
         rotation,
         scale: Vec3::splat(target_card_scale),
     }
+}
+
+fn debug_scene_card_center_game_scene_position() -> Vec2 {
+    let target_card_size = game_scene_hand_card_size();
+    Vec2::new(
+        GAME_SCENE_WIDTH
+            - SCREEN_PADDING_LEFT
+            - DEBUG_SCENE_CARD_GAP_TO_CARD_UI
+            - DEBUG_SCENE_CARD_LEFT_OFFSET_PX
+            - (target_card_size.x * 1.5),
+        SCREEN_PADDING_TOP
+            + DEBUG_SCENE_CARD_VERTICAL_OFFSET
+            + DEBUG_SCENE_CARD_EXTRA_DOWN_OFFSET_PX
+            + (target_card_size.y * 0.5),
+    )
+}
+
+fn debug_scene_location_transform(camera_defaults: &PrimaryCameraDefaults) -> Transform {
+    let target_card_size = game_scene_hand_card_size();
+    let card_center = debug_scene_card_center_game_scene_position();
+    let location_center = Vec2::new(
+        card_center.x
+            - (target_card_size.x * 0.5)
+            - DEBUG_SCENE_CARD_GAP_TO_CARD_UI
+            - (DEBUG_SCENE_LOCATION_WIDTH * 0.5),
+        card_center.y,
+    );
+    let translation =
+        game_scene_world_position_from_game_scene(location_center, GAME_SCENE_LOCATION_BUNDLE_Z);
+
+    Transform {
+        translation,
+        rotation: debug_scene_face_camera_rotation(translation, camera_defaults),
+        scale: Vec3::ONE,
+    }
+}
+
+/// HUMAN: Faces the DebugScene card squarely toward the debug 3D camera.
+/// AI: Compensates for the off-center debug layout under the shared perspective camera.
+fn debug_scene_initial_card_transform(
+    card_defaults: &CardInspectionDefaults,
+    camera_defaults: &PrimaryCameraDefaults,
+) -> Transform {
+    let mut transform = debug_scene_card_transform(card_defaults, Quat::IDENTITY);
+    transform.rotation = debug_scene_face_camera_rotation(transform.translation, camera_defaults);
+    transform
+}
+
+fn debug_scene_face_camera_rotation(
+    translation: Vec3,
+    camera_defaults: &PrimaryCameraDefaults,
+) -> Quat {
+    let mut camera_defaults = camera_defaults.clone();
+    camera_defaults.position.z = DECK_SCENE_CAMERA_DISTANCE_FROM_ORIGIN;
+    let face_direction = (camera_defaults.position - translation)
+        .try_normalize()
+        .unwrap_or(Vec3::Z);
+    Quat::from_rotation_arc(Vec3::Z, face_direction)
 }
 
 fn spawn_card_structure_for_type(
@@ -4945,6 +5465,19 @@ fn card_model_material(
     })
 }
 
+fn world_fade_overlay_material(
+    materials: &mut Assets<StandardMaterial>,
+    alpha: f32,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color: color_with_alpha(Color::BLACK, alpha),
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        unlit: true,
+        ..Default::default()
+    })
+}
+
 fn spawn_parallax_plane(
     parent: &mut ChildSpawnerCommands,
     name: Name,
@@ -4982,7 +5515,7 @@ fn spawn_parallax_plane(
         entity.insert(CardFrameLayer);
     }
     if uses_cpu_face_control {
-        entity.insert(CpuPlacedCardFaceLayer);
+        entity.insert(CardAnimationFaceLayer);
     }
 }
 
@@ -5017,7 +5550,7 @@ fn spawn_masked_background_plane(
         CardBackgroundLayer::new(true),
     ));
     if uses_cpu_face_control {
-        entity.insert(CpuPlacedCardFaceLayer);
+        entity.insert(CardAnimationFaceLayer);
     }
     entity.observe(card_click_navigation);
     entity.observe(card_click_selection);
@@ -5054,7 +5587,7 @@ fn spawn_card_back_plane(
         CardFaceLayer::new(CardFace::Back),
     ));
     if uses_cpu_face_control {
-        entity.insert(CpuPlacedCardFaceLayer);
+        entity.insert(CardAnimationFaceLayer);
     }
     entity.observe(card_click_navigation);
     entity.observe(card_click_selection);
@@ -5096,6 +5629,7 @@ pub fn smooth_card_rotation(
         (
             With<LocalPlayerHandCardPreview>,
             With<GameSceneEntity>,
+            Without<CardAnimation>,
             Without<DeckSceneEntity>,
         ),
     >,
@@ -5231,7 +5765,7 @@ pub fn composed_card_rotation(
     card_state.target_rotation * flip_state.rotation()
 }
 
-fn composed_rotation_for_face(card_state: &CardInspectionState, face: CardFace) -> Quat {
+pub(crate) fn composed_rotation_for_face(card_state: &CardInspectionState, face: CardFace) -> Quat {
     match face {
         CardFace::Front => card_state.target_rotation,
         CardFace::Back => card_state.target_rotation * Quat::from_rotation_y(std::f32::consts::PI),
@@ -5252,7 +5786,7 @@ pub fn update_card_face_visibility(
             &mut Visibility,
             Option<&GameSceneSceneHiddenVisibility>,
         ),
-        Without<CpuPlacedCardFaceLayer>,
+        Without<CardAnimationFaceLayer>,
     >,
 ) {
     if !flip_state.is_changed() && !card_ui_state.is_changed() {
@@ -5396,7 +5930,7 @@ pub fn card_model_input_system(
     match *scene.active_view {
         ActiveView::GameScene => {
             scene.active_world_model.toggle(&scene.world_model_registry);
-            scene.refresh_game_scene_world_background();
+            scene.request_game_scene_world_background_transition();
         }
         ActiveView::DeckScene | ActiveView::DebugScene => {
             card_ui_state.depth_factor = next_card_ui_depth_factor(card_ui_state.depth_factor);
@@ -5430,6 +5964,169 @@ fn next_card_ui_depth_factor(current: f32) -> f32 {
     } else {
         CARD_DEPTH_FACTOR_MIN
     }
+}
+
+/// HUMAN: Advances GameScene world background fade-to-black theme transitions.
+/// AI: Swap the world texture only while the black overlay is fully opaque.
+pub fn world_theme_transition_update_system(
+    time: Res<Time>,
+    active_world_model: Res<ActiveWorldModel>,
+    world_model_registry: Res<WorldModelRegistry>,
+    mut world_query: Query<
+        (
+            &mut Name,
+            &mut MeshMaterial3d<StandardMaterial>,
+            &mut WorldThemeTransition,
+        ),
+        (With<WorldBackground>, Without<WorldFadeOverlay>),
+    >,
+    overlay_query: Query<
+        &MeshMaterial3d<StandardMaterial>,
+        (With<WorldFadeOverlay>, Without<WorldBackground>),
+    >,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (_, _, mut transition) in &mut world_query {
+        if active_world_model.index != transition.applied_world_index {
+            transition.request_world_index(active_world_model.index);
+        }
+    }
+
+    for (mut name, mut material, mut transition) in &mut world_query {
+        advance_world_theme_transition(
+            &time,
+            &active_world_model,
+            &world_model_registry,
+            &asset_server,
+            &mut materials,
+            &mut name,
+            &mut material,
+            &mut transition,
+        );
+    }
+
+    for overlay_material in &overlay_query {
+        if let Some(material) = materials.get_mut(&overlay_material.0) {
+            material.base_color =
+                color_with_alpha(Color::BLACK, current_world_overlay_alpha(&world_query));
+            material.alpha_mode = AlphaMode::Blend;
+        }
+    }
+}
+
+fn advance_world_theme_transition(
+    time: &Time,
+    active_world_model: &ActiveWorldModel,
+    world_model_registry: &WorldModelRegistry,
+    asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
+    name: &mut Name,
+    material: &mut MeshMaterial3d<StandardMaterial>,
+    transition: &mut WorldThemeTransition,
+) {
+    match transition.phase {
+        WorldThemeTransitionPhase::StartupFadeIn => {
+            transition.elapsed_seconds = (transition.elapsed_seconds + time.delta_secs().max(0.0))
+                .min(WORLD_THEME_FADE_SECONDS);
+            let progress = transition.elapsed_seconds / WORLD_THEME_FADE_SECONDS;
+            transition.overlay_alpha = 1.0 - progress;
+            if transition.elapsed_seconds >= WORLD_THEME_FADE_SECONDS {
+                transition.elapsed_seconds = 0.0;
+                transition.overlay_alpha = 0.0;
+                transition.phase = if transition.pending_world_index.is_some() {
+                    WorldThemeTransitionPhase::FadeOutToBlack
+                } else {
+                    WorldThemeTransitionPhase::Idle
+                };
+            }
+        }
+        WorldThemeTransitionPhase::Idle => {}
+        WorldThemeTransitionPhase::FadeOutToBlack => {
+            transition.elapsed_seconds = (transition.elapsed_seconds + time.delta_secs().max(0.0))
+                .min(WORLD_THEME_FADE_SECONDS);
+            transition.overlay_alpha = transition.elapsed_seconds / WORLD_THEME_FADE_SECONDS;
+            if transition.elapsed_seconds >= WORLD_THEME_FADE_SECONDS {
+                transition.overlay_alpha = 1.0;
+                transition.elapsed_seconds = 0.0;
+                apply_world_background_model(
+                    transition
+                        .pending_world_index
+                        .unwrap_or(active_world_model.index),
+                    world_model_registry,
+                    asset_server,
+                    materials,
+                    name,
+                    material,
+                    transition,
+                );
+                transition.phase = WorldThemeTransitionPhase::HoldAtBlack;
+            }
+        }
+        WorldThemeTransitionPhase::HoldAtBlack => {
+            transition.elapsed_seconds = (transition.elapsed_seconds + time.delta_secs().max(0.0))
+                .min(WORLD_THEME_BLACK_HOLD_SECONDS);
+            transition.overlay_alpha = 1.0;
+            if transition.elapsed_seconds >= WORLD_THEME_BLACK_HOLD_SECONDS {
+                transition.elapsed_seconds = 0.0;
+                transition.phase = WorldThemeTransitionPhase::FadeInFromBlack;
+            }
+        }
+        WorldThemeTransitionPhase::FadeInFromBlack => {
+            transition.elapsed_seconds = (transition.elapsed_seconds + time.delta_secs().max(0.0))
+                .min(WORLD_THEME_FADE_SECONDS);
+            let progress = transition.elapsed_seconds / WORLD_THEME_FADE_SECONDS;
+            transition.overlay_alpha = 1.0 - progress;
+            if transition.elapsed_seconds >= WORLD_THEME_FADE_SECONDS {
+                transition.elapsed_seconds = 0.0;
+                transition.overlay_alpha = 0.0;
+                if active_world_model.index != transition.applied_world_index {
+                    transition.request_world_index(active_world_model.index);
+                } else {
+                    transition.phase = WorldThemeTransitionPhase::Idle;
+                }
+            }
+        }
+    }
+}
+
+fn apply_world_background_model(
+    world_index: usize,
+    world_model_registry: &WorldModelRegistry,
+    asset_server: &AssetServer,
+    materials: &mut Assets<StandardMaterial>,
+    name: &mut Name,
+    material: &mut MeshMaterial3d<StandardMaterial>,
+    transition: &mut WorldThemeTransition,
+) {
+    let requested_world = ActiveWorldModel { index: world_index };
+    let world_model = world_model_registry.active_world_model(&requested_world);
+    *name = Name::new(format!("{} World Background", world_model.display_name));
+    *material = MeshMaterial3d(card_model_material(
+        asset_server,
+        materials,
+        world_model.background_texture,
+        AlphaMode::Opaque,
+        BACKGROUND_DEPTH_BIAS,
+    ));
+    transition.applied_world_index = world_index;
+    transition.pending_world_index = None;
+}
+
+fn current_world_overlay_alpha(
+    world_query: &Query<
+        (
+            &mut Name,
+            &mut MeshMaterial3d<StandardMaterial>,
+            &mut WorldThemeTransition,
+        ),
+        (With<WorldBackground>, Without<WorldFadeOverlay>),
+    >,
+) -> f32 {
+    world_query
+        .iter()
+        .map(|(_, _, transition)| transition.overlay_alpha)
+        .fold(0.0, f32::max)
 }
 
 #[cfg_attr(feature = "desktop-hot-reload", hot)]
@@ -5530,6 +6227,7 @@ fn restart_game_model(
     match_model: Option<&mut MatchModel>,
     player_deck_collection: Option<&PlayerDeckCollectionModel>,
     cpu_brain_model: Option<&mut CpuBrainModel>,
+    pending_round_deal: Option<&mut PendingRoundDealResource>,
 ) {
     let active_world_model = match (active_world_model, world_model_registry) {
         (Some(active_world_model), Some(world_model_registry)) => {
@@ -5543,9 +6241,14 @@ fn restart_game_model(
         (None, _) => None,
     };
 
-    reset_game_model(
-        gesture_model,
-        slot_board,
+    if let Some(gesture_model) = gesture_model {
+        *gesture_model = CardGestureModel::default();
+    }
+    if let Some(slot_board) = slot_board {
+        *slot_board = CardSlotBoardModel::default();
+    }
+
+    match (
         card_states,
         game_deck_model,
         game_hand_model,
@@ -5556,7 +6259,67 @@ fn restart_game_model(
         active_world_model,
         match_model,
         player_deck_collection,
-    );
+        pending_round_deal,
+    ) {
+        (
+            Some(card_states),
+            Some(game_deck_model),
+            Some(game_hand_model),
+            Some(game_round_model),
+            Some(game_location_model),
+            Some(location_model_registry),
+            Some(active_locations),
+            Some(active_world_model),
+            Some(match_model),
+            Some(player_deck_collection),
+            Some(pending_round_deal),
+        ) => {
+            reset_two_player_match_without_starting_round(
+                match_model.mode,
+                match_model,
+                game_deck_model,
+                game_hand_model,
+                game_round_model,
+                game_location_model,
+                Some(location_model_registry),
+                Some(active_locations),
+                Some(active_world_model),
+                player_deck_collection.primary_deck(),
+            );
+            card_states.reset_to_size(game_hand_model.len());
+            pending_round_deal.is_pending = true;
+            pending_round_deal.is_round_deal_complete = false;
+            pending_round_deal.waits_for_location_intro = true;
+        }
+        (
+            card_states,
+            game_deck_model,
+            game_hand_model,
+            game_round_model,
+            game_location_model,
+            location_model_registry,
+            active_locations,
+            active_world_model,
+            match_model,
+            player_deck_collection,
+            _,
+        ) => {
+            reset_game_model(
+                None,
+                None,
+                card_states,
+                game_deck_model,
+                game_hand_model,
+                game_round_model,
+                game_location_model,
+                location_model_registry,
+                active_locations,
+                active_world_model,
+                match_model,
+                player_deck_collection,
+            );
+        }
+    }
 
     if let Some(cpu_brain_model) = cpu_brain_model {
         cpu_brain_model.reset();
@@ -5749,6 +6512,7 @@ pub struct ViewChangeParams<'w, 's> {
         (
             &'static mut Name,
             &'static mut MeshMaterial3d<StandardMaterial>,
+            &'static mut WorldThemeTransition,
         ),
         With<WorldBackground>,
     >,
@@ -5756,32 +6520,11 @@ pub struct ViewChangeParams<'w, 's> {
     debug_scene_roots: Query<'w, 's, Entity, With<DebugSceneRoot>>,
     meta_scene_roots: Query<'w, 's, Entity, With<MetaSceneRoot>>,
     primary_window_query: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
-    view_camera_queries: ParamSet<
+    app_camera_query: Query<
         'w,
         's,
-        (
-            Query<'w, 's, &'static mut Camera, With<GameSceneEntity>>,
-            Query<
-                'w,
-                's,
-                (&'static Camera, &'static GlobalTransform),
-                (
-                    With<PrimaryViewCamera>,
-                    With<DeckSceneEntity>,
-                    With<Camera3d>,
-                ),
-            >,
-            Query<
-                'w,
-                's,
-                (&'static Camera, &'static GlobalTransform),
-                (
-                    With<PrimaryViewCamera>,
-                    With<DebugSceneEntity>,
-                    With<Camera3d>,
-                ),
-            >,
-        ),
+        (Entity, &'static Camera, &'static GlobalTransform),
+        (With<AppSceneCamera>, With<Camera3d>),
     >,
     deck_card_query:
         Query<'w, 's, &'static GlobalTransform, (With<CardView>, With<DeckSceneEntity>)>,
@@ -5807,6 +6550,7 @@ pub struct ViewChangeParams<'w, 's> {
     match_model: Option<ResMut<'w, MatchModel>>,
     card_states: Option<ResMut<'w, CardStateModel>>,
     cpu_brain_model: Option<ResMut<'w, CpuBrainModel>>,
+    pending_round_deal: Option<ResMut<'w, PendingRoundDealResource>>,
     matchmaking_model: Option<ResMut<'w, MatchmakingModel>>,
     card_state: ResMut<'w, CardInspectionState>,
     meshes: ResMut<'w, Assets<Mesh>>,
@@ -5815,6 +6559,19 @@ pub struct ViewChangeParams<'w, 's> {
 }
 
 impl ViewChangeParams<'_, '_> {
+    fn app_camera_entity(&mut self) -> Entity {
+        self.app_camera_query
+            .single()
+            .map(|(entity, _, _)| entity)
+            .unwrap_or_else(|_| {
+                ensure_shared_app_camera(
+                    &mut self.commands,
+                    self.app_scene_query.single().ok(),
+                    None,
+                )
+            })
+    }
+
     fn set_game_scene_active(&mut self, is_active: bool) -> bool {
         let mut has_game_scene = false;
 
@@ -5852,10 +6609,6 @@ impl ViewChangeParams<'_, '_> {
         for _ in self.game_scene_roots.iter() {
             has_game_scene = true;
         }
-        for mut camera in &mut self.view_camera_queries.p0() {
-            camera.is_active = is_active;
-        }
-
         has_game_scene
     }
 
@@ -5896,6 +6649,7 @@ impl ViewChangeParams<'_, '_> {
             self.match_model.as_deref_mut(),
             self.player_deck_collection.as_deref(),
             self.cpu_brain_model.as_deref_mut(),
+            self.pending_round_deal.as_deref_mut(),
         );
         *self.card_state = CardInspectionState::default();
         self.despawn_game_scene();
@@ -5969,6 +6723,7 @@ impl ViewChangeParams<'_, '_> {
     }
 
     fn spawn_game_scene(&mut self, active_card_model: &ActiveCardModel) {
+        let app_camera = self.app_camera_entity();
         let fallback_slot_board = CardSlotBoardModel::default();
         let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
         let fallback_hand_cards = fallback_starting_hand_cards();
@@ -5987,6 +6742,7 @@ impl ViewChangeParams<'_, '_> {
         spawn_game_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
+            app_camera,
             self.hud.as_ref().map(|hud| hud.0),
             &self.asset_server,
             &self.camera_defaults,
@@ -6014,6 +6770,7 @@ impl ViewChangeParams<'_, '_> {
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
+        let app_camera = self.app_camera_entity();
         let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
         let player_deck_collection = self
             .player_deck_collection
@@ -6021,6 +6778,7 @@ impl ViewChangeParams<'_, '_> {
             .unwrap_or(&fallback_player_deck_collection);
         spawn_deck_scene_contents(
             &mut self.commands,
+            app_camera,
             &self.asset_server,
             &self.camera_defaults,
             &self.card_defaults,
@@ -6043,8 +6801,10 @@ impl ViewChangeParams<'_, '_> {
         visible_face: CardFace,
         initial_rotation: Quat,
     ) {
+        let app_camera = self.app_camera_entity();
         spawn_debug_scene_contents(
             &mut self.commands,
+            app_camera,
             &self.asset_server,
             &self.camera_defaults,
             &self.card_defaults,
@@ -6060,26 +6820,32 @@ impl ViewChangeParams<'_, '_> {
     }
 
     fn spawn_main_menu_scene(&mut self) {
+        let app_camera = self.app_camera_entity();
         spawn_main_menu_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
+            app_camera,
             &self.asset_server,
         );
     }
 
     fn spawn_lightning_login_scene(&mut self) {
+        let app_camera = self.app_camera_entity();
         spawn_lightning_login_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
+            app_camera,
             &self.asset_server,
         );
     }
 
     fn spawn_matchmaking_scene(&mut self) {
         let fallback_matchmaking = MatchmakingModel::default();
+        let app_camera = self.app_camera_entity();
         spawn_matchmaking_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
+            app_camera,
             self.matchmaking_model
                 .as_deref()
                 .unwrap_or(&fallback_matchmaking),
@@ -6087,9 +6853,11 @@ impl ViewChangeParams<'_, '_> {
     }
 
     fn spawn_settings_scene(&mut self, settings: &MetaGameSettingsModel) {
+        let app_camera = self.app_camera_entity();
         spawn_settings_scene_contents(
             &mut self.commands,
             self.app_scene_query.single().ok(),
+            app_camera,
             settings,
         );
     }
@@ -6160,6 +6928,31 @@ impl ViewChangeParams<'_, '_> {
         self.restart_game(active_card_model);
     }
 
+    /// HUMAN: Applies one requested ActiveView transition immediately.
+    /// AI: transition_update_system calls this at full black to avoid visible scene popping.
+    pub fn transition_to_requested_view(
+        &mut self,
+        target_view: ActiveView,
+        settings: &MetaGameSettingsModel,
+        active_card_model: &ActiveCardModel,
+        visible_face: CardFace,
+        initial_rotation: Quat,
+    ) {
+        match target_view {
+            ActiveView::MainMenuScene => self.transition_to_main_menu_scene(),
+            ActiveView::LightningScene => self.transition_to_lightning_login_scene(),
+            ActiveView::MatchmakingScene => self.transition_to_matchmaking_scene(),
+            ActiveView::GameScene => self.transition_to_game_scene(active_card_model),
+            ActiveView::DeckScene => {
+                self.transition_to_deck_scene(active_card_model, visible_face, initial_rotation)
+            }
+            ActiveView::SettingsScene => self.transition_to_settings_scene(settings),
+            ActiveView::DebugScene => {
+                self.transition_to_debug_scene(active_card_model, visible_face, initial_rotation)
+            }
+        }
+    }
+
     fn begin_prepared_game_warmup(&mut self, active_card_model: &ActiveCardModel) {
         self.despawn_game_scene();
         *self.active_view = ActiveView::GameScene;
@@ -6172,21 +6965,11 @@ impl ViewChangeParams<'_, '_> {
         self.despawn_meta_scene();
     }
 
-    /// HUMAN: Refreshes the GameScene world background without touching gameplay state.
+    /// HUMAN: Requests a GameScene world background transition without touching gameplay state.
     /// AI: Keep T-key theme cycling visual-only while the active match continues.
-    fn refresh_game_scene_world_background(&mut self) {
-        let world_model = self
-            .world_model_registry
-            .active_world_model(&self.active_world_model);
-        for (mut name, mut material) in &mut self.world_background_query {
-            *name = Name::new(format!("{} World Background", world_model.display_name));
-            *material = MeshMaterial3d(card_model_material(
-                &self.asset_server,
-                &mut self.materials,
-                world_model.background_texture,
-                AlphaMode::Opaque,
-                BACKGROUND_DEPTH_BIAS,
-            ));
+    fn request_game_scene_world_background_transition(&mut self) {
+        for (_, _, mut transition) in &mut self.world_background_query {
+            transition.request_world_index(self.active_world_model.index);
         }
     }
 
@@ -6211,6 +6994,7 @@ impl ViewChangeParams<'_, '_> {
             }
             ActiveView::GameScene => {
                 self.despawn_game_scene();
+                let app_camera = self.app_camera_entity();
                 let fallback_slot_board = CardSlotBoardModel::default();
                 let slot_board = self.slot_board.as_deref().unwrap_or(&fallback_slot_board);
                 let fallback_hand_cards = fallback_starting_hand_cards();
@@ -6229,6 +7013,7 @@ impl ViewChangeParams<'_, '_> {
                 spawn_game_scene_contents(
                     &mut self.commands,
                     self.app_scene_query.single().ok(),
+                    app_camera,
                     self.hud.as_ref().map(|hud| hud.0),
                     &self.asset_server,
                     &self.camera_defaults,
@@ -6250,6 +7035,7 @@ impl ViewChangeParams<'_, '_> {
             }
             ActiveView::DeckScene => {
                 self.despawn_deck_scene();
+                let app_camera = self.app_camera_entity();
                 let fallback_player_deck_collection = PlayerDeckCollectionModel::default();
                 let player_deck_collection = self
                     .player_deck_collection
@@ -6257,6 +7043,7 @@ impl ViewChangeParams<'_, '_> {
                     .unwrap_or(&fallback_player_deck_collection);
                 spawn_deck_scene_contents(
                     &mut self.commands,
+                    app_camera,
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
@@ -6279,8 +7066,10 @@ impl ViewChangeParams<'_, '_> {
             }
             ActiveView::DebugScene => {
                 self.despawn_debug_scene();
+                let app_camera = self.app_camera_entity();
                 spawn_debug_scene_contents(
                     &mut self.commands,
+                    app_camera,
                     &self.asset_server,
                     &self.camera_defaults,
                     &self.card_defaults,
@@ -6305,7 +7094,15 @@ pub fn enforce_hidden_game_scene_visibility_system(
     game_scene_entities: Query<Entity, With<GameSceneEntity>>,
     child_query: Query<&Children>,
     mut visibility_query: Query<&mut Visibility>,
+    mut point_text_camera_query: Query<
+        &mut Camera,
+        (With<GameSceneEntity>, With<CardPointTextCamera>),
+    >,
 ) {
+    for mut camera in &mut point_text_camera_query {
+        camera.is_active = *active_view == ActiveView::GameScene;
+    }
+
     if *active_view == ActiveView::GameScene {
         return;
     }
@@ -6346,44 +7143,19 @@ pub fn ai_runtime_show_deck_screen_system(
     In(_params): In<Option<serde_json::Value>>,
     active_card_model: Res<ActiveCardModel>,
     flip_state: Res<CardFlipState>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
 ) -> bevy::remote::BrpResult {
-    match *params.active_view {
-        ActiveView::GameScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.hide_game_scene();
-            params.spawn_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-            *params.active_view = ActiveView::DeckScene;
-        }
-        ActiveView::DeckScene => {}
-        ActiveView::DebugScene => {
-            params.despawn_debug_scene();
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.spawn_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-            *params.active_view = ActiveView::DeckScene;
-        }
-        ActiveView::MainMenuScene
-        | ActiveView::LightningScene
-        | ActiveView::MatchmakingScene
-        | ActiveView::SettingsScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.transition_to_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-        }
+    if let Some(screen_transition) = screen_transition.as_deref_mut() {
+        screen_transition.request_view_change(*params.active_view, ActiveView::DeckScene);
+    } else {
+        let initial_rotation =
+            composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+        params.transition_to_deck_scene(
+            &active_card_model,
+            flip_state.visible_face,
+            initial_rotation,
+        );
     }
 
     Ok(serde_json::json!({
@@ -6401,44 +7173,19 @@ pub fn ai_runtime_show_deck_library_system(
     flip_state: Res<CardFlipState>,
     mut deck_screen: ResMut<DeckScreenModel>,
     mut top_navigation: ResMut<TopNavigationModel>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
 ) -> bevy::remote::BrpResult {
-    match *params.active_view {
-        ActiveView::GameScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.hide_game_scene();
-            params.spawn_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-            *params.active_view = ActiveView::DeckScene;
-        }
-        ActiveView::DeckScene => {}
-        ActiveView::DebugScene => {
-            params.despawn_debug_scene();
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.spawn_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-            *params.active_view = ActiveView::DeckScene;
-        }
-        ActiveView::MainMenuScene
-        | ActiveView::LightningScene
-        | ActiveView::MatchmakingScene
-        | ActiveView::SettingsScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.transition_to_deck_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-        }
+    if let Some(screen_transition) = screen_transition.as_deref_mut() {
+        screen_transition.request_view_change(*params.active_view, ActiveView::DeckScene);
+    } else {
+        let initial_rotation =
+            composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+        params.transition_to_deck_scene(
+            &active_card_model,
+            flip_state.visible_face,
+            initial_rotation,
+        );
     }
 
     top_navigation.selected = TopNavigationDestination::MyDecks;
@@ -6459,6 +7206,7 @@ pub fn ai_runtime_show_deck_library_system(
 pub fn ai_runtime_show_game_screen_system(
     In(_params): In<Option<serde_json::Value>>,
     active_card_model: Res<ActiveCardModel>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
 ) -> bevy::remote::BrpResult {
     match *params.active_view {
@@ -6471,7 +7219,11 @@ pub fn ai_runtime_show_game_screen_system(
         | ActiveView::LightningScene
         | ActiveView::MatchmakingScene
         | ActiveView::SettingsScene => {
-            params.transition_to_game_scene(&active_card_model);
+            if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                screen_transition.request_view_change(*params.active_view, ActiveView::GameScene);
+            } else {
+                params.transition_to_game_scene(&active_card_model);
+            }
         }
     }
 
@@ -6488,34 +7240,19 @@ pub fn ai_runtime_show_debug_screen_system(
     In(_params): In<Option<serde_json::Value>>,
     active_card_model: Res<ActiveCardModel>,
     flip_state: Res<CardFlipState>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
 ) -> bevy::remote::BrpResult {
-    match *params.active_view {
-        ActiveView::GameScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.hide_game_scene();
-            params.spawn_debug_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-            *params.active_view = ActiveView::DebugScene;
-        }
-        ActiveView::DebugScene => {}
-        ActiveView::DeckScene
-        | ActiveView::MainMenuScene
-        | ActiveView::LightningScene
-        | ActiveView::MatchmakingScene
-        | ActiveView::SettingsScene => {
-            let initial_rotation =
-                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
-            params.transition_to_debug_scene(
-                &active_card_model,
-                flip_state.visible_face,
-                initial_rotation,
-            );
-        }
+    if let Some(screen_transition) = screen_transition.as_deref_mut() {
+        screen_transition.request_view_change(*params.active_view, ActiveView::DebugScene);
+    } else {
+        let initial_rotation =
+            composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+        params.transition_to_debug_scene(
+            &active_card_model,
+            flip_state.visible_face,
+            initial_rotation,
+        );
     }
 
     Ok(serde_json::json!({
@@ -6528,6 +7265,7 @@ pub fn ai_runtime_show_debug_screen_system(
 /// AI: Deck scene blocks restart when the click resolves to a selectable deck card.
 pub fn view_input_system(
     selected_modal: Option<Res<SelectedCardModalModel>>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
     mut active_card_model: ResMut<ActiveCardModel>,
     mut flip_state: ResMut<CardFlipState>,
@@ -6550,9 +7288,14 @@ pub fn view_input_system(
             let _ = (&mut active_card_model, &mut flip_state);
         }
         ActiveView::DeckScene => {
+            let app_camera = params
+                .app_camera_query
+                .single()
+                .ok()
+                .map(|(_, camera, transform)| (camera, transform));
             let is_card_hit = is_deck_card_hit(
                 pointer_position,
-                params.view_camera_queries.p1().single().ok(),
+                app_camera,
                 params.deck_card_query.single().ok(),
                 &params.card_defaults,
             );
@@ -6560,13 +7303,22 @@ pub fn view_input_system(
                 return;
             }
 
-            params.despawn_deck_scene();
-            params.restart_game(&active_card_model);
+            if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                screen_transition.request_view_change(*params.active_view, ActiveView::GameScene);
+            } else {
+                params.despawn_deck_scene();
+                params.restart_game(&active_card_model);
+            }
         }
         ActiveView::DebugScene => {
+            let app_camera = params
+                .app_camera_query
+                .single()
+                .ok()
+                .map(|(_, camera, transform)| (camera, transform));
             let is_card_hit = is_deck_card_hit(
                 pointer_position,
-                params.view_camera_queries.p2().single().ok(),
+                app_camera,
                 params.debug_card_query.single().ok(),
                 &params.card_defaults,
             );
@@ -6574,8 +7326,12 @@ pub fn view_input_system(
                 return;
             }
 
-            params.despawn_debug_scene();
-            params.restart_game(&active_card_model);
+            if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                screen_transition.request_view_change(*params.active_view, ActiveView::GameScene);
+            } else {
+                params.despawn_debug_scene();
+                params.restart_game(&active_card_model);
+            }
         }
         ActiveView::MainMenuScene
         | ActiveView::LightningScene
@@ -6589,6 +7345,7 @@ pub fn view_input_system(
 fn card_click_navigation(
     click: On<Pointer<Click>>,
     selected_modal: Option<Res<SelectedCardModalModel>>,
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
     active_card_model: Res<ActiveCardModel>,
     card_query: Query<(), (With<CardView>, With<DeckSceneEntity>)>,
@@ -6606,8 +7363,12 @@ fn card_click_navigation(
         &card_query,
         &parent_query,
     ) {
-        params.despawn_deck_scene();
-        params.restart_game(&active_card_model);
+        if let Some(screen_transition) = screen_transition.as_deref_mut() {
+            screen_transition.request_view_change(*params.active_view, ActiveView::GameScene);
+        } else {
+            params.despawn_deck_scene();
+            params.restart_game(&active_card_model);
+        }
     }
 }
 
@@ -6652,7 +7413,7 @@ fn card_click_selection(
         })
         .unwrap_or_else(|| selected_inspection_transform(&card_defaults));
 
-    commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+    commands.entity(entity).remove::<CardAnimation>();
     selected_modal.select_entity(entity, source_transform, target_transform);
 }
 
@@ -7004,6 +7765,33 @@ pub fn modal_block_game_control_interactions_system(
     }
 }
 
+/// HUMAN: Enables DeckScreen fullscreen blur only while prompt overlays are visible.
+/// AI: Prompt visibility controls camera post-process attachment so blur matches modal lifetime.
+pub fn modal_backdrop_blur_update_system(
+    mut commands: Commands,
+    deck_screen_model: Option<Res<DeckScreenModel>>,
+    camera_query: Query<
+        (Entity, Option<&DeckPromptBackdropBlur>),
+        (With<DeckSceneEntity>, With<Camera3d>),
+    >,
+) {
+    let should_enable = deck_screen_model
+        .as_ref()
+        .is_some_and(|model| model.validation_prompt || model.coming_soon_prompt);
+
+    for (entity, blur) in &camera_query {
+        if should_enable {
+            if blur.is_none() {
+                commands
+                    .entity(entity)
+                    .insert(DeckPromptBackdropBlur::default());
+            }
+        } else if blur.is_some() {
+            commands.entity(entity).remove::<DeckPromptBackdropBlur>();
+        }
+    }
+}
+
 /// HUMAN: Plays shared click feedback for accepted GameScreen control buttons.
 /// AI: Keep this separate from update_end_round_button to avoid growing that system's param set.
 pub fn game_control_audio_update_system(
@@ -7011,6 +7799,7 @@ pub fn game_control_audio_update_system(
     mut audio_manager: Option<ResMut<AudioManagerModel>>,
     game_round_model: Option<Res<GameRoundModel>>,
     match_model: Option<Res<MatchModel>>,
+    pending_round_deal: Option<Res<PendingRoundDealResource>>,
     button_query: Query<(&Interaction, &GameControlButton), Changed<Interaction>>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
@@ -7025,11 +7814,38 @@ pub fn game_control_audio_update_system(
             control.action,
             game_round_model.as_deref(),
             match_model.as_deref(),
+            pending_round_deal.as_deref(),
         ) {
             continue;
         }
         request_button_click(audio_manager.as_deref_mut());
     }
+}
+
+/// HUMAN: Applies a consistent hover treatment to all shared UI buttons.
+/// AI: Hover is always 20% brighter than each button's normal/base color.
+pub fn button_ui_hover_update_system(
+    mut button_query: Query<
+        (&Interaction, &ButtonUiBaseColor, &mut BackgroundColor),
+        (Changed<Interaction>, With<ButtonUiStyle>),
+    >,
+) {
+    for (interaction, base_color, mut background) in &mut button_query {
+        background.0 = match *interaction {
+            Interaction::Hovered => brighten_color(base_color.0, 1.2),
+            Interaction::Pressed | Interaction::None => base_color.0,
+        };
+    }
+}
+
+fn brighten_color(color: Color, factor: f32) -> Color {
+    let srgba = color.to_srgba();
+    Color::srgba(
+        (srgba.red * factor).clamp(0.0, 1.0),
+        (srgba.green * factor).clamp(0.0, 1.0),
+        (srgba.blue * factor).clamp(0.0, 1.0),
+        srgba.alpha,
+    )
 }
 
 fn request_button_click(audio_manager: Option<&mut AudioManagerModel>) {
@@ -7044,189 +7860,252 @@ fn request_card_flip(audio_manager: Option<&mut AudioManagerModel>) {
     }
 }
 
-pub fn update_end_round_button(
-    active_view: Option<Res<ActiveView>>,
-    mut button_query: Query<
+#[derive(SystemParam)]
+pub struct GameControlUpdateParams<'w, 's> {
+    active_view: Option<Res<'w, ActiveView>>,
+    button_query: Query<
+        'w,
+        's,
         (
-            &Interaction,
-            &GameControlButton,
-            &mut BackgroundColor,
-            &mut BorderColor,
+            &'static Interaction,
+            &'static GameControlButton,
+            &'static mut BackgroundColor,
+            &'static mut BorderColor,
         ),
         Changed<Interaction>,
     >,
-    mut game_deck_model: Option<ResMut<GameDeckModel>>,
-    mut game_hand_model: Option<ResMut<GameHandModel>>,
-    mut game_round_model: Option<ResMut<GameRoundModel>>,
-    mut game_location_model: Option<ResMut<GameLocationModel>>,
-    location_model_registry: Option<Res<LocationModelRegistry>>,
-    mut active_locations: Option<ResMut<ActiveLocations>>,
-    mut active_world_model: Option<ResMut<ActiveWorldModel>>,
-    mut match_model: Option<ResMut<MatchModel>>,
-    player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
-    mut persistent_match_mode: Option<ResMut<Persistent<MatchModePreferenceStore>>>,
-    mut slot_board: Option<ResMut<CardSlotBoardModel>>,
-    mut card_states: Option<ResMut<CardStateModel>>,
-    mut gesture_model: Option<ResMut<CardGestureModel>>,
-    mut cpu_brain_model: Option<ResMut<CpuBrainModel>>,
+    game_deck_model: Option<ResMut<'w, GameDeckModel>>,
+    game_hand_model: Option<ResMut<'w, GameHandModel>>,
+    game_round_model: Option<ResMut<'w, GameRoundModel>>,
+    card_model_registry: Option<Res<'w, CardModelRegistry>>,
+    game_location_model: Option<ResMut<'w, GameLocationModel>>,
+    location_model_registry: Option<Res<'w, LocationModelRegistry>>,
+    active_locations: Option<ResMut<'w, ActiveLocations>>,
+    active_world_model: Option<ResMut<'w, ActiveWorldModel>>,
+    match_model: Option<ResMut<'w, MatchModel>>,
+    player_deck_collection: Option<Res<'w, PlayerDeckCollectionModel>>,
+    persistent_match_mode: Option<ResMut<'w, Persistent<MatchModePreferenceStore>>>,
+    slot_board: Option<ResMut<'w, CardSlotBoardModel>>,
+    card_states: Option<ResMut<'w, CardStateModel>>,
+    gesture_model: Option<ResMut<'w, CardGestureModel>>,
+    cpu_brain_model: Option<ResMut<'w, CpuBrainModel>>,
+    pending_round_deal: Option<ResMut<'w, PendingRoundDealResource>>,
+}
+
+impl GameControlUpdateParams<'_, '_> {
+    fn handle_action(&mut self, action: GameControlAction) {
+        match action {
+            GameControlAction::QuitGame => {}
+            GameControlAction::Mode => self.handle_mode_action(),
+            GameControlAction::EndRound => self.handle_end_round_action(),
+            GameControlAction::Restart => self.handle_restart_action(),
+            GameControlAction::Undo => self.handle_undo_action(),
+        }
+    }
+
+    fn handle_mode_action(&mut self) {
+        let Some(match_model) = self.match_model.as_deref_mut() else {
+            return;
+        };
+        let next_mode = match_model.mode.next();
+        if let Some(persistent_match_mode) = self.persistent_match_mode.as_deref_mut()
+            && let Err(error) = persistent_match_mode.set(MatchModePreferenceStore {
+                selected_mode: next_mode,
+            })
+        {
+            warn!("Failed to save match mode preference: {error}");
+        }
+        if let (
+            Some(game_deck_model),
+            Some(game_hand_model),
+            Some(game_round_model),
+            Some(game_location_model),
+            Some(slot_board),
+            Some(card_states),
+            Some(gesture_model),
+        ) = (
+            self.game_deck_model.as_deref_mut(),
+            self.game_hand_model.as_deref_mut(),
+            self.game_round_model.as_deref_mut(),
+            self.game_location_model.as_deref_mut(),
+            self.slot_board.as_deref_mut(),
+            self.card_states.as_deref_mut(),
+            self.gesture_model.as_deref_mut(),
+        ) {
+            *slot_board = CardSlotBoardModel::default();
+            *gesture_model = CardGestureModel::default();
+            reset_two_player_match(
+                next_mode,
+                match_model,
+                game_deck_model,
+                game_hand_model,
+                game_round_model,
+                game_location_model,
+                self.location_model_registry.as_deref(),
+                self.active_locations.as_deref_mut(),
+                self.active_world_model.as_deref(),
+                self.player_deck_collection
+                    .as_deref()
+                    .and_then(PlayerDeckCollectionModel::primary_deck),
+            );
+            card_states.reset_to_size(game_hand_model.len());
+            if let Some(pending_round_deal) = self.pending_round_deal.as_deref_mut() {
+                pending_round_deal.is_pending = false;
+                pending_round_deal.is_round_deal_complete = true;
+                pending_round_deal.waits_for_location_intro = false;
+            }
+            if let Some(cpu_brain_model) = self.cpu_brain_model.as_deref_mut() {
+                cpu_brain_model.reset();
+            }
+        }
+    }
+
+    fn handle_end_round_action(&mut self) {
+        if let (
+            Some(game_deck_model),
+            Some(game_hand_model),
+            Some(game_round_model),
+            Some(match_model),
+            Some(slot_board),
+        ) = (
+            self.game_deck_model.as_deref_mut(),
+            self.game_hand_model.as_deref_mut(),
+            self.game_round_model.as_deref_mut(),
+            self.match_model.as_deref_mut(),
+            self.slot_board.as_deref_mut(),
+        ) {
+            if !game_round_model.can_end_round() {
+                return;
+            }
+            sync_near_human_from_game_models(
+                match_model,
+                game_deck_model,
+                game_hand_model,
+                game_round_model,
+            );
+            let human_moves: Vec<_> = game_round_model
+                .current_round_moves
+                .iter()
+                .map(|record| (record.location_index, record.slot_index))
+                .collect();
+            for (location_index, slot_index) in human_moves {
+                if !match_model.placements.iter().any(|placement| {
+                    placement.owner == MatchPlayerSide::Near
+                        && placement.location_index == location_index
+                        && placement.slot_index == slot_index
+                        && placement.placement_round == match_model.round.round
+                }) {
+                    match_model.record_placement(MatchPlayerSide::Near, location_index, slot_index);
+                }
+            }
+            match_model.near.ready_for_next = true;
+            prepare_cpu_players_for_next_click(
+                match_model,
+                slot_board,
+                self.card_model_registry.as_deref(),
+                self.cpu_brain_model.as_deref_mut(),
+            );
+            resolve_match_readiness(match_model, slot_board);
+        }
+    }
+
+    fn handle_restart_action(&mut self) {
+        restart_game_model(
+            self.gesture_model.as_deref_mut(),
+            self.slot_board.as_deref_mut(),
+            self.card_states.as_deref_mut(),
+            self.game_deck_model.as_deref_mut(),
+            self.game_hand_model.as_deref_mut(),
+            self.game_round_model.as_deref_mut(),
+            self.game_location_model.as_deref_mut(),
+            self.location_model_registry.as_deref(),
+            self.active_locations.as_deref_mut(),
+            self.active_world_model.as_deref_mut(),
+            None,
+            self.match_model.as_deref_mut(),
+            self.player_deck_collection.as_deref(),
+            self.cpu_brain_model.as_deref_mut(),
+            self.pending_round_deal.as_deref_mut(),
+        );
+    }
+
+    fn handle_undo_action(&mut self) {
+        if let (Some(game_round_model), Some(slot_board), Some(card_states), Some(gesture_model)) = (
+            self.game_round_model.as_deref_mut(),
+            self.slot_board.as_deref_mut(),
+            self.card_states.as_deref_mut(),
+            self.gesture_model.as_deref_mut(),
+        ) && game_round_model.has_undoable_moves()
+        {
+            let moves: Vec<_> = game_round_model.current_round_moves.drain(..).collect();
+            for record in moves {
+                slot_board.remove_local_card(record.hand_index);
+                card_states.return_to_hand(record.hand_index);
+                game_round_model.restore(record.energy_cost);
+            }
+            *gesture_model = CardGestureModel::default();
+        }
+    }
+}
+
+fn prepare_cpu_players_for_next_click(
+    match_model: &mut MatchModel,
+    slot_board: &CardSlotBoardModel,
+    card_model_registry: Option<&CardModelRegistry>,
+    mut cpu_brain_model: Option<&mut CpuBrainModel>,
 ) {
-    if !is_game_scene_active(active_view.as_deref()) {
+    for side in [MatchPlayerSide::Near, MatchPlayerSide::Far] {
+        if !match_model.player(side).controller.is_cpu() || match_model.player(side).ready_for_next
+        {
+            continue;
+        }
+
+        if !match_model.has_pending_cpu_placements()
+            && let Some(card_model_registry) = card_model_registry
+        {
+            let selected_moves = choose_level1_moves(
+                match_model,
+                side,
+                slot_board,
+                card_model_registry,
+                cpu_brain_model
+                    .as_deref()
+                    .map(|brain| brain.seed)
+                    .unwrap_or_default(),
+            );
+            if !selected_moves.is_empty() {
+                match_model.queue_cpu_placements(selected_moves);
+            }
+        }
+
+        match_model.player_mut(side).ready_for_next = true;
+        if let Some(cpu_brain_model) = cpu_brain_model.as_deref_mut() {
+            cpu_brain_model.schedule_next(side);
+        }
+    }
+}
+
+pub fn update_end_round_button(mut params: GameControlUpdateParams) {
+    if !is_game_scene_active(params.active_view.as_deref()) {
         return;
     }
 
-    if card_gesture_blocks_game_controls(gesture_model.as_deref()) {
+    if card_gesture_blocks_game_controls(params.gesture_model.as_deref()) {
         return;
     }
 
-    for (interaction, control, mut background, mut border) in &mut button_query {
+    let mut actions_to_handle = Vec::new();
+    for (interaction, control, mut background, mut border) in &mut params.button_query {
         let is_disabled = game_control_action_is_disabled(
             control.action,
-            game_round_model.as_deref(),
-            match_model.as_deref(),
+            params.game_round_model.as_deref(),
+            params.match_model.as_deref(),
+            params.pending_round_deal.as_deref(),
         );
         let (background_color, border_color) = match *interaction {
             Interaction::Pressed => {
-                match control.action {
-                    GameControlAction::QuitGame => {}
-                    GameControlAction::Mode => {
-                        if let Some(match_model) = match_model.as_deref_mut() {
-                            let next_mode = match_model.mode.next();
-                            if let Some(persistent_match_mode) =
-                                persistent_match_mode.as_deref_mut()
-                                && let Err(error) =
-                                    persistent_match_mode.set(MatchModePreferenceStore {
-                                        selected_mode: next_mode,
-                                    })
-                            {
-                                warn!("Failed to save match mode preference: {error}");
-                            }
-                            if let (
-                                Some(game_deck_model),
-                                Some(game_hand_model),
-                                Some(game_round_model),
-                                Some(game_location_model),
-                                Some(slot_board),
-                                Some(card_states),
-                                Some(gesture_model),
-                            ) = (
-                                game_deck_model.as_deref_mut(),
-                                game_hand_model.as_deref_mut(),
-                                game_round_model.as_deref_mut(),
-                                game_location_model.as_deref_mut(),
-                                slot_board.as_deref_mut(),
-                                card_states.as_deref_mut(),
-                                gesture_model.as_deref_mut(),
-                            ) {
-                                *slot_board = CardSlotBoardModel::default();
-                                *gesture_model = CardGestureModel::default();
-                                reset_two_player_match(
-                                    next_mode,
-                                    match_model,
-                                    game_deck_model,
-                                    game_hand_model,
-                                    game_round_model,
-                                    game_location_model,
-                                    location_model_registry.as_deref(),
-                                    active_locations.as_deref_mut(),
-                                    active_world_model.as_deref(),
-                                    player_deck_collection
-                                        .as_deref()
-                                        .and_then(PlayerDeckCollectionModel::primary_deck),
-                                );
-                                card_states.reset_to_size(game_hand_model.len());
-                                if let Some(cpu_brain_model) = cpu_brain_model.as_deref_mut() {
-                                    cpu_brain_model.reset();
-                                }
-                            }
-                        }
-                    }
-                    GameControlAction::EndRound => {
-                        if let (
-                            Some(game_deck_model),
-                            Some(game_hand_model),
-                            Some(game_round_model),
-                            Some(match_model),
-                            Some(slot_board),
-                        ) = (
-                            game_deck_model.as_deref_mut(),
-                            game_hand_model.as_deref_mut(),
-                            game_round_model.as_deref_mut(),
-                            match_model.as_deref_mut(),
-                            slot_board.as_deref_mut(),
-                        ) {
-                            if !game_round_model.can_end_round() {
-                                return;
-                            }
-                            sync_near_human_from_game_models(
-                                match_model,
-                                game_deck_model,
-                                game_hand_model,
-                                game_round_model,
-                            );
-                            let human_moves: Vec<_> = game_round_model
-                                .current_round_moves
-                                .iter()
-                                .map(|record| (record.location_index, record.slot_index))
-                                .collect();
-                            for (location_index, slot_index) in human_moves {
-                                if !match_model.placements.iter().any(|placement| {
-                                    placement.owner == MatchPlayerSide::Near
-                                        && placement.location_index == location_index
-                                        && placement.slot_index == slot_index
-                                        && placement.placement_round == match_model.round.round
-                                }) {
-                                    match_model.record_placement(
-                                        MatchPlayerSide::Near,
-                                        location_index,
-                                        slot_index,
-                                    );
-                                }
-                            }
-                            match_model.near.ready_for_next = true;
-                            resolve_match_readiness(match_model, slot_board);
-                        }
-                    }
-                    GameControlAction::Restart => {
-                        restart_game_model(
-                            gesture_model.as_deref_mut(),
-                            slot_board.as_deref_mut(),
-                            card_states.as_deref_mut(),
-                            game_deck_model.as_deref_mut(),
-                            game_hand_model.as_deref_mut(),
-                            game_round_model.as_deref_mut(),
-                            game_location_model.as_deref_mut(),
-                            location_model_registry.as_deref(),
-                            active_locations.as_deref_mut(),
-                            active_world_model.as_deref_mut(),
-                            None,
-                            match_model.as_deref_mut(),
-                            player_deck_collection.as_deref(),
-                            cpu_brain_model.as_deref_mut(),
-                        );
-                    }
-                    GameControlAction::Undo => {
-                        if let (
-                            Some(game_round_model),
-                            Some(slot_board),
-                            Some(card_states),
-                            Some(gesture_model),
-                        ) = (
-                            game_round_model.as_deref_mut(),
-                            slot_board.as_deref_mut(),
-                            card_states.as_deref_mut(),
-                            gesture_model.as_deref_mut(),
-                        ) && game_round_model.has_undoable_moves()
-                        {
-                            let moves: Vec<_> =
-                                game_round_model.current_round_moves.drain(..).collect();
-                            for record in moves {
-                                slot_board.remove_local_card(record.hand_index);
-                                card_states.return_to_hand(record.hand_index);
-                                game_round_model.restore(record.energy_cost);
-                            }
-                            *gesture_model = CardGestureModel::default();
-                        }
-                    }
+                if !is_disabled {
+                    actions_to_handle.push(control.action);
                 }
                 (
                     END_ROUND_BUTTON_PRESSED_COLOR,
@@ -7234,8 +8113,8 @@ pub fn update_end_round_button(
                 )
             }
             Interaction::Hovered => (
-                END_ROUND_BUTTON_HOVER_COLOR,
-                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
+                brighten_color(END_ROUND_BUTTON_NORMAL_COLOR, 1.2),
+                brighten_color(END_ROUND_BUTTON_NORMAL_BORDER_COLOR, 1.2),
             ),
             Interaction::None => (
                 END_ROUND_BUTTON_NORMAL_COLOR,
@@ -7250,11 +8129,16 @@ pub fn update_end_round_button(
             *border = BorderColor::all(border_color);
         }
     }
+
+    for action in actions_to_handle {
+        params.handle_action(action);
+    }
 }
 
 /// HUMAN: Routes the GameScreen Quit Game control back to the main menu.
 /// AI: Keep this separate from gameplay action handling to avoid borrowing game-round models.
 pub fn quit_game_control_update_system(
+    mut screen_transition: Option<ResMut<ScreenTransitionResource>>,
     mut params: ViewChangeParams,
     mut button_query: Query<(&Interaction, &GameControlButton), Changed<Interaction>>,
 ) {
@@ -7264,7 +8148,12 @@ pub fn quit_game_control_update_system(
 
     for (interaction, control) in &mut button_query {
         if *interaction == Interaction::Pressed && control.action == GameControlAction::QuitGame {
-            params.transition_to_main_menu_scene();
+            if let Some(screen_transition) = screen_transition.as_deref_mut() {
+                screen_transition
+                    .request_view_change(*params.active_view, ActiveView::MainMenuScene);
+            } else {
+                params.transition_to_main_menu_scene();
+            }
         }
     }
 }
@@ -7308,6 +8197,7 @@ pub fn update_game_control_ui_system(
     selected_modal: Option<Res<SelectedCardModalModel>>,
     game_round_model: Option<Res<GameRoundModel>>,
     match_model: Option<Res<MatchModel>>,
+    pending_round_deal: Option<Res<PendingRoundDealResource>>,
     mut text_queries: ParamSet<(
         Query<(&GameControlLabel, &mut Text)>,
         Query<&mut Text, With<MatchStatusText>>,
@@ -7371,6 +8261,7 @@ pub fn update_game_control_ui_system(
             control.action,
             Some(game_round_model),
             match_model.as_deref(),
+            pending_round_deal.as_deref(),
         ) {
             background.0 = GAME_CONTROL_DISABLED_COLOR;
             *border = BorderColor::all(GAME_CONTROL_DISABLED_BORDER_COLOR);
@@ -7383,8 +8274,8 @@ pub fn update_game_control_ui_system(
                 END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
             ),
             Interaction::Hovered => (
-                END_ROUND_BUTTON_HOVER_COLOR,
-                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
+                brighten_color(END_ROUND_BUTTON_NORMAL_COLOR, 1.2),
+                brighten_color(END_ROUND_BUTTON_NORMAL_BORDER_COLOR, 1.2),
             ),
             Interaction::None => (
                 END_ROUND_BUTTON_NORMAL_COLOR,
@@ -7400,6 +8291,7 @@ fn game_control_action_is_disabled(
     action: GameControlAction,
     game_round_model: Option<&GameRoundModel>,
     match_model: Option<&MatchModel>,
+    pending_round_deal: Option<&PendingRoundDealResource>,
 ) -> bool {
     match action {
         GameControlAction::Mode => false,
@@ -7410,8 +8302,10 @@ fn game_control_action_is_disabled(
                 || game_round_model.is_some_and(|model| !model.has_undoable_moves())
         }
         GameControlAction::EndRound => {
-            match_model
-                .is_some_and(|model| model.near.controller.is_cpu() || model.near.ready_for_next)
+            pending_round_deal.is_some_and(|deal| deal.is_pending || !deal.is_round_deal_complete)
+                || match_model.is_some_and(|model| {
+                    model.near.controller.is_cpu() || model.near.ready_for_next
+                })
                 || game_round_model.is_some_and(|model| !model.can_end_round())
         }
     }
@@ -7507,8 +8401,9 @@ pub fn staged_match_resolution_system(
     mut game_deck_model: ResMut<GameDeckModel>,
     mut game_hand_model: ResMut<GameHandModel>,
     mut card_states: ResMut<CardStateModel>,
+    mut pending_round_deal: Option<ResMut<PendingRoundDealResource>>,
     slot_board: Res<CardSlotBoardModel>,
-    animation_query: Query<&CpuPlacedCardAnimation>,
+    animation_query: Query<&CardAnimation>,
     cpu_card_query: Query<&CpuPlacedCardView>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) || match_model.is_complete() {
@@ -7521,8 +8416,7 @@ pub fn staged_match_resolution_system(
             let cpu_cards_still_moving = animation_query.iter().any(|animation| {
                 matches!(
                     animation.phase,
-                    CpuPlacedCardAnimationPhase::MovingToHand
-                        | CpuPlacedCardAnimationPhase::MovingToSlot
+                    CardAnimationPhase::MovingToHand | CardAnimationPhase::MovingToSlot
                 )
             });
             if cpu_cards_still_moving {
@@ -7562,10 +8456,86 @@ pub fn staged_match_resolution_system(
                 &mut game_deck_model,
                 &mut game_hand_model,
                 &mut card_states,
+                pending_round_deal.as_deref_mut(),
                 &slot_board,
                 &card_model_registry,
             );
         }
+    }
+}
+
+/// HUMAN: Turns current-round local placements face-down as soon as round resolution starts.
+/// AI: Reuses passive per-card face control so reveal animation affects only moved local cards.
+pub fn prepare_local_current_round_reveals_system(
+    mut commands: Commands,
+    active_view: Option<Res<ActiveView>>,
+    match_model: Res<MatchModel>,
+    game_round_model: Res<GameRoundModel>,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
+    card_query: Query<(Entity, &HandCardGestureTarget), Without<CpuPlacedCardView>>,
+    children_query: Query<&Children>,
+    face_layer_query: Query<(), With<CardFaceLayer>>,
+) {
+    if !is_game_scene_active(active_view.as_deref())
+        || match_model.resolution_phase == MatchResolutionPhase::Planning
+        || game_round_model.current_round_moves.is_empty()
+    {
+        return;
+    }
+
+    let mut prepared_count = 0;
+    for record in &game_round_model.current_round_moves {
+        let Some((entity, target)) = card_query
+            .iter()
+            .find(|(_, target)| target.hand_index == record.hand_index)
+        else {
+            continue;
+        };
+        mark_card_face_layers_controlled(entity, &mut commands, &children_query, &face_layer_query);
+        commands
+            .entity(entity)
+            .remove::<(
+                CardGestureView,
+                HandCardGestureTarget,
+                LocalPlayerHandCardPreview,
+            )>()
+            .insert((
+                CpuPlacedCardView::new(
+                    MatchPlayerSide::Near,
+                    CardSlotSide::LocalPlayer,
+                    record.location_index,
+                    record.slot_index,
+                    record.card_id.clone(),
+                    CardFace::Back,
+                ),
+                SelectableCard::new(CardSelectionSource::LocalLocation {
+                    location_index: record.location_index,
+                    slot_index: record.slot_index,
+                    hand_index: target.hand_index,
+                }),
+            ));
+        prepared_count += 1;
+    }
+
+    if prepared_count > 0 {
+        request_card_flip(audio_manager.as_deref_mut());
+    }
+}
+
+fn mark_card_face_layers_controlled(
+    entity: Entity,
+    commands: &mut Commands,
+    children_query: &Query<&Children>,
+    face_layer_query: &Query<(), With<CardFaceLayer>>,
+) {
+    if face_layer_query.get(entity).is_ok() {
+        commands.entity(entity).insert(CardAnimationFaceLayer);
+    }
+    let Ok(children) = children_query.get(entity) else {
+        return;
+    };
+    for child in children.iter() {
+        mark_card_face_layers_controlled(child, commands, children_query, face_layer_query);
     }
 }
 
@@ -7576,6 +8546,7 @@ fn finish_revealed_match_round(
     game_deck_model: &mut GameDeckModel,
     game_hand_model: &mut GameHandModel,
     card_states: &mut CardStateModel,
+    pending_round_deal: Option<&mut PendingRoundDealResource>,
     slot_board: &CardSlotBoardModel,
     card_model_registry: &CardModelRegistry,
 ) {
@@ -7595,13 +8566,19 @@ fn finish_revealed_match_round(
     if game_round_model.advance_round() {
         match_model.round.round = game_round_model.round;
         game_location_model.set_round(game_round_model.round);
-        start_match_round(
-            match_model,
-            game_round_model,
-            game_deck_model,
-            game_hand_model,
-        );
-        card_states.ensure_size(game_hand_model.len());
+        if let Some(pending_round_deal) = pending_round_deal {
+            pending_round_deal.is_pending = true;
+            pending_round_deal.is_round_deal_complete = false;
+            pending_round_deal.waits_for_location_intro = false;
+        } else {
+            start_match_round(
+                match_model,
+                game_round_model,
+                game_deck_model,
+                game_hand_model,
+            );
+            card_states.ensure_size(game_hand_model.len());
+        }
     }
     match_model.resolution_phase = MatchResolutionPhase::Planning;
 }
@@ -7615,13 +8592,20 @@ pub fn cpu_brain_update_system(
     mut match_model: ResMut<MatchModel>,
     mut cpu_brain: ResMut<CpuBrainModel>,
     mut slot_board: ResMut<CardSlotBoardModel>,
-    cpu_hand_query: Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
+    pending_round_deal: Option<Res<PendingRoundDealResource>>,
+    cpu_hand_query: Query<(&CpuHandCardView, Option<&CardAnimation>)>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
     if match_model.is_complete() {
+        return;
+    }
+    if pending_round_deal
+        .as_deref()
+        .is_some_and(|deal| deal.is_pending || !deal.is_round_deal_complete)
+    {
         return;
     }
 
@@ -7668,7 +8652,7 @@ pub fn cpu_brain_update_system(
 fn cpu_hand_cards_are_settled_for_planning(
     side: MatchPlayerSide,
     match_model: &MatchModel,
-    cpu_hand_query: &Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
+    cpu_hand_query: &Query<(&CpuHandCardView, Option<&CardAnimation>)>,
 ) -> bool {
     let player = match_model.player(side);
     if player.hand.is_empty() {
@@ -7692,7 +8676,13 @@ fn cpu_hand_cards_are_settled_for_planning(
         seen_instance_ids.insert(view.instance_id);
     }
 
-    seen_instance_ids.is_empty() || seen_instance_ids == expected_instance_ids
+    if seen_instance_ids.is_empty() || seen_instance_ids == expected_instance_ids {
+        return true;
+    }
+
+    // HUMAN: Treat partial passive-hand visibility as settled when no matching card is animating.
+    // AI: Prevent readiness deadlocks when a CPU hand card view fails to render this frame.
+    true
 }
 
 /// HUMAN: Keeps passive CPU hand cards visible while CPU players prepare moves.
@@ -7763,7 +8753,7 @@ pub fn sync_cpu_hand_card_entities_system(
             GameSceneEntity,
             CpuHandCardView::new(owner, instance_id, hand_index, card_id, visible_face),
             SelectableCard::new(CardSelectionSource::OpponentHand { owner, hand_index }),
-            CpuPlacedCardAnimation::move_to_hand(source_transform, hand_transform, visible_face),
+            CardAnimation::move_to_hand(source_transform, hand_transform, visible_face),
         ));
     }
 }
@@ -7786,7 +8776,8 @@ pub fn sync_cpu_placed_card_entities_system(
         Entity,
         &mut CpuPlacedCardView,
         &Transform,
-        Option<&CpuPlacedCardAnimation>,
+        Option<&CardAnimation>,
+        Option<&CardAnimationMarker>,
     )>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
@@ -7801,9 +8792,6 @@ pub fn sync_cpu_placed_card_entities_system(
             CardSlotSide::LocalPlayer => MatchPlayerSide::Near,
             CardSlotSide::Opponent => MatchPlayerSide::Far,
         };
-        if !match_model.player(owner).controller.is_cpu() {
-            continue;
-        }
         let CardSlotState::Populated { card_id, .. } = &slot.state else {
             continue;
         };
@@ -7822,7 +8810,7 @@ pub fn sync_cpu_placed_card_entities_system(
         );
     }
 
-    for (entity, mut view, _, animation) in &mut card_query {
+    for (entity, mut view, _, animation, animation_marker) in &mut card_query {
         let key = (
             view.side,
             view.location_index,
@@ -7834,9 +8822,15 @@ pub fn sync_cpu_placed_card_entities_system(
             continue;
         };
         if view.visible_face != visible_face && visible_face == CardFace::Front {
-            if animation
-                .is_some_and(|animation| animation.phase != CpuPlacedCardAnimationPhase::Revealing)
+            if let Some(animation) = animation {
+                if animation.phase == CardAnimationPhase::Revealing {
+                    view.visible_face = visible_face;
+                }
+                continue;
+            }
+            if animation_marker.is_some_and(|marker| marker.phase == CardAnimationPhase::Revealing)
             {
+                view.visible_face = visible_face;
                 continue;
             }
             view.visible_face = visible_face;
@@ -7849,12 +8843,15 @@ pub fn sync_cpu_placed_card_entities_system(
             );
             commands
                 .entity(entity)
-                .insert(CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.0));
+                .insert(CardAnimation::swan_flip_to_front(slot_transform, 0.0));
             request_card_flip(audio_manager.as_deref_mut());
         }
     }
 
     for ((side, location_index, slot_index, card_id), (owner, visible_face)) in expected {
+        if !match_model.player(owner).controller.is_cpu() {
+            continue;
+        }
         let Some(card_model) = card_model_registry.card_model_for_id(&card_id).cloned() else {
             continue;
         };
@@ -7900,11 +8897,7 @@ pub fn sync_cpu_placed_card_entities_system(
                 location_index,
                 slot_index,
             }),
-            CpuPlacedCardAnimation::move_hand_to_slot(
-                hand_transform,
-                target_transform,
-                visible_face,
-            ),
+            CardAnimation::move_hand_to_slot(hand_transform, target_transform, visible_face),
         ));
     }
 }
@@ -7926,21 +8919,17 @@ fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) 
 }
 
 fn cpu_card_hand_visible_face(owner: MatchPlayerSide) -> CardFace {
-    match owner {
-        MatchPlayerSide::Near => CardFace::Front,
-        MatchPlayerSide::Far => CardFace::Back,
-    }
+    let _ = owner;
+    CardFace::Back
 }
 
 fn cpu_card_slot_visible_face(
-    owner: MatchPlayerSide,
+    _owner: MatchPlayerSide,
     placement_visibility: PlacementVisibility,
 ) -> CardFace {
-    match (owner, placement_visibility) {
-        (MatchPlayerSide::Near, _)
-        | (_, PlacementVisibility::Revealing)
-        | (_, PlacementVisibility::Revealed) => CardFace::Front,
-        (_, PlacementVisibility::CurrentRoundHidden) => CardFace::Back,
+    match placement_visibility {
+        PlacementVisibility::CurrentRoundHidden => CardFace::Back,
+        PlacementVisibility::Revealing | PlacementVisibility::Revealed => CardFace::Front,
     }
 }
 
@@ -7991,29 +8980,54 @@ fn cpu_card_move_source_hand_transform(
     }
 }
 
-/// HUMAN: Animates CPU-controlled cards as they move into slots and reveal.
-/// AI: Presentation-only tweening; slot ownership and winner logic stay in resources.
-pub fn cpu_placed_card_animation_system(
+/// HUMAN: Marks card roots with their current animation owner while tweens are active.
+/// AI: Sync systems can trust this marker instead of reapplying in-flight tweens.
+pub fn card_animation_marker_system(
+    mut commands: Commands,
+    animation_query: Query<(Entity, &CardAnimation), Changed<CardAnimation>>,
+    stale_marker_query: Query<Entity, (With<CardAnimationMarker>, Without<CardAnimation>)>,
+) {
+    for (entity, animation) in &animation_query {
+        commands
+            .entity(entity)
+            .insert(CardAnimationMarker::from(*animation));
+    }
+
+    for entity in &stale_marker_query {
+        commands.entity(entity).remove::<CardAnimationMarker>();
+    }
+}
+
+/// HUMAN: Animates card roots as they move into slots and reveal.
+/// AI: Presentation-only tweening; ownership and winner logic stay in resources.
+pub fn card_animation_system(
     active_view: Option<Res<ActiveView>>,
     time: Res<Time>,
     mut commands: Commands,
-    mut card_query: Query<(Entity, &mut Transform, &mut CpuPlacedCardAnimation)>,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
+    mut card_query: Query<(Entity, &mut Transform, &mut CardAnimation)>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
         return;
     }
 
     for (entity, mut transform, mut animation) in &mut card_query {
-        if advance_cpu_placed_card_animation(time.delta_secs(), &mut transform, &mut animation) {
-            commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+        if advance_card_animation(
+            time.delta_secs(),
+            &mut transform,
+            &mut animation,
+            audio_manager.as_deref_mut(),
+        ) {
+            commands.entity(entity).remove::<CardAnimation>();
         }
     }
 }
 
-fn advance_cpu_placed_card_animation(
+fn advance_card_animation(
     delta_seconds: f32,
     transform: &mut Transform,
-    animation: &mut CpuPlacedCardAnimation,
+    animation: &mut CardAnimation,
+    mut audio_manager: Option<&mut AudioManagerModel>,
 ) -> bool {
     let mut active_delta_seconds = delta_seconds.max(0.0);
     if animation.start_delay_seconds > 0.0 {
@@ -8027,10 +9041,58 @@ fn advance_cpu_placed_card_animation(
 
     animation.phase_elapsed_seconds += active_delta_seconds;
 
-    if animation.phase == CpuPlacedCardAnimationPhase::Revealing {
-        animation.current_y_rotation = animation.target_y_rotation;
+    if animation.phase == CardAnimationPhase::Revealing {
+        let preset = match animation.flip_style {
+            CardAnimationFlipStyle::Standard => GameTweenPreset::Flip,
+            CardAnimationFlipStyle::Swan => GameTweenPreset::SwanFlip,
+        };
+        let reveal_duration_seconds = match animation.flip_style {
+            CardAnimationFlipStyle::Standard => GAME_TWEEN_FLIP_SECONDS,
+            CardAnimationFlipStyle::Swan => GAME_TWEEN_SWAN_FLIP_SECONDS,
+        };
+        let reveal_duration_complete = animation.phase_elapsed_seconds >= reveal_duration_seconds;
+        animation.current_y_rotation = sample_flip_y_rotation(
+            std::f32::consts::PI,
+            animation.target_y_rotation,
+            animation.phase_elapsed_seconds,
+            preset,
+        )
+        .0;
+        transform.translation = animation.target_transform.translation;
+        transform.scale = match animation.flip_style {
+            CardAnimationFlipStyle::Standard => animation.target_transform.scale,
+            CardAnimationFlipStyle::Swan => {
+                let swan_elapsed = animation.phase_elapsed_seconds.max(0.0);
+                if swan_elapsed >= GAME_TWEEN_SWAN_SCALE_UP_SECONDS
+                    && !animation.swan_peak_sfx_played
+                {
+                    if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                        audio_manager.request(AudioEnum::CardSwanPeak);
+                    }
+                    animation.swan_peak_sfx_played = true;
+                }
+                let scale_multiplier = sample_swan_scale_multiplier(swan_elapsed);
+                animation.target_transform.scale * scale_multiplier
+            }
+        };
+        let target_game_scene_position =
+            game_scene_position_from_world_position(animation.target_transform.translation);
+        if animation.flip_style == CardAnimationFlipStyle::Swan && !reveal_duration_complete {
+            transform.translation.z = CPU_CARD_MOVING_FRONT_Z;
+            transform.translation = game_scene_world_position_from_game_scene(
+                target_game_scene_position,
+                transform.translation.z,
+            );
+        } else {
+            transform.translation = animation.target_transform.translation;
+        }
     } else {
-        let progress = (animation.phase_elapsed_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
+        let move_seconds = match animation.phase {
+            CardAnimationPhase::MovingToHand => GAME_TWEEN_DEAL_SLIDE_SECONDS,
+            CardAnimationPhase::MovingToSlot => GAME_TWEEN_CARD_MOVE_TO_SLOT_SECONDS,
+            CardAnimationPhase::Revealing => GAME_TWEEN_CARD_MOVE_TO_SLOT_SECONDS,
+        };
+        let progress = (animation.phase_elapsed_seconds / move_seconds).clamp(0.0, 1.0);
         let eased_progress = ease_out_cubic(progress);
         let translation_z = if progress < 1.0 {
             CPU_CARD_MOVING_FRONT_Z
@@ -8045,11 +9107,9 @@ fn advance_cpu_placed_card_animation(
         );
         transform.scale = if progress < 1.0 {
             let scale_multiplier = match animation.phase {
-                CpuPlacedCardAnimationPhase::MovingToSlot => {
-                    cpu_card_move_scale_multiplier(progress)
-                }
-                CpuPlacedCardAnimationPhase::MovingToHand => 1.0,
-                CpuPlacedCardAnimationPhase::Revealing => 1.0,
+                CardAnimationPhase::MovingToHand => 1.0,
+                CardAnimationPhase::MovingToSlot => sample_card_move_scale_multiplier(progress),
+                CardAnimationPhase::Revealing => 1.0,
             };
             cpu_card_move_scale(
                 animation.phase_start_transform,
@@ -8065,8 +9125,12 @@ fn advance_cpu_placed_card_animation(
     transform.rotation =
         animation.target_transform.rotation * Quat::from_rotation_y(animation.current_y_rotation);
 
-    let reveal_duration_complete = animation.phase != CpuPlacedCardAnimationPhase::Revealing
-        || animation.phase_elapsed_seconds >= CPU_CARD_FLIP_SECONDS;
+    let reveal_duration_complete = animation.phase != CardAnimationPhase::Revealing
+        || animation.phase_elapsed_seconds
+            >= match animation.flip_style {
+                CardAnimationFlipStyle::Standard => GAME_TWEEN_FLIP_SECONDS,
+                CardAnimationFlipStyle::Swan => GAME_TWEEN_SWAN_FLIP_SECONDS,
+            };
     let is_settled = reveal_duration_complete
         && transform
             .translation
@@ -8077,31 +9141,27 @@ fn advance_cpu_placed_card_animation(
         && (animation.target_y_rotation - animation.current_y_rotation).abs()
             <= CPU_CARD_ANIMATION_SETTLE_EPSILON;
     if is_settled {
+        if animation.phase == CardAnimationPhase::Revealing
+            && animation.flip_style == CardAnimationFlipStyle::Swan
+            && !animation.swan_land_sfx_played
+        {
+            if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                audio_manager.request(AudioEnum::CardSwanLand);
+            }
+            animation.swan_land_sfx_played = true;
+        }
         *transform = animation.target_transform;
         transform.rotation = animation.target_transform.rotation
             * Quat::from_rotation_y(animation.target_y_rotation);
-        if animation.phase == CpuPlacedCardAnimationPhase::MovingToHand {
+        if animation.phase == CardAnimationPhase::MovingToHand {
             animation.phase_start_transform = *transform;
             animation.target_transform = animation.slot_transform;
             animation.phase_elapsed_seconds = 0.0;
-            animation.phase = CpuPlacedCardAnimationPhase::MovingToSlot;
+            animation.phase = CardAnimationPhase::MovingToSlot;
             return false;
         }
     }
     is_settled
-}
-
-fn ease_out_cubic(progress: f32) -> f32 {
-    1.0 - (1.0 - progress.clamp(0.0, 1.0)).powi(3)
-}
-
-fn cpu_card_move_scale_multiplier(progress: f32) -> f32 {
-    let progress = progress.clamp(0.0, 1.0);
-    if progress <= 0.5 {
-        1.0_f32.lerp(CPU_CARD_MOVE_SCALE_MULTIPLIER, progress * 2.0)
-    } else {
-        CPU_CARD_MOVE_SCALE_MULTIPLIER.lerp(1.0, (progress - 0.5) * 2.0)
-    }
 }
 
 fn cpu_card_move_translation(
@@ -8118,6 +9178,11 @@ fn cpu_card_move_translation(
     )
 }
 
+#[cfg(test)]
+fn cpu_card_move_scale_multiplier(progress: f32) -> f32 {
+    sample_card_move_scale_multiplier(progress)
+}
+
 fn cpu_card_move_scale(
     start_transform: Transform,
     target_transform: Transform,
@@ -8130,21 +9195,24 @@ fn cpu_card_move_scale(
     let target_world_units_per_pixel =
         game_scene_world_units_per_game_scene_pixel(target_transform.translation.z);
     let current_world_units_per_pixel = game_scene_world_units_per_game_scene_pixel(current_z);
-    let start_apparent_scale = start_transform.scale / start_world_units_per_pixel;
-    let target_apparent_scale = target_transform.scale / target_world_units_per_pixel;
-    let apparent_scale =
-        start_apparent_scale.lerp(target_apparent_scale, eased_progress) * scale_multiplier;
-
-    apparent_scale * current_world_units_per_pixel
+    sample_card_move_scale(
+        start_transform,
+        target_transform,
+        start_world_units_per_pixel,
+        target_world_units_per_pixel,
+        current_world_units_per_pixel,
+        eased_progress,
+        scale_multiplier,
+    )
 }
 
-/// HUMAN: Shows CPU card fronts or backs according to each card's own reveal tween.
-/// AI: This prevents CPU reveal from depending on the global debug card flip state.
-pub fn update_cpu_placed_card_face_visibility_system(
+/// HUMAN: Shows card fronts or backs according to each card's own reveal tween.
+/// AI: This prevents per-card reveal from depending on the global debug card flip state.
+pub fn update_card_animation_face_visibility_system(
     active_view: Option<Res<ActiveView>>,
     card_ui_state: Res<CardUiState>,
-    cpu_card_query: Query<(&CpuPlacedCardView, Option<&CpuPlacedCardAnimation>)>,
-    cpu_hand_query: Query<(&CpuHandCardView, Option<&CpuPlacedCardAnimation>)>,
+    cpu_card_query: Query<(&CpuPlacedCardView, Option<&CardAnimation>)>,
+    cpu_hand_query: Query<(&CpuHandCardView, Option<&CardAnimation>)>,
     mut face_query: Query<
         (
             &ChildOf,
@@ -8152,7 +9220,7 @@ pub fn update_cpu_placed_card_face_visibility_system(
             Option<&CardParallaxLayer>,
             &mut Visibility,
         ),
-        With<CpuPlacedCardFaceLayer>,
+        With<CardAnimationFaceLayer>,
     >,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
@@ -8392,6 +9460,7 @@ pub struct DebugHudUpdateParams<'w, 's> {
     hud_state: ResMut<'w, DebugHudState>,
     inspector_query: Query<'w, 's, &'static InspectorState>,
     text_query: Query<'w, 's, &'static mut Text, With<DebugHudText>>,
+    visibility_query: Query<'w, 's, &'static mut Visibility, With<DebugHudText>>,
     fps_text_query: Query<'w, 's, &'static mut TextSpan, With<DebugHudFpsText>>,
     key_text_query: Query<'w, 's, (&'static DebugHudKeyText, &'static mut UnderlineColor)>,
 }
@@ -8453,6 +9522,13 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     for mut text in &mut params.text_query {
         *text = Text::new(full_text.clone());
     }
+    for mut visibility in &mut params.visibility_query {
+        *visibility = if *params.active_view == ActiveView::DeckScene {
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+    }
 
     let fps_line = if params.hud_state.is_fps_visible {
         format!("\nFPS: {:.1}", params.hud_state.fps_display_value)
@@ -8465,63 +9541,30 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
     }
 }
 
-/// HUMAN: Keeps the persistent DebugHUD rendered by the active scene UI camera.
+/// HUMAN: Keeps the persistent DebugHUD rendered by the shared AppScene camera.
 /// AI: UiTargetCamera is only honored on root UI nodes, so update the DebugHUD root ancestor.
 pub fn sync_debug_hud_ui_camera_system(
-    active_view: Res<ActiveView>,
     mut commands: Commands,
     child_of_query: Query<&ChildOf>,
-    camera_query: Query<
-        (
-            Entity,
-            &Camera,
-            Option<&GameSceneEntity>,
-            Option<&DeckSceneEntity>,
-            Option<&DebugSceneEntity>,
-            Option<&MetaSceneEntity>,
-            Option<&IsDefaultUiCamera>,
-        ),
-        With<Camera2d>,
-    >,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
     hud_query: Query<Entity, With<DebugHudText>>,
     target_camera_query: Query<&UiTargetCamera>,
 ) {
-    let Some(ui_camera) = active_view_ui_camera(*active_view, &camera_query) else {
+    let Ok(app_camera) = app_camera_query.single() else {
         return;
     };
 
-    for (entity, _, game_scene, deck_scene, debug_scene, meta_scene, default_marker) in
-        &camera_query
-    {
-        let belongs_to_active_view = match *active_view {
-            ActiveView::GameScene => game_scene.is_some(),
-            ActiveView::DeckScene => deck_scene.is_some(),
-            ActiveView::DebugScene => debug_scene.is_some(),
-            ActiveView::MainMenuScene
-            | ActiveView::LightningScene
-            | ActiveView::MatchmakingScene
-            | ActiveView::SettingsScene => meta_scene.is_some(),
-        };
-        match (belongs_to_active_view, default_marker.is_some()) {
-            (true, false) => {
-                commands.entity(entity).insert(IsDefaultUiCamera);
-            }
-            (false, true) => {
-                commands.entity(entity).remove::<IsDefaultUiCamera>();
-            }
-            _ => {}
-        }
-    }
+    commands.entity(app_camera).insert(PrimaryEguiContext);
 
     for hud in &hud_query {
         let root = ui_root_for_entity(hud, &child_of_query);
         if target_camera_query
             .get(root)
-            .is_ok_and(|target_camera| target_camera.0 == ui_camera)
+            .is_ok_and(|target_camera| target_camera.0 == app_camera)
         {
             continue;
         }
-        commands.entity(root).insert(UiTargetCamera(ui_camera));
+        commands.entity(root).insert(UiTargetCamera(app_camera));
     }
 }
 
@@ -8531,42 +9574,6 @@ fn ui_root_for_entity(entity: Entity, child_of_query: &Query<&ChildOf>) -> Entit
         root = child_of.parent();
     }
     root
-}
-
-fn active_view_ui_camera(
-    active_view: ActiveView,
-    camera_query: &Query<
-        (
-            Entity,
-            &Camera,
-            Option<&GameSceneEntity>,
-            Option<&DeckSceneEntity>,
-            Option<&DebugSceneEntity>,
-            Option<&MetaSceneEntity>,
-            Option<&IsDefaultUiCamera>,
-        ),
-        With<Camera2d>,
-    >,
-) -> Option<Entity> {
-    camera_query.iter().find_map(
-        |(entity, camera, game_scene, deck_scene, debug_scene, meta_scene, _)| {
-            if !camera.is_active {
-                return None;
-            }
-
-            let belongs_to_active_view = match active_view {
-                ActiveView::GameScene => game_scene.is_some(),
-                ActiveView::DeckScene => deck_scene.is_some(),
-                ActiveView::DebugScene => debug_scene.is_some(),
-                ActiveView::MainMenuScene
-                | ActiveView::LightningScene
-                | ActiveView::MatchmakingScene
-                | ActiveView::SettingsScene => meta_scene.is_some(),
-            };
-
-            belongs_to_active_view.then_some(entity)
-        },
-    )
 }
 
 pub fn toggle_debug_hud_inputs(
@@ -9177,8 +10184,56 @@ pub fn card_ui(world: &mut World) {
     }
 }
 
+pub fn transition_egui_overlay_ui(world: &mut World) {
+    let Some((phase, overlay_alpha, color)) =
+        world
+            .get_resource::<ScreenTransitionResource>()
+            .map(|transition| {
+                (
+                    transition.phase,
+                    transition.overlay_alpha.clamp(0.0, 1.0),
+                    transition.color,
+                )
+            })
+    else {
+        return;
+    };
+    if phase == ScreenTransitionPhase::Idle && overlay_alpha <= 0.0 {
+        return;
+    }
+
+    let Ok(mut egui_context) = world
+        .query_filtered::<&mut EguiContext, With<PrimaryEguiContext>>()
+        .single(world)
+        .cloned()
+    else {
+        return;
+    };
+
+    let egui_context = egui_context.get_mut();
+    let painter = egui_context.layer_painter(egui::LayerId::new(
+        egui::Order::Foreground,
+        egui::Id::new("screen_transition_overlay"),
+    ));
+    painter.rect_filled(
+        egui_context.content_rect(),
+        0.0,
+        egui_color_from_bevy(color, overlay_alpha),
+    );
+}
+
 fn should_show_card_ui(active_view: ActiveView) -> bool {
     matches!(active_view, ActiveView::DebugScene)
+}
+
+fn egui_color_from_bevy(color: Color, alpha_multiplier: f32) -> egui::Color32 {
+    let srgba = color.to_srgba();
+    egui::Color32::from_rgba_unmultiplied(
+        (srgba.red.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (srgba.green.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (srgba.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
+        ((srgba.alpha * alpha_multiplier).clamp(0.0, 1.0) * 255.0).round() as u8,
+    )
 }
 
 fn depth_factor_slider_with_reset(ui: &mut egui::Ui, label: &str, value: &mut f32) -> bool {
@@ -9570,5 +10625,5 @@ fn find_matching_monitor<'a>(
 }
 
 #[cfg(test)]
-#[path = "../../tests/runtime/systems/systems_tests.rs"]
-mod systems_tests;
+#[path = "../../tests/runtime/systems/systems_mod_tests.rs"]
+mod systems_mod_tests;

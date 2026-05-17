@@ -2,10 +2,12 @@ use super::*;
 
 use crate::runtime::bundles::{PointLocationView, PointModel, PointViewBundle};
 use crate::runtime::components::{
-    CardGestureView, HandCardGestureTarget, PointViewCircle, PointViewOutlineTreatment,
-    PointViewVisualModifiers, VisualModificationTarget, VisualModifier,
+    CardGestureView, CpuPlacedCardView, HandCardGestureTarget, PointViewCircle,
+    PointViewOutlineTreatment, PointViewVisualModifiers, VisualModificationTarget, VisualModifier,
 };
-use crate::runtime::resources::{ActiveView, CardSlotBoardModel, CardSlotSide, GameLocationModel};
+use crate::runtime::resources::{
+    ActiveView, CardFace, CardSlotBoardModel, CardSlotSide, GameLocationModel, MatchPlayerSide,
+};
 use bevy::ecs::system::RunSystemOnce;
 
 fn app_with_vms_resources() -> App {
@@ -54,6 +56,51 @@ fn abilityoutline_activates_for_local_card_power_modified_by_ability() {
     assert_eq!(
         app.world().get::<Visibility>(child),
         Some(&Visibility::Visible)
+    );
+}
+
+#[test]
+fn abilityoutline_stays_hidden_for_facedown_card_power_modified_by_ability() {
+    let mut app = app_with_vms_resources();
+    let card = app
+        .world_mut()
+        .spawn(CpuPlacedCardView::new(
+            MatchPlayerSide::Near,
+            CardSlotSide::LocalPlayer,
+            0,
+            0,
+            "test-card",
+            CardFace::Back,
+        ))
+        .id();
+    let point = app
+        .world_mut()
+        .spawn((
+            PointViewBundle::new("PowerPointView", PointModel::card_power(3)),
+            ChildOf(card),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                PointViewOutlineTreatment::new(VisualModifier::AbilityOutline),
+                Visibility::Hidden,
+            ));
+        })
+        .id();
+
+    app.world_mut()
+        .run_system_once(visual_modifier_update_system)
+        .unwrap();
+
+    assert!(
+        !app.world()
+            .get::<PointViewVisualModifiers>(point)
+            .unwrap()
+            .is_active(VisualModifier::AbilityOutline)
+    );
+    let child = app.world().get::<Children>(point).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Visibility>(child),
+        Some(&Visibility::Hidden)
     );
 }
 

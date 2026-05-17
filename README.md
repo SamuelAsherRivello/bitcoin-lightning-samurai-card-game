@@ -1,10 +1,20 @@
-# Bevy Card Game
+# Samurai Card Game
 
 A Bevy ECS card game project built from the Codex Project Template.
 
-![Bevy Card Game tech stack infographic](documentation/images/Overview01.png)
+## Pics
 
-![Bevy Card Game running app screenshot](documentation/images/Workflow01.png)
+### Screenshot
+
+<a href="./documentation/images/screenshot01.png">
+  <img src="./documentation/images/screenshot01.png" width="600">
+</a>
+
+### Infographic
+
+<a href="./documentation/images/infographic01.png">
+  <img src="./documentation/images/infographic01.png" width="600">
+</a>
 
 ## Getting Started
 
@@ -23,7 +33,7 @@ A Bevy ECS card game project built from the Codex Project Template.
 
 ## Live Demo
 
-https://samuelasherrivello.github.io/bevy-card-game/latest/
+https://samuelasherrivello.github.io/samurai-card-game/latest/
 
 The static web build is exported and hosted when a GitHub Release is published. Versioned releases live under `/releases/<version>/`, and `/latest/` points at the newest release.
 
@@ -72,7 +82,7 @@ Reusable DeckScreen UI concepts include `TopNavigationViewBundle` for page navig
 | First checkout | `scripts/main/InstallDependencies.ps1` warms the same desktop cache once, so later `RunAppDesktop.ps1` calls only rebuild changed code. |
 | Default run | `scripts/other/RunAppDesktop.ps1` compiles only changed artifacts, then opens the cached desktop executable. |
 | Headless compile helper | `scripts/other/CompileApp.ps1` centralizes Cargo build, check, and test setup for the main run scripts. |
-| Fast validation | `scripts/other/RunAppDesktop.ps1 -CheckOnly` runs `cargo check -p bevy-card-game --features asset-hot-reload,fast-dev` without launching the app. |
+| Fast validation | `scripts/other/RunAppDesktop.ps1 -CheckOnly` runs `cargo check -p samurai-card-game --features asset-hot-reload,fast-dev` without launching the app. |
 | Fast dev feature | Non-release desktop runs enable `fast-dev`, which turns on Bevy dynamic linking for faster edit-run cycles after the first build. |
 | Asset hot reload | Desktop run scripts enable `asset-hot-reload`, which turns on Bevy file watching for changed runtime assets including bitmap textures. |
 | Desktop hot reload | `scripts/main/RunAppDesktopHotReload.ps1` uses Dioxus CLI hot patching with `target/run-app-desktop-hot-reload`, enables asset file watching, and keeps output in the terminal. |
@@ -191,7 +201,7 @@ The Pages workflow stores release folders on the `pages-releases` branch, then d
 
 ## VPS Deployment
 
-The VPS workflow uses [`deploy.vps.env`](./deploy.vps.env) for public, reusable deployment settings and GitHub repository secrets for private SSH access. The default remote app path is `/srv/apps/bevy-card-game`, with release folders under `/srv/apps/bevy-card-game/releases` and a `current` symlink pointing at the active release.
+The VPS workflow uses [`deploy.vps.env`](./deploy.vps.env) for public, reusable deployment settings and GitHub repository secrets for private SSH access. The default remote app path is `/srv/apps/samurai-card-game`, with release folders under `/srv/apps/samurai-card-game/releases` and a `current` symlink pointing at the active release.
 
 Public deployment settings:
 
@@ -215,19 +225,19 @@ To make VPS deployments immediately browser-visible, install the shared static a
 sudo bash scripts/vps/InstallStaticWebRouter.sh <deploy-user>
 ```
 
-This installs Nginx, serves `/srv/www` publicly on HTTP port `80`, and lets each project expose its active release through a symlink like `/srv/www/bevy-card-game -> /srv/apps/bevy-card-game/current`. The public URL for this repo is `http://<vps-host>/bevy-card-game/`.
+This installs Nginx, serves `/srv/www` publicly on HTTP port `80`, and lets each project expose its active release through a symlink like `/srv/www/samurai-card-game -> /srv/apps/samurai-card-game/current`. The public URL for this repo is `http://<vps-host>/samurai-card-game/`.
 
 Port `80` is public web traffic. Do not place private admin tools, API credentials, wallet files, server notes, or other secrets under `/srv/www` or deployed app bundles.
 
-For this static Bevy game, `DEPLOY_STATIC_PATHS=target/run-app-web/site|/` means the exported web bundle is the only folder packaged for deployment, and it is served at `/bevy-card-game/`. Additional browser-visible folders can be mapped with comma-separated entries, such as `target/docs|/docs/`. Do not map server binaries or private files into `DEPLOY_STATIC_PATHS`.
+For this static Bevy game, `DEPLOY_STATIC_PATHS=target/run-app-web/site|/` means the exported web bundle is the only folder packaged for deployment, and it is served at `/samurai-card-game/`. Additional browser-visible folders can be mapped with comma-separated entries, such as `target/docs|/docs/`. Do not map server binaries or private files into `DEPLOY_STATIC_PATHS`.
 
 The VPS deploy publishes three browser URL shapes for public static builds:
 
 | URL | Purpose |
 | --- | ------- |
-| `/bevy-card-game/` | Newest deployed release. |
-| `/bevy-card-game/latest/` | Alias for the newest deployed release. |
-| `/bevy-card-game/v0.02/` | Versioned release path using the resolved release tag. |
+| `/samurai-card-game/` | Newest deployed release. |
+| `/samurai-card-game/latest/` | Alias for the newest deployed release. |
+| `/samurai-card-game/v0.02/` | Versioned release path using the resolved release tag. |
 
 Required GitHub repository secrets:
 

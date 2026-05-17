@@ -83,7 +83,7 @@ See `specs/001-project-setup/research.md`.
 | -------- | ------ |
 | Entry point | `scripts/main/RunAppDesktopHotReload.ps1` |
 | Tool | Dioxus CLI 0.7.x with hot patch support |
-| Package/bin | `bevy-card-game` package and default desktop binary |
+| Package/bin | `samurai-card-game` package and default desktop binary |
 | Target cache | `target/run-app-desktop-hot-reload` |
 | Environment | `CARGO_INCREMENTAL=1`, `WGPU_BACKEND=dx12`, `BEVY_ASSET_ROOT=<repo root>` |
 | Windows compatibility | Do not enable the `fast-dev` Bevy dynamic-linking feature by default during hot patching |

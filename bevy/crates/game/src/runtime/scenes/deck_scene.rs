@@ -1,7 +1,7 @@
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 use bevy::prelude::*;
 
-use crate::runtime::components::AppSceneRoot;
+use crate::runtime::components::{AppSceneCamera, AppSceneRoot};
 use crate::runtime::resources::{
     ActiveCardModel, CardInspectionDefaults, CardModelRegistry, DeckScreenModel,
     PlayerDeckCollectionModel, PrimaryCameraDefaults, TopNavigationModel,
@@ -20,6 +20,7 @@ pub fn setup_deck_scene(
     deck_screen_model: Option<ResMut<DeckScreenModel>>,
     top_navigation_model: Option<ResMut<TopNavigationModel>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -38,5 +39,6 @@ pub fn setup_deck_scene(
         meshes,
         materials,
         masked_background_materials,
+        app_camera_query,
     );
 }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_aspect_ratio_mask::Hud;
 
-use crate::runtime::components::AppSceneRoot;
+use crate::runtime::components::{AppSceneCamera, AppSceneRoot};
 use crate::runtime::resources::{
     ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardInspectionDefaults,
     CardModelRegistry, CardSlotBoardModel, GameLocationModel, GameRoundModel,
@@ -16,6 +16,7 @@ pub fn setup_game_scene(
     commands: Commands,
     active_view: Option<Res<ActiveView>>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
     hud: Option<Res<Hud>>,
     asset_server: Res<AssetServer>,
     camera_defaults: Option<Res<PrimaryCameraDefaults>>,
@@ -38,6 +39,7 @@ pub fn setup_game_scene(
         commands,
         active_view,
         app_scene_query,
+        app_camera_query,
         hud,
         asset_server,
         camera_defaults,
@@ -56,6 +58,7 @@ pub fn setup_game_scene(
         game_location_model,
         match_model,
         card_states: None,
+        pending_round_deal: None,
         meshes,
         materials,
         masked_background_materials,

@@ -3,7 +3,7 @@
 **Feature Branch**: `018-deck-screen`  
 **Created**: 2026-05-13  
 **Status**: Draft  
-**Input**: Implement the DeckScreen mockups from `documentation/mockups/meta-game-mockups.html` only, including the top navigation shown there. The top navigation should be designed as reusable for other pages, but this feature mounts it only on DeckScreen.
+**Input**: Implement the DeckScreen feature design only, including the top navigation shown there. The top navigation should be designed as reusable for other pages, but this feature mounts it only on DeckScreen.
 
 ## User Scenarios & Testing
 

@@ -15,6 +15,13 @@ fn point_view_bundle_uses_dedicated_font_choice() {
 }
 
 #[test]
+fn point_view_layering_keeps_text_above_circle() {
+    assert_eq!(PointViewLayering::CIRCLE_LOCAL_Z, 0.0);
+    assert!(PointViewLayering::SURFACE_LOCAL_Z > PointViewLayering::CIRCLE_LOCAL_Z);
+    assert!(PointViewLayering::TEXT_OVERLAY_LOCAL_Z > PointViewLayering::SURFACE_LOCAL_Z);
+}
+
+#[test]
 fn point_model_constructs_expected_type_and_payload() {
     let location_power = PointModel::location_power(7);
     let card_power = PointModel::card_power(-8);

@@ -12,7 +12,7 @@
 1. Run the focused tests while iterating:
 
 ```powershell
-cargo test -p bevy-card-game
+cargo test -p samurai-card-game
 ```
 
 2. Run the repository test script before handoff:

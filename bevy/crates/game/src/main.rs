@@ -3,20 +3,20 @@
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowMode, WindowResolution};
+#[cfg(feature = "desktop-hot-reload")]
+use bevy_hotpatching_experiments::SimpleSubsecondPlugin;
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
-use bevy_card_game::runtime::plugins::{
+use samurai_card_game::runtime::plugins::{
     AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AiRuntimePlugin,
 };
-use bevy_card_game::{
+use samurai_card_game::{
     GamePlugin,
     runtime::resources::{DebugHudInputStore, WindowPlacementStore, valid_window_placement},
 };
-use bevy_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
-#[cfg(feature = "desktop-hot-reload")]
-use bevy_hotpatching_experiments::SimpleSubsecondPlugin;
+use samurai_card_game_shared::window::{DEFAULT_WINDOW_HEIGHT, DEFAULT_WINDOW_WIDTH};
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_card_game::runtime::resources::{
+use samurai_card_game::runtime::resources::{
     create_debug_hud_input_store, create_window_placement_store,
 };
 
@@ -54,7 +54,7 @@ fn main() {
             })
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "Bevy Card Game".to_string(),
+                    title: "Samurai Card Game".to_string(),
                     resolution: window_resolution,
                     position: window_position,
                     mode: window_mode,
@@ -91,9 +91,9 @@ fn main() {
 }
 
 fn startup_window_placement(
-    saved_window_placement: Option<bevy_card_game::runtime::resources::WindowPlacement>,
+    saved_window_placement: Option<samurai_card_game::runtime::resources::WindowPlacement>,
     should_start_fullscreen: bool,
-) -> Option<bevy_card_game::runtime::resources::WindowPlacement> {
+) -> Option<samurai_card_game::runtime::resources::WindowPlacement> {
     if should_start_fullscreen {
         None
     } else {
@@ -148,7 +148,7 @@ fn asset_watch_for_changes_override() -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_card_game::runtime::resources::WindowPlacement;
+    use samurai_card_game::runtime::resources::WindowPlacement;
     use std::path::Path;
 
     #[test]

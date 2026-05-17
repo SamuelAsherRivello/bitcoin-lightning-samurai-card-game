@@ -1,17 +1,17 @@
 use bevy::prelude::*;
 use bevy_aspect_ratio_mask::{AspectRatioMask, AspectRatioPlugin, Resolution};
-use bevy_card_game_shared::runtime::plugins::DebugToolingPlugin;
 use bevy_inspector_egui::{
     DefaultInspectorConfigPlugin,
     bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass},
 };
 use bevy_tweening::TweeningPlugin;
+use samurai_card_game_shared::runtime::plugins::DebugToolingPlugin;
 
 pub mod runtime;
 
 use runtime::plugins::CoreGamePlugin;
 use runtime::shaders::materials::CardBackgroundMaskMaterial;
-use runtime::systems::{card_ui, inspector_ui};
+use runtime::systems::{card_ui, inspector_ui, transition_egui_overlay_ui};
 
 const GAME_SCENE_WIDTH: f32 = 1280.0;
 const GAME_SCENE_HEIGHT: f32 = 800.0;
@@ -42,6 +42,9 @@ impl Plugin for GamePlugin {
         .add_plugins(CoreGamePlugin)
         .add_plugins(EguiPlugin::default())
         .add_plugins(DefaultInspectorConfigPlugin)
-        .add_systems(EguiPrimaryContextPass, (inspector_ui, card_ui));
+        .add_systems(
+            EguiPrimaryContextPass,
+            (inspector_ui, card_ui, transition_egui_overlay_ui).chain(),
+        );
     }
 }

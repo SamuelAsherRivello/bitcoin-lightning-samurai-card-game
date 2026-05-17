@@ -67,7 +67,7 @@
 
 | Check | Result |
 | ----- | ------ |
-| `cargo test -p bevy-card-game --no-default-features` | Passed: 124 game lib tests, 1 game binary test, and doc tests after location power point iteration. |
+| `cargo test -p samurai-card-game --no-default-features` | Passed: 124 game lib tests, 1 game binary test, and doc tests after location power point iteration. |
 | `scripts/other/RunTests.ps1 -NoFastDevFeature` | Passed: game workspace tests, shared workspace tests, and doc tests. |
 | `scripts/other/RunAppDesktop.ps1 -CheckOnly -NoFastDevFeature` | Passed desktop `cargo check` with `asset-hot-reload`. |
 | `scripts/other/RunAppWeb.ps1 -CheckOnly` | Passed browser WebGPU target `cargo check` for `wasm32-unknown-unknown`. |

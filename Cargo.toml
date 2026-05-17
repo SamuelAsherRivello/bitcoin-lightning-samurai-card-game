@@ -8,13 +8,13 @@ members = [
 [workspace.package]
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/SamuelAsherRivello/bevy-card-game"
+repository = "https://github.com/SamuelAsherRivello/samurai-card-game"
 
 [workspace.dependencies]
 bevy = { version = "0.18.1", features = ["mp3", "wav"] }
 bevy_aspect_ratio_mask = "0.4"
 bevy-inspector-egui = "0.36.0"
-bevy_card_game_shared = { path = "bevy/crates/shared" }
+samurai_card_game_shared = { path = "bevy/crates/shared" }
 
 [profile.dev]
 debug = 0

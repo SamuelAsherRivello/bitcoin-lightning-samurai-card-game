@@ -1,14 +1,18 @@
 use bevy::{
+    ecs::system::SystemParam,
     prelude::*,
     window::{PrimaryWindow, Window},
 };
 
-use crate::runtime::components::{CardGestureView, DropTargetHint, HandCardGestureTarget};
+use crate::runtime::components::{
+    CardGestureView, DropTargetHint, HandCardGestureTarget, LocalPlayerHandCardPreview,
+};
 use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardGestureModel, CardGestureSlotTarget,
     CardGestureState, CardInspectionDefaults, CardModelRegistry, CardSlotBoardModel, CardSlotRect,
     CardSlotSide, CardState, CardStateModel, CurrentRoundMoveRecord, GameHandModel,
-    GameLocationModel, GameRoundModel, MatchModel, SelectedCardModalModel,
+    GameLocationModel, GameRoundModel, MatchModel, PendingRoundDealResource,
+    SelectedCardModalModel,
 };
 
 use super::{
@@ -24,19 +28,26 @@ const DROP_TARGET_CLOSE_BORDER_COLOR: Color = Color::srgb(0.72, 0.94, 1.0);
 const DROP_TARGET_CLOSE_BACKGROUND_COLOR: Color = Color::srgba(0.36, 0.86, 1.0, 0.24);
 const DROP_TARGET_MIN_CARD_OVERLAP_RATIO: f32 = 0.25;
 
+#[derive(SystemParam)]
+pub struct CardGestureUpdateResources<'w> {
+    card_model_registry: Option<Res<'w, CardModelRegistry>>,
+    game_hand_model: Option<Res<'w, GameHandModel>>,
+    game_location_model: Option<Res<'w, GameLocationModel>>,
+    match_model: Option<Res<'w, MatchModel>>,
+    pending_round_deal: Option<Res<'w, PendingRoundDealResource>>,
+    game_round_model: Option<ResMut<'w, GameRoundModel>>,
+}
+
 /// HUMAN: Updates card gesture state from unified pointer input in GameScene.
 /// AI: This replaces GameScene click-to-DeckScene navigation without touching DeckScene behavior.
 pub fn card_gesture_update_system(
+    mut commands: Commands,
     primary_window_query: Query<&Window, With<PrimaryWindow>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     active_view: Res<ActiveView>,
     card_defaults: Res<CardInspectionDefaults>,
-    card_model_registry: Option<Res<CardModelRegistry>>,
-    game_hand_model: Option<Res<GameHandModel>>,
-    game_location_model: Option<Res<GameLocationModel>>,
-    match_model: Option<Res<MatchModel>>,
-    mut game_round_model: Option<ResMut<GameRoundModel>>,
+    mut resources: CardGestureUpdateResources,
     mut gesture_model: ResMut<CardGestureModel>,
     mut selected_modal: Option<ResMut<SelectedCardModalModel>>,
     mut slot_board: ResMut<CardSlotBoardModel>,
@@ -55,13 +66,22 @@ pub fn card_gesture_update_system(
     {
         return;
     }
-    if match_model
+    if resources
+        .match_model
         .as_deref()
         .is_some_and(|model| model.near.controller.is_cpu())
     {
         return;
     }
-    let dragging_allowed = match_model
+    if resources
+        .pending_round_deal
+        .as_deref()
+        .is_some_and(|deal| deal.is_pending || !deal.is_round_deal_complete)
+    {
+        return;
+    }
+    let dragging_allowed = resources
+        .match_model
         .as_deref()
         .is_none_or(|model| !model.is_complete());
 
@@ -93,9 +113,9 @@ pub fn card_gesture_update_system(
         handle_move(
             game_scene_position,
             &card_defaults,
-            card_model_registry.as_deref(),
-            game_hand_model.as_deref(),
-            game_round_model.as_deref(),
+            resources.card_model_registry.as_deref(),
+            resources.game_hand_model.as_deref(),
+            resources.game_round_model.as_deref(),
             dragging_allowed,
             &mut gesture_model,
             &mut card_states,
@@ -120,18 +140,19 @@ pub fn card_gesture_update_system(
             fallback_selected_modal = SelectedCardModalModel::default();
             &mut fallback_selected_modal
         };
-        handle_release(
+        handle_release_with_commands(
             game_scene_position,
             &card_defaults,
-            card_model_registry.as_deref(),
-            game_hand_model.as_deref(),
-            game_location_model.as_deref(),
-            game_round_model.as_deref_mut(),
+            resources.card_model_registry.as_deref(),
+            resources.game_hand_model.as_deref(),
+            resources.game_location_model.as_deref(),
+            resources.game_round_model.as_deref_mut(),
             &mut gesture_model,
             selected_modal,
             &mut slot_board,
             &mut card_states,
             &mut card_query,
+            Some(&mut commands),
         );
     }
 }
@@ -399,7 +420,7 @@ fn dragged_card_drop_location_index(
             if !slot_board.location_has_available_local_slot(location_index) {
                 return None;
             }
-            let zone_rect = slot_board.local_slots_area_rect(location_index)?;
+            let zone_rect = location_drop_area_rect(slot_board, location_index)?;
             let overlap_area = rect_overlap_area(card_rect, zone_rect);
             (overlap_area / card_area >= DROP_TARGET_MIN_CARD_OVERLAP_RATIO)
                 .then_some((location_index, overlap_area))
@@ -410,6 +431,23 @@ fn dragged_card_drop_location_index(
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(location_index, _)| location_index)
+}
+
+fn location_drop_area_rect(
+    slot_board: &CardSlotBoardModel,
+    location_index: usize,
+) -> Option<CardSlotRect> {
+    match (
+        slot_board.location_area_rect(location_index),
+        slot_board.local_slots_area_rect(location_index),
+    ) {
+        (Some(location_area), Some(local_slots_area)) => {
+            Some(location_area.union(local_slots_area))
+        }
+        (Some(location_area), None) => Some(location_area),
+        (None, Some(local_slots_area)) => Some(local_slots_area),
+        (None, None) => None,
+    }
 }
 
 fn dragged_card_game_scene_rect(
@@ -443,7 +481,40 @@ fn rect_overlap_area(left: CardSlotRect, right: CardSlotRect) -> f32 {
     width * height
 }
 
+#[cfg(test)]
 fn handle_release(
+    game_scene_position: Option<Vec2>,
+    card_defaults: &CardInspectionDefaults,
+    card_model_registry: Option<&CardModelRegistry>,
+    game_hand_model: Option<&GameHandModel>,
+    game_location_model: Option<&GameLocationModel>,
+    game_round_model: Option<&mut GameRoundModel>,
+    gesture_model: &mut CardGestureModel,
+    selected_modal: &mut SelectedCardModalModel,
+    slot_board: &mut CardSlotBoardModel,
+    card_states: &mut CardStateModel,
+    card_query: &mut Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
+) {
+    handle_release_with_commands(
+        game_scene_position,
+        card_defaults,
+        card_model_registry,
+        game_hand_model,
+        game_location_model,
+        game_round_model,
+        gesture_model,
+        selected_modal,
+        slot_board,
+        card_states,
+        card_query,
+        None,
+    );
+}
+
+fn handle_release_with_commands(
     game_scene_position: Option<Vec2>,
     card_defaults: &CardInspectionDefaults,
     card_model_registry: Option<&CardModelRegistry>,
@@ -458,6 +529,7 @@ fn handle_release(
         (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
         With<CardGestureView>,
     >,
+    mut commands: Option<&mut Commands>,
 ) {
     match gesture_model.state {
         CardGestureState::Pressed => {
@@ -492,6 +564,9 @@ fn handle_release(
                     game_round_model.restore(record.energy_cost);
                 }
                 card_states.return_to_hand_at_order(hand_index, insertion_index);
+                if let Some(commands) = commands.as_deref_mut() {
+                    set_local_hand_preview_marker(hand_index, card_query, commands, true);
+                }
                 gesture_model.return_to_hand_transform(
                     hand_index,
                     hand_source_transform(insertion_index, hand_count + 1, card_defaults),
@@ -572,6 +647,9 @@ fn handle_release(
                         location_energy_delta,
                     });
                 }
+                if let Some(commands) = commands.as_deref_mut() {
+                    set_local_hand_preview_marker(hand_index, card_query, commands, false);
+                }
                 hide_placed_hand_card(hand_index, card_query);
             } else {
                 gesture_model.return_to_source();
@@ -581,6 +659,29 @@ fn handle_release(
             }
         }
         _ => {}
+    }
+}
+
+fn set_local_hand_preview_marker(
+    hand_index: usize,
+    card_query: &mut Query<
+        (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+        With<CardGestureView>,
+    >,
+    commands: &mut Commands,
+    is_hand_preview: bool,
+) {
+    for (entity, target, _, _) in card_query.iter_mut() {
+        if target.hand_index != hand_index {
+            continue;
+        }
+        if is_hand_preview {
+            commands.entity(entity).insert(LocalPlayerHandCardPreview);
+        } else {
+            commands
+                .entity(entity)
+                .remove::<LocalPlayerHandCardPreview>();
+        }
     }
 }
 

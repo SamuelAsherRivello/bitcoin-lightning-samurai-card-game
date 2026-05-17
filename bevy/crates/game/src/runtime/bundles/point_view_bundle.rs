@@ -7,6 +7,17 @@ use crate::runtime::resources::{CostPointModel, PowerPointModel};
 pub const POINT_VIEW_BASE_TEXT_FONT_SIZE: f32 = 168.0;
 pub const POINT_VIEW_BUNDLE_FONT: GameFont = POINT_VIEW_FONT;
 
+/// HUMAN: Canonical local depth plan for point badge surfaces and overlay text.
+/// AI: Keep text clearly separated from the badge circle so depth sorting is deterministic.
+pub struct PointViewLayering;
+
+impl PointViewLayering {
+    pub const STEP: f32 = 0.0001;
+    pub const SURFACE_LOCAL_Z: f32 = Self::STEP;
+    pub const CIRCLE_LOCAL_Z: f32 = 0.0;
+    pub const TEXT_OVERLAY_LOCAL_Z: f32 = Self::STEP * 4.0;
+}
+
 /// HUMAN: Shared semantic type for point badges rendered in GameScene and deck cards.
 /// AI: Every badge value and color decision now routes through this type family.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

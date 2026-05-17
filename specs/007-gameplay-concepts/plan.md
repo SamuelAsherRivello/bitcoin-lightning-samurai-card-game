@@ -14,7 +14,7 @@ Extend the current `GameScene` from a static gameplay-facing scene into a local 
 | Language/Version | Rust 2024 workspace |
 | Primary Dependencies | Bevy 0.18.1, existing workspace crates, `bevy_aspect_ratio_mask`, existing `bevy_tweening` usage for card transform animation |
 | Storage | N/A; deck order, hand, round, energy, undo, and placed-card state are runtime match state and reset on restart |
-| Testing | `scripts/other/RunTests.ps1`; targeted `cargo test -p bevy-card-game` may be used during iteration |
+| Testing | `scripts/other/RunTests.ps1`; targeted `cargo test -p samurai-card-game` may be used during iteration |
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Frame-cheap over a fixed local loop: 12 deck cards, ordered deck-to-hand deal selection over remaining cards, 9 dealt cards with the initial deck across rounds 1 through 6, 3 locations, and 12 local placement slots |

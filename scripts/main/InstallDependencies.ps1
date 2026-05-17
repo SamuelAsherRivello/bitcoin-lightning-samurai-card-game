@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $TargetTriple = "x86_64-pc-windows-msvc"
 $Toolchain = "stable"
-$PackageName = "bevy-card-game"
+$PackageName = "samurai-card-game"
 $RunAppDesktopTargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
 $DioxusCliVersion = "0.7.9"
 

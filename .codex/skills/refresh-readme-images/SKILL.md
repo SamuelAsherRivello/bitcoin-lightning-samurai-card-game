@@ -7,7 +7,7 @@ description: "Refresh README-linked image assets from current repository truth."
 
 ## Overview
 
-For this template, keep images in documentation/images and default to Overview01.png plus Workflow01.png.
+For this template, keep images in documentation/images and default to Screenshot01.png plus Infographic01.png.
 
 ## Workflow
 

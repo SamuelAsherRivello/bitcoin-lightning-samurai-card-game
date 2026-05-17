@@ -5,7 +5,7 @@
 | Install dependencies once | `scripts/main/InstallDependencies.ps1` |
 | Check dependencies without installing | `scripts/main/InstallDependencies.ps1 -CheckOnly` |
 | Run automated tests | `scripts/other/RunTests.ps1` |
-| Reusable headless compile helper | `scripts/other/CompileApp.ps1 -Action check -PackageName bevy-card-game -TargetDir target/run-app-desktop -Features fast-dev` |
+| Reusable headless compile helper | `scripts/other/CompileApp.ps1 -Action check -PackageName samurai-card-game -TargetDir target/run-app-desktop -Features fast-dev` |
 | Run desktop app | `scripts/main/RunAppDesktop.ps1` |
 | Check desktop compile without launch | `scripts/main/RunAppDesktop.ps1 -CheckOnly` |
 | Run release-like desktop app | `scripts/main/RunAppDesktop.ps1 -Release` |
@@ -17,8 +17,8 @@
 | Check browser WebGPU compile without launch | `scripts/main/RunAppWeb.ps1 -CheckOnly` |
 | Build and serve browser app without opening browser | `scripts/main/RunAppWeb.ps1 -NoOpen` |
 | Stop desktop app, browser server, and project build processes | `scripts/other/StopApp.ps1` |
-| Run desktop app through VS Code | `Terminal > Run Task... > Bevy Card Game: RunAppDesktop` |
-| Run desktop hot reload through VS Code | `Terminal > Run Task... > Bevy Card Game: RunAppDesktopHotReload` |
+| Run desktop app through VS Code | `Terminal > Run Task... > Samurai Card Game: RunAppDesktop` |
+| Run desktop hot reload through VS Code | `Terminal > Run Task... > Samurai Card Game: RunAppDesktopHotReload` |
 
 ## Manual Acceptance
 

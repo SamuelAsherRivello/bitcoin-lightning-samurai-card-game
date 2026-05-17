@@ -31,13 +31,13 @@ if (-not (Test-Path $IndexPath -PathType Leaf)) {
 }
 
 $IndexContent = Get-Content -Raw -Path $IndexPath
-if (-not $IndexContent.Contains("Bevy Card Game")) {
+if (-not $IndexContent.Contains("Samurai Card Game")) {
     throw "Expected release index.html to contain the application title."
 }
 
-$WasmFile = Get-ChildItem -Path $ResolvedOutputPath -Filter "bevy_card_game_bg.wasm" -File | Select-Object -First 1
+$WasmFile = Get-ChildItem -Path $ResolvedOutputPath -Filter "samurai_card_game_bg.wasm" -File | Select-Object -First 1
 if (-not $WasmFile) {
-    throw "Expected bevy_card_game_bg.wasm was not found in $ResolvedOutputPath."
+    throw "Expected samurai_card_game_bg.wasm was not found in $ResolvedOutputPath."
 }
 
 if (-not (Test-Path $KageRenTitlePath -PathType Leaf)) {

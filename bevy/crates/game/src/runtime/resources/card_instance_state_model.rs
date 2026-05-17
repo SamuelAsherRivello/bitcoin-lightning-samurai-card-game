@@ -58,7 +58,7 @@ impl CardStateAxisModel {
             },
             Self {
                 axis: "cpu_presentation",
-                owner: "CpuHandCardView/CpuPlacedCardView/CpuPlacedCardAnimation",
+                owner: "CpuHandCardView/CpuPlacedCardView/CardAnimation",
                 values: &["passive_hand", "passive_placed", "moving", "revealing"],
             },
         ]

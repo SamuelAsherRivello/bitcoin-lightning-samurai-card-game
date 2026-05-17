@@ -1,7 +1,7 @@
 pub struct GameTitle;
 
 impl GameTitle {
-    pub const DISPLAY: &'static str = "Bevy Card Game";
+    pub const DISPLAY: &'static str = "Samurai Card Game";
 }
 
 pub mod runtime;

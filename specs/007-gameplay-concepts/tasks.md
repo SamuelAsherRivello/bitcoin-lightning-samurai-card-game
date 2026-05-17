@@ -175,7 +175,7 @@
 
 **Purpose**: Verification, cleanup, and target parity across the full feature.
 
-- [ ] T058 Run focused game crate tests with `cargo test -p bevy-card-game`
+- [ ] T058 Run focused game crate tests with `cargo test -p samurai-card-game`
 - [ ] T059 Run workspace tests with `scripts/other/RunTests.ps1`
 - [ ] T060 Run desktop verification from `specs/007-gameplay-concepts/quickstart.md`
 - [ ] T061 Run browser WebGPU verification from `specs/007-gameplay-concepts/quickstart.md` or document the exact blocker in `specs/007-gameplay-concepts/quickstart.md`

@@ -7,3 +7,4 @@ pub mod resources;
 pub mod scenes;
 pub mod shaders;
 pub mod systems;
+pub mod tweens;

@@ -6,11 +6,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$PackageName = "bevy-card-game"
+$PackageName = "samurai-card-game"
 $WebServerPidPath = Join-Path $RepositoryRoot "target\run-app-web\server\server.pid"
 $AppProcessNames = @(
-    "bevy-card-game.exe",
-    "bevy_card_game.exe"
+    "samurai-card-game.exe",
+    "samurai_card_game.exe"
 )
 $ProjectPathPattern = [regex]::Escape($RepositoryRoot)
 $PackageCommandPattern = "(^|\s)--package\s+$([regex]::Escape($PackageName))(\s|$)"

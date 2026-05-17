@@ -4,8 +4,8 @@ Use this file as the first rename checklist when turning this template into a ge
 
 | Purpose | Current Value | Format |
 | ------- | ------------- | ------ |
-| Repository slug | `bevy-card-game` | lowercase kebab-case |
-| Display project name | `Bevy Card Game` | title case |
+| Repository slug | `samurai-card-game` | lowercase kebab-case |
+| Display project name | `Samurai Card Game` | title case |
 
 ## Rename Surfaces
 
@@ -16,4 +16,4 @@ Use this file as the first rename checklist when turning this template into a ge
 | Specify context | `.specify/memory/constitution.md`, templates, active feature state, and workflow metadata. |
 | Specs | `.specs/` reference material and `specs/` working project specs. |
 | Bevy template reference | Keep `bevy/crates/template-crate` aligned as the proper reference for Bevy crate folders, representative files, asset folders, and Rust coding standards. |
-| Images | `documentation/images/Overview01.png` and `documentation/images/Workflow01.png` when root structure or workflow changes. |
+| Images | `documentation/images/Screenshot01.png` and `documentation/images/Infographic01.png` when root structure or workflow changes. |

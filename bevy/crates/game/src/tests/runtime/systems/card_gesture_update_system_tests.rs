@@ -242,6 +242,75 @@ fn drag_release_places_into_empty_local_slot() {
 }
 
 #[test]
+fn drag_release_on_visible_location_area_places_into_next_local_slot() {
+    let mut app = test_app_with_gesture_card(0);
+    let drop_position = app
+        .world()
+        .resource::<CardSlotBoardModel>()
+        .location_area_rect(0)
+        .map(|rect| rect.center())
+        .unwrap();
+    {
+        let source_transform =
+            hand_source_transform(0, 1, app.world().resource::<CardInspectionDefaults>());
+        let mut gesture = app.world_mut().resource_mut::<CardGestureModel>();
+        gesture.press(0, drop_position, drop_position, source_transform);
+        gesture.state = CardGestureState::Dragging;
+    }
+
+    app.world_mut()
+        .run_system_once(
+            move |card_defaults: Res<CardInspectionDefaults>,
+                  registry: Res<CardModelRegistry>,
+                  hand: Res<GameHandModel>,
+                  locations: Res<GameLocationModel>,
+                  mut round: ResMut<GameRoundModel>,
+                  mut gesture: ResMut<CardGestureModel>,
+                  mut selected_modal: ResMut<SelectedCardModalModel>,
+                  mut slots: ResMut<CardSlotBoardModel>,
+                  mut states: ResMut<CardStateModel>,
+                  mut cards: Query<
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+                With<CardGestureView>,
+            >| {
+                super::handle_release(
+                    Some(drop_position),
+                    &card_defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&locations),
+                    Some(&mut round),
+                    &mut gesture,
+                    &mut selected_modal,
+                    &mut slots,
+                    &mut states,
+                    &mut cards,
+                );
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        app.world()
+            .resource::<CardSlotBoardModel>()
+            .slot(0, CardSlotSide::LocalPlayer, 0)
+            .map(|slot| slot.state.clone()),
+        Some(CardSlotState::Populated {
+            hand_index: 0,
+            card_id: String::new()
+        })
+    );
+    assert_eq!(
+        app.world().resource::<CardGestureModel>().state,
+        CardGestureState::Placed
+    );
+    assert_eq!(
+        app.world().resource::<CardStateModel>().state(0),
+        Some(CardState::Location)
+    );
+}
+
+#[test]
 fn drag_release_inside_full_location_returns_to_source() {
     let mut app = test_app_with_gesture_card(1);
     {

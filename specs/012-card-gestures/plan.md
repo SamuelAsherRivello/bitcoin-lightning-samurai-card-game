@@ -14,7 +14,7 @@ Replace the current hand-card click-to-DeckScene behavior with in-game pointer g
 | Language/Version | Rust 2024 workspace |
 | Primary Dependencies | Bevy 0.18.1, existing workspace crates, and `bevy_tweening = "0.15"` for card transform/scale animation |
 | Storage | N/A; gesture and slot state are runtime match/view state, not persisted user data |
-| Testing | `scripts/other/RunTests.ps1` for workspace tests; targeted `cargo test -p bevy-card-game` may be used during iteration |
+| Testing | `scripts/other/RunTests.ps1` for workspace tests; targeted `cargo test -p samurai-card-game` may be used during iteration |
 | Target Platform | Windows desktop and browser WebGPU |
 | Project Type | Bevy ECS desktop/browser game prototype |
 | Performance Goals | Pointer gesture updates and slot hit-testing should be frame-cheap over a small fixed board: one active gesture, three locations, and twenty-four slots |

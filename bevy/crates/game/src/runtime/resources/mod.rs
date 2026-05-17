@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "desktop-hot-reload")]
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod app_camera_model;
 pub mod audio_manager_model;
 pub mod card_gesture_model;
 pub mod card_instance_state_model;
@@ -19,10 +20,13 @@ pub mod hot_reload_screen_model;
 pub mod match_model;
 pub mod matchmaking_model;
 pub mod meta_game_settings_model;
+pub mod pending_round_deal_resource;
 pub mod point_model;
+pub mod screen_transition_resource;
 pub mod selected_card_modal_model;
 pub mod top_navigation_model;
 
+pub use app_camera_model::*;
 pub use audio_manager_model::*;
 pub use card_gesture_model::*;
 pub use card_instance_state_model::*;
@@ -37,7 +41,9 @@ pub use hot_reload_screen_model::*;
 pub use match_model::*;
 pub use matchmaking_model::*;
 pub use meta_game_settings_model::*;
+pub use pending_round_deal_resource::*;
 pub use point_model::*;
+pub use screen_transition_resource::*;
 pub use selected_card_modal_model::*;
 pub use top_navigation_model::*;
 
@@ -1237,5 +1243,5 @@ fn is_valid_window_placement(placement: &WindowPlacement) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../tests/runtime/resources/resources_tests.rs"]
-mod resources_tests;
+#[path = "../../tests/runtime/resources/resources_mod_tests.rs"]
+mod resources_mod_tests;

@@ -50,8 +50,8 @@
 
 ## Phase 8: Meta Game Feedback Fixes
 
-- [X] T025 [US2] Rename MainMenuScreen/MainMenuScene code, UI names, and mockup HTML labels to MainMenuScreen/MainMenuScene in `bevy/crates/game/src/runtime/`, `bevy/crates/game/src/tests/`, `documentation/mockups/meta-game-mockups.html`, and `specs/019-meta-game-flow/`.
-- [X] T026 [US2] Rename LightningScreen/LightningScene code, UI names, and mockup HTML labels to LightningScreen/LightningScene in `bevy/crates/game/src/runtime/`, `bevy/crates/game/src/tests/`, `documentation/mockups/meta-game-mockups.html`, and `specs/019-meta-game-flow/`.
+- [X] T025 [US2] Rename MainMenuScreen/MainMenuScene code, UI names, and feature labels to MainMenuScreen/MainMenuScene in `bevy/crates/game/src/runtime/`, `bevy/crates/game/src/tests/`, and `specs/019-meta-game-flow/`.
+- [X] T026 [US2] Rename LightningScreen/LightningScene code, UI names, and feature labels to LightningScreen/LightningScene in `bevy/crates/game/src/runtime/`, `bevy/crates/game/src/tests/`, and `specs/019-meta-game-flow/`.
 - [X] T027 [US2] Remove top navigation from GameScreen and add a functional Quit Game button above Restart that transitions to MainMenuScreen in `bevy/crates/game/src/runtime/systems/mod.rs` and `bevy/crates/game/src/runtime/components/game_control_component.rs`.
 - [X] T028 [US4] Add top navigation to DebugScreen and update DebugHUD screen text to DebugScreen while preserving AppScene plus DebugScene ownership in `bevy/crates/game/src/runtime/systems/mod.rs`.
 - [X] T029 [US1] Replace LightningScreen mock QR blocks with a runtime-loaded generic QR image and bake a lightning bolt icon asset for Lightning buttons in `bevy/crates/game/assets/ui/` and `bevy/crates/game/src/runtime/systems/mod.rs`.

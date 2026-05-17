@@ -31,7 +31,7 @@ fn current_inventory_maps_axes_to_source_owners() {
     );
     assert_eq!(
         CardStateAxisModel::by_axis("cpu_presentation").map(|axis| axis.owner),
-        Some("CpuHandCardView/CpuPlacedCardView/CpuPlacedCardAnimation")
+        Some("CpuHandCardView/CpuPlacedCardView/CardAnimation")
     );
 }
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement and verify the DeckScreen mockup states from `documentation/mockups/meta-game-mockups.html` only.
+Implement and verify the DeckScreen states defined by this feature only.
 
 | State | Expected Result |
 | ----- | --------------- |

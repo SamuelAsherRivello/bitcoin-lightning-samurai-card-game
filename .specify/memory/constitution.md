@@ -13,7 +13,7 @@ Templates requiring updates:
 Follow-up TODOs: None
 -->
 
-# Bevy Card Game Constitution
+# Samurai Card Game Constitution
 
 ## Core Principles
 
@@ -43,6 +43,8 @@ Bevy crate folder, representative file, asset folder, and Rust coding standards 
 All folders and files under Rust implementation trees MUST use typical Rust project conventions: lowercase `snake_case` module, crate, source, test, and asset directory names, with `Cargo.toml` and Rust-required filenames kept in their standard forms. All folders under `bevy/`, including runtime asset folders, MUST use lowercase `snake_case` names.
 
 Runtime source changed by a feature MUST be organized around one primary runtime concept per file. A primary runtime concept is a focused plugin, component, scene, view, model, or system. File and item names MUST be purposeful, using names such as `FooPlugin`, `FooComponent`, `BarScene`, `BazView`, `QuxModel`, or `TempSystem` when those terms match the concept being represented.
+
+Runtime `resources` source MUST keep at most one `Resource` type per file. Resource files SHOULD use dedicated `*_resource.rs` filenames and keep `resources/mod.rs` as declarations and re-exports only.
 
 Runtime naming MUST distinguish app structure, data, and rendering. Use `Scene` for the persistent app-level scene, `Model` for data-holding concepts, and `View` for rendering or presentation concepts. The persistent app container is `AppScene`; active sub-screen presentations are views such as `GameView` and `CardBrowserView`.
 

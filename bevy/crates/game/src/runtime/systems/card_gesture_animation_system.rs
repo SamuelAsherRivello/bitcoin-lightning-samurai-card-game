@@ -8,6 +8,9 @@ use crate::runtime::resources::{
     CardGestureModel, CardGestureState, CardInspectionDefaults, CardSlotBoardModel, CardSlotSide,
     CardState, CardStateModel, SelectedCardModalModel,
 };
+use crate::runtime::tweens::{
+    GAME_TWEEN_DRAG_PLACE_SECONDS, GAME_TWEEN_DRAG_SCALE_SECONDS, ease_out_cubic, lerp_transform,
+};
 
 use super::{
     DECK_SCENE_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_SCENE_HEIGHT,
@@ -18,8 +21,6 @@ use super::{
 
 const CARD_GESTURE_ANIMATION_RATE: f32 = 14.0;
 pub(super) const CARD_GESTURE_DRAG_SCALE_MULTIPLIER: f32 = 1.5;
-const CARD_GESTURE_DRAG_SCALE_SECONDS: f32 = 0.25;
-const HAND_LAYOUT_TWEEN_SECONDS: f32 = 0.25;
 const CARD_GESTURE_RETURN_SETTLE_EPSILON: f32 = 0.001;
 // Gesture depths sit above static card bands so dragged/inspected cards stay contiguous.
 pub(super) const CARD_GESTURE_SELECTED_Z: f32 = 0.88;
@@ -41,7 +42,8 @@ pub fn card_gesture_animation_system(
     let modal_selected_entity = selected_modal
         .as_ref()
         .and_then(|modal| modal.selected_entity);
-    let hand_layout_interpolation = (time.delta_secs() / HAND_LAYOUT_TWEEN_SECONDS).clamp(0.0, 1.0);
+    let hand_layout_interpolation =
+        (time.delta_secs() / GAME_TWEEN_DRAG_PLACE_SECONDS).clamp(0.0, 1.0);
     if let Some(card_states) = card_states.as_deref() {
         let hand_indices = card_states.indices_with_state(CardState::Hand);
         let hand_gap_index = hand_layout_gap_index(&gesture_model, hand_indices.len());
@@ -90,7 +92,7 @@ pub fn card_gesture_animation_system(
     }
     let interpolation = (time.delta_secs() * CARD_GESTURE_ANIMATION_RATE).clamp(0.0, 1.0);
     let drag_scale_progress = ease_out_cubic(
-        (gesture_model.drag_elapsed_seconds / CARD_GESTURE_DRAG_SCALE_SECONDS).clamp(0.0, 1.0),
+        (gesture_model.drag_elapsed_seconds / GAME_TWEEN_DRAG_SCALE_SECONDS).clamp(0.0, 1.0),
     );
     let mut returned_to_source = false;
     for (entity, target, mut transform) in &mut card_query {
@@ -292,11 +294,7 @@ fn hand_area_contains(game_scene_position: Vec2) -> bool {
 }
 
 fn tween_transform(transform: &mut Transform, target: Transform, interpolation: f32) {
-    transform.translation = transform
-        .translation
-        .lerp(target.translation, interpolation);
-    transform.scale = transform.scale.lerp(target.scale, interpolation);
-    transform.rotation = transform.rotation.slerp(target.rotation, interpolation);
+    *transform = lerp_transform(*transform, target, interpolation);
 }
 
 pub(super) fn hand_insertion_index(game_scene_position: Vec2, hand_card_count: usize) -> usize {
@@ -343,10 +341,6 @@ pub(super) fn slot_center(
     slot_board
         .slot_rect(location_index, side, slot_index)
         .map(|rect| rect.center())
-}
-
-fn ease_out_cubic(progress: f32) -> f32 {
-    1.0 - (1.0 - progress).powi(3)
 }
 
 fn return_transform_is_settled(transform: &Transform, target_transform: &Transform) -> bool {

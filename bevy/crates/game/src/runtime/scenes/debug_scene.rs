@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::runtime::components::AppSceneRoot;
+use crate::runtime::components::{AppSceneCamera, AppSceneRoot};
 use crate::runtime::resources::{
     ActiveCardModel, CardInspectionDefaults, CardModelRegistry, PrimaryCameraDefaults,
 };
@@ -16,6 +16,7 @@ pub fn setup_debug_scene(
     card_model_registry: Res<CardModelRegistry>,
     _active_card_model: Res<ActiveCardModel>,
     app_scene_query: Query<Entity, With<AppSceneRoot>>,
+    app_camera_query: Query<Entity, With<AppSceneCamera>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
@@ -31,5 +32,6 @@ pub fn setup_debug_scene(
         meshes,
         materials,
         masked_background_materials,
+        app_camera_query,
     );
 }

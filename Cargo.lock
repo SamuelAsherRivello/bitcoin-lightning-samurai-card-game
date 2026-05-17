@@ -372,24 +372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-card-game"
-version = "0.2.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bevy-persistent",
- "bevy_aspect_ratio_mask",
- "bevy_card_game_shared",
- "bevy_hotpatching_experiments",
- "bevy_tweening",
- "fastrand",
- "serde",
- "serde_json",
- "web-sys",
- "webbrowser",
-]
-
-[[package]]
 name = "bevy-inspector-egui"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,13 +653,6 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.18",
  "wgpu-types",
-]
-
-[[package]]
-name = "bevy_card_game_shared"
-version = "0.2.0"
-dependencies = [
- "bevy",
 ]
 
 [[package]]
@@ -5237,6 +5212,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "samurai-card-game"
+version = "0.2.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy-persistent",
+ "bevy_aspect_ratio_mask",
+ "bevy_hotpatching_experiments",
+ "bevy_tweening",
+ "fastrand",
+ "samurai_card_game_shared",
+ "serde",
+ "serde_json",
+ "web-sys",
+ "webbrowser",
+]
+
+[[package]]
+name = "samurai_card_game_shared"
+version = "0.2.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

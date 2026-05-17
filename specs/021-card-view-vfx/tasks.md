@@ -2,12 +2,12 @@
 
 | Status | ID | File | Task |
 | --- | --- | --- | --- |
-| Pending | CVFX-001 | `bevy/crates/game/src/runtime/resources/mod.rs` | Extend `CardModel` with normal map, rim mask, and plasma texture handles; provide safe defaults. |
-| Pending | CVFX-002 | `bevy/crates/game/src/runtime/resources/mod.rs` | Add load/validation path so missing optional VFX handles do not break legacy cards. |
-| Pending | CVFX-003 | `bevy/crates/game/src/runtime/components/mod.rs` | Add/confirm VFX-related component fields for per-layer tuning metadata. |
+| Pending | CVFX-001 | `bevy/crates/game/src/runtime/resources/card_model.rs` | Extend `CardModel` with normal map, rim mask, and plasma texture handles; provide safe defaults. |
+| Pending | CVFX-002 | `bevy/crates/game/src/runtime/resources/card_model_registry_model.rs` | Add load/validation path so missing optional VFX handles do not break legacy cards. |
+| Pending | CVFX-003 | `bevy/crates/game/src/runtime/components/card_vfx_component.rs` | Add/confirm VFX-related component fields for per-layer tuning metadata. |
 | Pending | CVFX-004 | `bevy/crates/game/src/runtime/bundles/card_view_bundle.rs` | Wire VFX handles and role tags into foreground/frame/title mesh bundles. |
-| Pending | CVFX-005 | `bevy/crates/game/src/runtime/systems/mod.rs` | Add/update systems to publish angle-based VFX uniforms from inspection state. |
-| Pending | CVFX-006 | `bevy/crates/game/src/runtime/systems/mod.rs` | Add/extend timing system for 5s cycle + 1s active sweep window. |
+| Pending | CVFX-005 | `bevy/crates/game/src/runtime/systems/card_vfx_uniform_update_system.rs` | Add/update systems to publish angle-based VFX uniforms from inspection state. |
+| Pending | CVFX-006 | `bevy/crates/game/src/runtime/systems/card_vfx_timing_update_system.rs` | Add/extend timing system for 5s cycle + 1s active sweep window. |
 | Pending | CVFX-007 | `bevy/crates/game/src/runtime/shaders/materials.rs` | Extend card material struct(s) with VFX fields and align bind group layout. |
 | Pending | CVFX-008 | `bevy/crates/game/src/lib.rs` | Register any new/extended materials in app plugin setup. |
 | Pending | CVFX-009 | `bevy/crates/game/src/runtime/shaders/materials.rs` | Ensure material extraction uploads VFX timing and tilt/angle values. |
@@ -27,4 +27,3 @@
 - Manual: angle response and rim response in `deck_scene` and `game_scene`.
 - Manual: plasma timing and sweep direction under repeated cycles.
 - Smoke: confirm no regressions in card visibility and scene transitions.
-

@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot "..") "..")).Path
-$PackageName = "bevy-card-game"
+$PackageName = "samurai-card-game"
 $TargetDir = Join-Path (Join-Path $RepositoryRoot "target") "run-app-web"
 $WebRoot = Join-Path $TargetDir "site"
 $SourceAssetsRoot = Join-Path (Join-Path (Join-Path (Join-Path $RepositoryRoot "bevy") "crates") "game") "assets"
@@ -247,7 +247,7 @@ try {
         $BindgenCommand = @(
             "--target", "web",
             "--out-dir", $WebRoot,
-            "--out-name", "bevy_card_game",
+            "--out-name", "samurai_card_game",
             $WasmPath
         )
         Write-Host "wasm-bindgen command: $WasmBindgenCommand $($BindgenCommand -join ' ')"
@@ -262,7 +262,7 @@ try {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bevy Card Game</title>
+    <title>Samurai Card Game</title>
     <style>
         html,
         body {
@@ -282,11 +282,11 @@ try {
 </head>
 <body>
     <script type="module">
-        import init from "./bevy_card_game.js";
+        import init from "./samurai_card_game.js";
 
         init().catch((error) => {
             console.error(error);
-            document.body.textContent = `Failed to start Bevy Card Game: ${error}`;
+            document.body.textContent = `Failed to start Samurai Card Game: ${error}`;
         });
     </script>
 </body>

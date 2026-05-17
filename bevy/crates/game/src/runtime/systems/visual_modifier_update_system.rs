@@ -3,13 +3,14 @@ use bevy::prelude::*;
 
 use crate::runtime::bundles::{PointLocationView, PointType, PointView};
 use crate::runtime::components::{
-    CpuPlacedCardView, HandCardGestureTarget, PointViewCardInstanceLink, PointViewCircle,
-    PointViewOutlineTreatment, PointViewVisualModifiers, VisualModificationCondition,
-    VisualModificationTarget, VisualModificationTreatment, VisualModifier,
+    CardAnimation, CpuPlacedCardView, HandCardGestureTarget, PointViewCardInstanceLink,
+    PointViewCircle, PointViewOutlineTreatment, PointViewVisualModifiers,
+    VisualModificationCondition, VisualModificationTarget, VisualModificationTreatment,
+    VisualModifier,
 };
 use crate::runtime::resources::{
-    ActiveView, CardInstanceStateCollectionModel, CardSlotBoardModel, CardSlotSide, CardZoneModel,
-    GameLocationModel,
+    ActiveView, CardFace, CardInstanceStateCollectionModel, CardSlotBoardModel, CardSlotSide,
+    CardZoneModel, GameLocationModel,
 };
 
 const LOCATION_SIDE_COUNT: usize = 2;
@@ -46,6 +47,7 @@ pub struct VisualModifierUpdateQueries<'w, 's> {
         (
             Option<&'static HandCardGestureTarget>,
             Option<&'static CpuPlacedCardView>,
+            Option<&'static CardAnimation>,
         ),
     >,
     circle_targets: Query<
@@ -110,11 +112,19 @@ fn card_power_modified_by_ability(
     instance_link: Option<&PointViewCardInstanceLink>,
     card_instances: Option<&CardInstanceStateCollectionModel>,
     child_of: Option<&ChildOf>,
-    card_roots: &Query<(Option<&HandCardGestureTarget>, Option<&CpuPlacedCardView>)>,
+    card_roots: &Query<(
+        Option<&HandCardGestureTarget>,
+        Option<&CpuPlacedCardView>,
+        Option<&CardAnimation>,
+    )>,
     slot_board: &CardSlotBoardModel,
     game_location_model: Option<&GameLocationModel>,
 ) -> bool {
     if point_view.model.point_type != PointType::CardPower {
+        return false;
+    }
+
+    if !card_point_parent_is_front_visible(child_of, card_roots) {
         return false;
     }
 
@@ -135,7 +145,7 @@ fn card_power_modified_by_ability(
     let Some(parent) = child_of.map(ChildOf::parent) else {
         return false;
     };
-    let Ok((hand_target, cpu_placed_view)) = card_roots.get(parent) else {
+    let Ok((hand_target, cpu_placed_view, _)) = card_roots.get(parent) else {
         return false;
     };
     let location_index = hand_target
@@ -153,6 +163,31 @@ fn card_power_modified_by_ability(
         .unwrap_or(0);
 
     VisualModificationCondition::card_power_modified_by_ability(active_delta)
+}
+
+fn card_point_parent_is_front_visible(
+    child_of: Option<&ChildOf>,
+    card_roots: &Query<(
+        Option<&HandCardGestureTarget>,
+        Option<&CpuPlacedCardView>,
+        Option<&CardAnimation>,
+    )>,
+) -> bool {
+    let Some(parent) = child_of.map(ChildOf::parent) else {
+        return false;
+    };
+    let Ok((hand_target, cpu_placed_view, animation)) = card_roots.get(parent) else {
+        return false;
+    };
+    if hand_target.is_some() {
+        return true;
+    }
+    cpu_placed_view.is_some_and(|view| {
+        animation
+            .map(|animation| animation.current_face())
+            .unwrap_or(view.visible_face)
+            == CardFace::Front
+    })
 }
 
 fn location_total_is_leading(

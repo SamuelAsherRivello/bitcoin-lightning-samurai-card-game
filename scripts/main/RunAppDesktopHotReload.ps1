@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$PackageName = "bevy-card-game"
+$PackageName = "samurai-card-game"
 $FastDevFeature = "fast-dev"
 $AssetHotReloadFeature = "asset-hot-reload"
 $HotReloadFeature = "desktop-hot-reload"

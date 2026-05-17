@@ -28,7 +28,7 @@
 
 | Check | Command | Result |
 | ----- | ------- | ------ |
-| Targeted model tests | `cargo test -p bevy-card-game card_instance_state_model_tests` from `bevy/` | 13 passed, 0 failed. |
+| Targeted model tests | `cargo test -p samurai-card-game card_instance_state_model_tests` from `bevy/` | 13 passed, 0 failed. |
 | Full project test script | `scripts/other/RunTests.ps1` from repository root | Failed: 189 passed, 20 failed. The failing tests are existing `runtime::systems::systems_tests::*` view/scene/card-structure assertions; the new `card_instance_state_model_tests` passed inside the run. |
 
 ## Future Gesture Integration Notes

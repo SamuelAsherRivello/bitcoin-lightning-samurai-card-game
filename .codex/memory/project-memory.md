@@ -20,7 +20,7 @@
 | ----- | -------- |
 | Workspace | Rust workspace at the repository root. |
 | Path casing | Bevy workspace paths are lowercase `bevy/crates/...`; do not use `Bevy/Crates/...` in code, scripts, workflows, or docs. |
-| Game crate | `bevy/crates/game` with package name `bevy-card-game`. |
+| Game crate | `bevy/crates/game` with package name `samurai-card-game`. |
 | Shared crate | `bevy/crates/shared` for reusable non-Bevy game constants and logic. |
 | Template crate | `bevy/crates/template-crate` is a non-workspace reference skeleton for Bevy crate layout, runtime role folders, asset folders, and representative Rust files. |
 | ECS layout | Keep components, resources, systems, and plugins under `bevy/crates/game/src/runtime`. |
@@ -33,7 +33,7 @@
 | Scene vocabulary | `AppScene` is always-present; report the active view such as `GameView`, `DeckBuilderScene`, or `DebugSettingsScene` as the current scene/view state. |
 | Verification | Use `scripts/main/InstallDependencies.ps1` once per machine, then `scripts/main/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1`. |
 | Desktop warm builds | `RunAppDesktop.ps1` uses a dedicated `target/run-app-desktop` cache and enables the `fast-dev` feature for Bevy dynamic linking on non-release runs. |
-| Dependency install | `InstallDependencies.ps1` warms the `target/run-app-desktop` cache with `cargo build -p bevy-card-game --features fast-dev`. |
+| Dependency install | `InstallDependencies.ps1` warms the `target/run-app-desktop` cache with `cargo build -p samurai-card-game --features fast-dev`. |
 
 ## Notes
 

@@ -55,14 +55,15 @@ Implement three linked VFX features on `card_view_bundle`:
 - Checklist in `checklists/requirements.md` is fully satisfied.
 
 ## Files touched
-- `bevy/crates/game/src/runtime/resources/mod.rs`
-- `bevy/crates/game/src/runtime/components/mod.rs`
+- `bevy/crates/game/src/runtime/resources/card_model.rs`
+- `bevy/crates/game/src/runtime/resources/card_model_registry_model.rs`
+- `bevy/crates/game/src/runtime/components/card_vfx_component.rs`
 - `bevy/crates/game/src/runtime/bundles/card_view_bundle.rs`
 - `bevy/crates/game/src/runtime/shaders/materials.rs`
-- `bevy/crates/game/src/runtime/shaders.rs` (if helper wiring exists)
-- `bevy/crates/game/src/runtime/systems/card_animation_systems.rs`
-- `bevy/crates/game/src/runtime/systems/mod.rs`
+- `bevy/crates/game/src/runtime/systems/card_vfx_uniform_update_system.rs`
+- `bevy/crates/game/src/runtime/systems/card_vfx_timing_update_system.rs`
+- `bevy/crates/game/src/runtime/plugins/core_game_plugin.rs`
+- `bevy/crates/game/src/runtime/plugins/mod.rs`
 - `bevy/crates/game/assets/shaders/card_background_mask.wgsl`
 - `bevy/crates/game/src/lib.rs`
 - `bevy/crates/game/assets/shaders/card_vfx_common.wgsl` (if split constants are preferred)
-

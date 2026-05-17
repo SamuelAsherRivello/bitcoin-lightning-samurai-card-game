@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::runtime::components::{
-    CardSelectionSource, CpuPlacedCardAnimation, CpuPlacedCardAnimationPhase, CpuPlacedCardView,
+    CardAnimation, CardAnimationPhase, CardSelectionSource, CpuPlacedCardView,
 };
 use crate::runtime::resources::{
     ActiveView, CardFace, CardFlipState, CardSlotSide, MatchPlayerSide,
@@ -104,8 +104,8 @@ fn far_location_card_can_select_when_reveal_animation_is_showing_front() {
         "test-card",
         CardFace::Back,
     );
-    let mut animation = CpuPlacedCardAnimation::flip_to_front(Transform::default(), 0.0);
-    animation.phase = CpuPlacedCardAnimationPhase::Revealing;
+    let mut animation = CardAnimation::flip_to_front(Transform::default(), 0.0);
+    animation.phase = CardAnimationPhase::Revealing;
     animation.current_y_rotation = std::f32::consts::FRAC_PI_3;
 
     assert!(selectable_card_front_is_visible(
@@ -164,7 +164,7 @@ fn far_location_card_cannot_select_while_still_showing_back() {
         "test-card",
         CardFace::Back,
     );
-    let animation = CpuPlacedCardAnimation::flip_to_front(Transform::default(), 0.0);
+    let animation = CardAnimation::flip_to_front(Transform::default(), 0.0);
 
     assert!(!selectable_card_front_is_visible(
         source,

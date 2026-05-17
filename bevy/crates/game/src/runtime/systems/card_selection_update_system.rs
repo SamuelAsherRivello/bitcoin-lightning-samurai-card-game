@@ -6,12 +6,13 @@ use bevy::{
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
 use crate::runtime::components::CardGestureView;
 use crate::runtime::components::{
-    CardSelectionSource, CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardView,
-    DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget, SelectableCard,
+    AppSceneCamera, CardAnimation, CardSelectionSource, CardView, CpuHandCardView,
+    CpuPlacedCardView, DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget,
+    SelectableCard,
 };
 use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardFace, CardFlipState, CardGestureModel,
-    CardGestureState, CardInspectionDefaults, SelectedCardModalModel,
+    CardGestureState, CardInspectionDefaults, DeckScreenModel, SelectedCardModalModel,
 };
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
 use crate::runtime::resources::{CardState, CardStateModel};
@@ -26,21 +27,7 @@ use super::{
     window_pointer_to_game_scene,
 };
 
-type GameCardCameraFilter = (
-    With<crate::runtime::components::PrimaryViewCamera>,
-    With<crate::runtime::components::GameSceneEntity>,
-    With<Camera3d>,
-);
-type DeckCardCameraFilter = (
-    With<crate::runtime::components::PrimaryViewCamera>,
-    With<DeckSceneEntity>,
-    With<Camera3d>,
-);
-type DebugCardCameraFilter = (
-    With<crate::runtime::components::PrimaryViewCamera>,
-    With<DebugSceneEntity>,
-    With<Camera3d>,
-);
+type SharedCardCameraFilter = (With<AppSceneCamera>, With<Camera3d>);
 
 /// HUMAN: Promotes click candidates on selectable passive cards into selected inspection.
 /// AI: Local draggable cards remain owned by CardGestureModel; this covers CPU and screen cards.
@@ -50,15 +37,12 @@ pub fn card_selection_update_system(
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     active_view: Res<ActiveView>,
+    deck_screen_model: Option<Res<DeckScreenModel>>,
     card_defaults: Res<CardInspectionDefaults>,
     flip_state: Res<CardFlipState>,
     mut selected_modal: ResMut<SelectedCardModalModel>,
     gesture_model: Res<CardGestureModel>,
-    mut camera_queries: ParamSet<(
-        Query<(&Camera, &GlobalTransform), GameCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DeckCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DebugCardCameraFilter>,
-    )>,
+    camera_query: Query<(&Camera, &GlobalTransform), SharedCardCameraFilter>,
     selectable_query: Query<
         (
             Entity,
@@ -67,7 +51,7 @@ pub fn card_selection_update_system(
             &Transform,
             Option<&CpuHandCardView>,
             Option<&CpuPlacedCardView>,
-            Option<&CpuPlacedCardAnimation>,
+            Option<&CardAnimation>,
             Option<&HandCardGestureTarget>,
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
@@ -78,6 +62,14 @@ pub fn card_selection_update_system(
     >,
     parent_transform_query: Query<&GlobalTransform>,
 ) {
+    if deck_screen_model
+        .as_ref()
+        .is_some_and(|model| model.validation_prompt || model.coming_soon_prompt)
+    {
+        selected_modal.cancel_press_candidate();
+        return;
+    }
+
     if selected_modal.is_active() {
         selected_modal.cancel_press_candidate();
         return;
@@ -96,7 +88,7 @@ pub fn card_selection_update_system(
             &card_defaults,
             &flip_state,
             &gesture_model,
-            &mut camera_queries,
+            &camera_query,
             &selectable_query,
         ) {
             if matches!(*active_view, ActiveView::DeckScene | ActiveView::DebugScene) {
@@ -110,7 +102,7 @@ pub fn card_selection_update_system(
                 else {
                     return;
                 };
-                commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+                commands.entity(entity).remove::<CardAnimation>();
                 selected_modal.select_entity(entity, source_transform, target_transform);
                 return;
             }
@@ -133,9 +125,7 @@ pub fn card_selection_update_system(
         ) else {
             return;
         };
-        commands
-            .entity(candidate.entity)
-            .remove::<CpuPlacedCardAnimation>();
+        commands.entity(candidate.entity).remove::<CardAnimation>();
         selected_modal.select_entity(candidate.entity, source_transform, target_transform);
     }
 }
@@ -153,11 +143,7 @@ pub fn ai_runtime_on_card_clicked_system(
     mut selected_modal: ResMut<SelectedCardModalModel>,
     mut gesture_model: ResMut<CardGestureModel>,
     card_states: Res<CardStateModel>,
-    mut camera_queries: ParamSet<(
-        Query<(&Camera, &GlobalTransform), GameCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DeckCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DebugCardCameraFilter>,
-    )>,
+    camera_query: Query<(&Camera, &GlobalTransform), SharedCardCameraFilter>,
     selectable_query: Query<
         (
             Entity,
@@ -166,7 +152,7 @@ pub fn ai_runtime_on_card_clicked_system(
             &Transform,
             Option<&CpuHandCardView>,
             Option<&CpuPlacedCardView>,
-            Option<&CpuPlacedCardAnimation>,
+            Option<&CardAnimation>,
             Option<&HandCardGestureTarget>,
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
@@ -226,7 +212,7 @@ pub fn ai_runtime_on_card_clicked_system(
         &card_defaults,
         &flip_state,
         &gesture_model,
-        &mut camera_queries,
+        &camera_query,
         &selectable_query,
     ) else {
         return Ok(serde_json::json!({
@@ -254,7 +240,7 @@ pub fn ai_runtime_on_card_clicked_system(
         }));
     };
 
-    commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+    commands.entity(entity).remove::<CardAnimation>();
     selected_modal.select_entity(entity, source_transform, target_transform);
 
     Ok(serde_json::json!({
@@ -336,11 +322,7 @@ fn top_selectable_card_at_pointer(
     card_defaults: &CardInspectionDefaults,
     flip_state: &CardFlipState,
     gesture_model: &CardGestureModel,
-    camera_queries: &mut ParamSet<(
-        Query<(&Camera, &GlobalTransform), GameCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DeckCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DebugCardCameraFilter>,
-    )>,
+    camera_query: &Query<(&Camera, &GlobalTransform), SharedCardCameraFilter>,
     selectable_query: &Query<
         (
             Entity,
@@ -349,7 +331,7 @@ fn top_selectable_card_at_pointer(
             &Transform,
             Option<&CpuHandCardView>,
             Option<&CpuPlacedCardView>,
-            Option<&CpuPlacedCardAnimation>,
+            Option<&CardAnimation>,
             Option<&HandCardGestureTarget>,
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
@@ -401,7 +383,7 @@ fn top_selectable_card_at_pointer(
             selectable_card_contains_pointer(
                 pointer_position,
                 active_view,
-                camera_queries,
+                camera_query,
                 global_transform,
                 card_defaults,
             )
@@ -427,7 +409,7 @@ fn selectable_card_selection_transforms(
             &Transform,
             Option<&CpuHandCardView>,
             Option<&CpuPlacedCardView>,
-            Option<&CpuPlacedCardAnimation>,
+            Option<&CardAnimation>,
             Option<&HandCardGestureTarget>,
             Option<&GameSceneEntity>,
             Option<&DeckSceneEntity>,
@@ -465,42 +447,29 @@ fn transform_from_global_relative_to_parent(
 fn selectable_card_contains_pointer(
     pointer_position: Vec2,
     active_view: ActiveView,
-    camera_queries: &mut ParamSet<(
-        Query<(&Camera, &GlobalTransform), GameCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DeckCardCameraFilter>,
-        Query<(&Camera, &GlobalTransform), DebugCardCameraFilter>,
-    )>,
+    camera_query: &Query<(&Camera, &GlobalTransform), SharedCardCameraFilter>,
     global_transform: &GlobalTransform,
     card_defaults: &CardInspectionDefaults,
 ) -> bool {
     match active_view {
-        ActiveView::GameScene => {
-            let camera_query = camera_queries.p0();
-            is_deck_card_hit(
-                pointer_position,
-                camera_query.iter().next(),
-                Some(global_transform),
-                card_defaults,
-            )
-        }
-        ActiveView::DeckScene => {
-            let camera_query = camera_queries.p1();
-            is_deck_card_hit(
-                pointer_position,
-                camera_query.iter().next(),
-                Some(global_transform),
-                card_defaults,
-            )
-        }
-        ActiveView::DebugScene => {
-            let camera_query = camera_queries.p2();
-            is_deck_card_hit(
-                pointer_position,
-                camera_query.iter().next(),
-                Some(global_transform),
-                card_defaults,
-            )
-        }
+        ActiveView::GameScene => is_deck_card_hit(
+            pointer_position,
+            camera_query.iter().next(),
+            Some(global_transform),
+            card_defaults,
+        ),
+        ActiveView::DeckScene => is_deck_card_hit(
+            pointer_position,
+            camera_query.iter().next(),
+            Some(global_transform),
+            card_defaults,
+        ),
+        ActiveView::DebugScene => is_deck_card_hit(
+            pointer_position,
+            camera_query.iter().next(),
+            Some(global_transform),
+            card_defaults,
+        ),
         ActiveView::MainMenuScene
         | ActiveView::LightningScene
         | ActiveView::MatchmakingScene
@@ -537,7 +506,7 @@ fn selectable_card_front_is_visible(
     source: CardSelectionSource,
     cpu_hand: Option<&CpuHandCardView>,
     cpu_placed: Option<&CpuPlacedCardView>,
-    animation: Option<&CpuPlacedCardAnimation>,
+    animation: Option<&CardAnimation>,
     flip_state: &CardFlipState,
 ) -> bool {
     match source {
@@ -568,12 +537,12 @@ fn selectable_card_front_is_visible(
 
 fn selectable_card_motion_allows_selection(
     source: CardSelectionSource,
-    animation: Option<&CpuPlacedCardAnimation>,
+    animation: Option<&CardAnimation>,
 ) -> bool {
     match (source, animation) {
         (_, None) => true,
         (CardSelectionSource::OpponentLocation { .. }, Some(animation)) => {
-            animation.phase == crate::runtime::components::CpuPlacedCardAnimationPhase::Revealing
+            animation.phase == crate::runtime::components::CardAnimationPhase::Revealing
                 && animation.current_face() == CardFace::Front
         }
         _ => false,

@@ -283,7 +283,7 @@ jobs:
 
           test -f "${staging_dir}/index.html"
           test -f "${staging_dir}/404.html"
-          find "${staging_dir}" -maxdepth 1 -name 'bevy_card_game_bg.wasm' -print -quit | grep -q .
+          find "${staging_dir}" -maxdepth 1 -name 'samurai_card_game_bg.wasm' -print -quit | grep -q .
           echo "STATIC_DEPLOY_STAGING=${staging_dir}" >> "${GITHUB_ENV}"
 
       - name: Create release archive

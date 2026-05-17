@@ -97,14 +97,14 @@ fn current_round_reveal_targets_skip_empty_slots_and_follow_location_order() {
         targets,
         vec![
             PlacementRevealTarget {
-                owner: MatchPlayerSide::Far,
-                location_index: 0,
-                slot_index: 1,
-            },
-            PlacementRevealTarget {
                 owner: MatchPlayerSide::Near,
                 location_index: 1,
                 slot_index: 3,
+            },
+            PlacementRevealTarget {
+                owner: MatchPlayerSide::Far,
+                location_index: 0,
+                slot_index: 1,
             },
             PlacementRevealTarget {
                 owner: MatchPlayerSide::Far,

@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Bevy Card Game: RunAppDesktop",
+      "label": "Samurai Card Game: RunAppDesktop",
       "type": "shell",
       "command": "${workspaceFolder}/scripts/main/RunAppDesktop.ps1",
       "options": {
@@ -18,7 +18,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Bevy Card Game: RunAppDesktopHotReload",
+      "label": "Samurai Card Game: RunAppDesktopHotReload",
       "type": "shell",
       "command": "${workspaceFolder}/scripts/main/RunAppDesktopHotReload.ps1",
       "options": {
@@ -34,7 +34,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Bevy Card Game: RunTests",
+      "label": "Samurai Card Game: RunTests",
       "type": "shell",
       "command": "${workspaceFolder}/scripts/other/RunTests.ps1",
       "options": {
