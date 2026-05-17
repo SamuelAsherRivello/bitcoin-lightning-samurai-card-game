@@ -62,7 +62,8 @@ use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardGrid, CardLayerRole, CardParallaxLayer, CardSelectionSource,
     CardSlotGestureTarget, CardView, CpuHandCardView, CpuPlacedCardAnimation,
-    CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText,
+    CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer, CpuPlacedCardFlipStyle,
+    CpuPlacedCardView, DebugHudFpsText,
     DebugHudKeyText, DebugHudText, DebugSceneEntity, DebugSceneRoot, DeckSceneEntity,
     DeckSceneRoot, DeckScreenCardView, DeckScreenDeckCommandButton, DeckScreenDeckTileButton,
     DeckScreenGridBackdrop, DeckScreenGridBackdropRole, DeckScreenModalActionButton,
@@ -210,10 +211,15 @@ const GAME_CONTROL_DISABLED_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.55);
 const GAME_CONTROL_DISABLED_BORDER_COLOR: Color = Color::srgb(0.28, 0.28, 0.28);
 const CPU_CARD_MOVE_SECONDS: f32 = 0.5;
 const CPU_HAND_SETTLED_PAUSE_SECONDS: f32 = 0.5;
-const CPU_CARD_FLIP_SECONDS: f32 = 0.5;
+const CPU_CARD_FLIP_SECONDS: f32 = 1.0;
 const CPU_CARD_REVEAL_STAGGER_SECONDS: f32 = 0.25;
+const CPU_CARD_SWAN_FLIP_SECONDS: f32 = 1.0;
+const CPU_CARD_SWAN_SCALE_MULTIPLIER: f32 = 1.25;
+const CPU_CARD_SWAN_SCALE_UP_SECONDS: f32 = 0.25;
+const CPU_CARD_SWAN_SCALE_HOLD_SECONDS: f32 = 0.5;
+const CPU_CARD_SWAN_SCALE_DOWN_SECONDS: f32 = 0.25;
 const CPU_CARD_MOVING_FRONT_Z: f32 = 0.99;
-const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.5;
+const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.1;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
@@ -7849,7 +7855,10 @@ pub fn sync_cpu_placed_card_entities_system(
             );
             commands
                 .entity(entity)
-                .insert(CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.0));
+                .insert(CpuPlacedCardAnimation::swan_flip_to_front(
+                    slot_transform,
+                    0.0,
+                ));
             request_card_flip(audio_manager.as_deref_mut());
         }
     }
@@ -7926,21 +7935,17 @@ fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) 
 }
 
 fn cpu_card_hand_visible_face(owner: MatchPlayerSide) -> CardFace {
-    match owner {
-        MatchPlayerSide::Near => CardFace::Front,
-        MatchPlayerSide::Far => CardFace::Back,
-    }
+    let _ = owner;
+    CardFace::Back
 }
 
 fn cpu_card_slot_visible_face(
-    owner: MatchPlayerSide,
+    _owner: MatchPlayerSide,
     placement_visibility: PlacementVisibility,
 ) -> CardFace {
-    match (owner, placement_visibility) {
-        (MatchPlayerSide::Near, _)
-        | (_, PlacementVisibility::Revealing)
-        | (_, PlacementVisibility::Revealed) => CardFace::Front,
-        (_, PlacementVisibility::CurrentRoundHidden) => CardFace::Back,
+    match placement_visibility {
+        PlacementVisibility::CurrentRoundHidden => CardFace::Back,
+        PlacementVisibility::Revealing | PlacementVisibility::Revealed => CardFace::Front,
     }
 }
 
@@ -7997,6 +8002,7 @@ pub fn cpu_placed_card_animation_system(
     active_view: Option<Res<ActiveView>>,
     time: Res<Time>,
     mut commands: Commands,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     mut card_query: Query<(Entity, &mut Transform, &mut CpuPlacedCardAnimation)>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
@@ -8004,7 +8010,12 @@ pub fn cpu_placed_card_animation_system(
     }
 
     for (entity, mut transform, mut animation) in &mut card_query {
-        if advance_cpu_placed_card_animation(time.delta_secs(), &mut transform, &mut animation) {
+        if advance_cpu_placed_card_animation(
+            time.delta_secs(),
+            &mut transform,
+            &mut animation,
+            audio_manager.as_deref_mut(),
+        ) {
             commands.entity(entity).remove::<CpuPlacedCardAnimation>();
         }
     }
@@ -8014,6 +8025,7 @@ fn advance_cpu_placed_card_animation(
     delta_seconds: f32,
     transform: &mut Transform,
     animation: &mut CpuPlacedCardAnimation,
+    mut audio_manager: Option<&mut AudioManagerModel>,
 ) -> bool {
     let mut active_delta_seconds = delta_seconds.max(0.0);
     if animation.start_delay_seconds > 0.0 {
@@ -8028,7 +8040,61 @@ fn advance_cpu_placed_card_animation(
     animation.phase_elapsed_seconds += active_delta_seconds;
 
     if animation.phase == CpuPlacedCardAnimationPhase::Revealing {
-        animation.current_y_rotation = animation.target_y_rotation;
+        let reveal_seconds = match animation.flip_style {
+            CpuPlacedCardFlipStyle::Standard => CPU_CARD_FLIP_SECONDS,
+            CpuPlacedCardFlipStyle::Swan => CPU_CARD_SWAN_FLIP_SECONDS,
+        };
+        let progress = (animation.phase_elapsed_seconds / reveal_seconds).clamp(0.0, 1.0);
+        let eased_progress = ease_out_cubic(progress);
+        animation.current_y_rotation =
+            std::f32::consts::PI.lerp(animation.target_y_rotation, eased_progress);
+        transform.translation = animation.target_transform.translation;
+        transform.scale = match animation.flip_style {
+            CpuPlacedCardFlipStyle::Standard => animation.target_transform.scale,
+            CpuPlacedCardFlipStyle::Swan => {
+                let swan_elapsed = animation.phase_elapsed_seconds.max(0.0);
+                let scale_multiplier = if swan_elapsed < CPU_CARD_SWAN_SCALE_UP_SECONDS {
+                    let up_progress =
+                        (swan_elapsed / CPU_CARD_SWAN_SCALE_UP_SECONDS).clamp(0.0, 1.0);
+                    1.0_f32.lerp(CPU_CARD_SWAN_SCALE_MULTIPLIER, ease_out_cubic(up_progress))
+                } else if swan_elapsed
+                    < CPU_CARD_SWAN_SCALE_UP_SECONDS + CPU_CARD_SWAN_SCALE_HOLD_SECONDS
+                {
+                    if !animation.swan_peak_sfx_played {
+                        if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                            audio_manager.request(AudioEnum::CardSwanPeak);
+                        }
+                        animation.swan_peak_sfx_played = true;
+                    }
+                    CPU_CARD_SWAN_SCALE_MULTIPLIER
+                } else if swan_elapsed
+                    < CPU_CARD_SWAN_SCALE_UP_SECONDS
+                        + CPU_CARD_SWAN_SCALE_HOLD_SECONDS
+                        + CPU_CARD_SWAN_SCALE_DOWN_SECONDS
+                {
+                    let down_elapsed = swan_elapsed
+                        - (CPU_CARD_SWAN_SCALE_UP_SECONDS + CPU_CARD_SWAN_SCALE_HOLD_SECONDS);
+                    let down_progress =
+                        (down_elapsed / CPU_CARD_SWAN_SCALE_DOWN_SECONDS).clamp(0.0, 1.0);
+                    CPU_CARD_SWAN_SCALE_MULTIPLIER.lerp(1.0, ease_out_cubic(down_progress))
+                } else {
+                    1.0
+                };
+                animation.target_transform.scale * scale_multiplier
+            }
+        };
+        let target_game_scene_position =
+            game_scene_position_from_world_position(animation.target_transform.translation);
+        if transform.scale.distance(animation.target_transform.scale) > CPU_CARD_ANIMATION_SETTLE_EPSILON
+        {
+            transform.translation.z = CPU_CARD_MOVING_FRONT_Z;
+            transform.translation = game_scene_world_position_from_game_scene(
+                target_game_scene_position,
+                transform.translation.z,
+            );
+        } else {
+            transform.translation = animation.target_transform.translation;
+        }
     } else {
         let progress = (animation.phase_elapsed_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
         let eased_progress = ease_out_cubic(progress);
@@ -8045,10 +8111,11 @@ fn advance_cpu_placed_card_animation(
         );
         transform.scale = if progress < 1.0 {
             let scale_multiplier = match animation.phase {
+                CpuPlacedCardAnimationPhase::MovingToHand
+                => 1.0,
                 CpuPlacedCardAnimationPhase::MovingToSlot => {
                     cpu_card_move_scale_multiplier(progress)
                 }
-                CpuPlacedCardAnimationPhase::MovingToHand => 1.0,
                 CpuPlacedCardAnimationPhase::Revealing => 1.0,
             };
             cpu_card_move_scale(
@@ -8066,7 +8133,11 @@ fn advance_cpu_placed_card_animation(
         animation.target_transform.rotation * Quat::from_rotation_y(animation.current_y_rotation);
 
     let reveal_duration_complete = animation.phase != CpuPlacedCardAnimationPhase::Revealing
-        || animation.phase_elapsed_seconds >= CPU_CARD_FLIP_SECONDS;
+        || animation.phase_elapsed_seconds
+            >= match animation.flip_style {
+                CpuPlacedCardFlipStyle::Standard => CPU_CARD_FLIP_SECONDS,
+                CpuPlacedCardFlipStyle::Swan => CPU_CARD_SWAN_FLIP_SECONDS,
+            };
     let is_settled = reveal_duration_complete
         && transform
             .translation
@@ -8077,6 +8148,15 @@ fn advance_cpu_placed_card_animation(
         && (animation.target_y_rotation - animation.current_y_rotation).abs()
             <= CPU_CARD_ANIMATION_SETTLE_EPSILON;
     if is_settled {
+        if animation.phase == CpuPlacedCardAnimationPhase::Revealing
+            && animation.flip_style == CpuPlacedCardFlipStyle::Swan
+            && !animation.swan_land_sfx_played
+        {
+            if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                audio_manager.request(AudioEnum::CardSwanLand);
+            }
+            animation.swan_land_sfx_played = true;
+        }
         *transform = animation.target_transform;
         transform.rotation = animation.target_transform.rotation
             * Quat::from_rotation_y(animation.target_y_rotation);
@@ -8134,8 +8214,10 @@ fn cpu_card_move_scale(
     let target_apparent_scale = target_transform.scale / target_world_units_per_pixel;
     let apparent_scale =
         start_apparent_scale.lerp(target_apparent_scale, eased_progress) * scale_multiplier;
+    let max_pulsed_start_apparent_scale = start_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER;
+    let clamped_apparent_scale = apparent_scale.min(max_pulsed_start_apparent_scale);
 
-    apparent_scale * current_world_units_per_pixel
+    clamped_apparent_scale * current_world_units_per_pixel
 }
 
 /// HUMAN: Shows CPU card fronts or backs according to each card's own reveal tween.

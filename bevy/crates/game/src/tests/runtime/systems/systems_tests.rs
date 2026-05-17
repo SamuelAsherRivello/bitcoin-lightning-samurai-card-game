@@ -2962,7 +2962,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
         CardFace::Back,
     );
 
-    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation, None);
 
     assert!(!is_settled);
     assert_eq!(
@@ -2978,7 +2978,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
             < 0.000_1
     );
 
-    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation, None);
 
     assert!(is_settled);
     assert_close(transform.translation.x, slot_transform.translation.x);
@@ -3020,8 +3020,7 @@ fn cpu_deck_to_hand_animation_lifts_without_scale_pulse() {
     assert!(!advance_cpu_placed_card_animation(
         CPU_CARD_MOVE_SECONDS * 0.5,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
     assert_close(
@@ -3049,8 +3048,7 @@ fn cpu_placed_card_position_move_takes_half_second() {
     assert!(!advance_cpu_placed_card_animation(
         CPU_CARD_MOVE_SECONDS - 0.01,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert!(transform.translation.distance(slot_transform.translation) > 0.0);
     let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
     let target_apparent_scale =
@@ -3061,8 +3059,7 @@ fn cpu_placed_card_position_move_takes_half_second() {
     assert!(advance_cpu_placed_card_animation(
         0.01,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert_close(transform.translation.x, slot_transform.translation.x);
     assert_close(transform.translation.y, slot_transform.translation.y);
     assert_close(transform.translation.z, slot_transform.translation.z);
@@ -3088,8 +3085,7 @@ fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
     assert!(!advance_cpu_placed_card_animation(
         CPU_CARD_MOVE_SECONDS * 0.1,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
     let hand_apparent_scale =
         apparent_scale_at_z(hand_transform.scale.x, hand_transform.translation.z);
@@ -3099,8 +3095,7 @@ fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
     assert!(!advance_cpu_placed_card_animation(
         CPU_CARD_MOVE_SECONDS * 0.4,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert_close(
         apparent_scale_at_z(transform.scale.x, transform.translation.z),
         hand_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER,
@@ -3110,9 +3105,9 @@ fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
 #[test]
 fn cpu_placed_card_scale_multiplier_uses_equal_half_move_timing() {
     assert_close(cpu_card_move_scale_multiplier(0.0), 1.0);
-    assert_close(cpu_card_move_scale_multiplier(0.25), 1.25);
-    assert_close(cpu_card_move_scale_multiplier(0.5), 1.5);
-    assert_close(cpu_card_move_scale_multiplier(0.75), 1.25);
+    assert_close(cpu_card_move_scale_multiplier(0.25), 1.05);
+    assert_close(cpu_card_move_scale_multiplier(0.5), 1.1);
+    assert_close(cpu_card_move_scale_multiplier(0.75), 1.05);
     assert_close(cpu_card_move_scale_multiplier(1.0), 1.0);
 }
 
@@ -3135,8 +3130,7 @@ fn cpu_placed_card_move_preserves_tweened_game_scene_path_while_lifted_forward()
     assert!(!advance_cpu_placed_card_animation(
         CPU_CARD_MOVE_SECONDS * 0.5,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
     assert_vec2_close(
@@ -3146,6 +3140,133 @@ fn cpu_placed_card_move_preserves_tweened_game_scene_path_while_lifted_forward()
             0.875,
         ),
     );
+}
+
+fn assert_cpu_card_tween_path_stable_for_location(slot_target_xy: Vec2) {
+    #[derive(Clone, Copy)]
+    struct FrameSample {
+        phase: crate::runtime::components::CpuPlacedCardAnimationPhase,
+        game_scene_xy: Vec2,
+        z: f32,
+        apparent_width: f32,
+        apparent_height: f32,
+    }
+
+    let card_defaults = CardInspectionDefaults::default();
+    let source_transform = Transform {
+        translation: game_scene_world_position_from_game_scene(Vec2::new(220.0, 730.0), 0.52),
+        rotation: Quat::from_rotation_y(std::f32::consts::PI),
+        scale: Vec3::splat(0.25),
+    };
+    let hand_transform = Transform {
+        translation: game_scene_world_position_from_game_scene(Vec2::new(610.0, 675.0), 0.3),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let slot_transform = Transform {
+        translation: game_scene_world_position_from_game_scene(slot_target_xy, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = source_transform;
+    let mut animation = CpuPlacedCardAnimation::move_deck_to_hand_to_slot(
+        source_transform,
+        hand_transform,
+        slot_transform,
+        CardFace::Back,
+    );
+
+    let delta_seconds = 1.0 / 60.0;
+    let mut samples: Vec<FrameSample> = Vec::new();
+    let mut settled = false;
+    for _ in 0..240 {
+        settled = advance_cpu_placed_card_animation(
+            delta_seconds,
+            &mut transform,
+            &mut animation,
+            None,
+        );
+        let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
+        samples.push(FrameSample {
+            phase: animation.phase,
+            game_scene_xy: game_scene_position_from_world_position(transform.translation),
+            z: transform.translation.z,
+            apparent_width: card_defaults.width * apparent_scale,
+            apparent_height: card_defaults.height * apparent_scale,
+        });
+        if settled {
+            break;
+        }
+    }
+
+    assert!(settled, "animation should settle within 240 frames");
+    assert!(samples.len() > 10);
+
+    let expected_aspect = card_defaults.width / card_defaults.height;
+    let start_to_hand = game_scene_position_from_world_position(hand_transform.translation)
+        - game_scene_position_from_world_position(source_transform.translation);
+    let hand_to_slot = game_scene_position_from_world_position(slot_transform.translation)
+        - game_scene_position_from_world_position(hand_transform.translation);
+    let max_step_deck_to_hand = start_to_hand.length() * ((delta_seconds / CPU_CARD_MOVE_SECONDS) * 3.1);
+    let max_step_hand_to_slot = hand_to_slot.length() * ((delta_seconds / CPU_CARD_MOVE_SECONDS) * 3.1);
+    let slot_apparent_width = card_defaults.width
+        * apparent_scale_at_z(slot_transform.scale.x, slot_transform.translation.z);
+    let slot_apparent_height = card_defaults.height
+        * apparent_scale_at_z(slot_transform.scale.y, slot_transform.translation.z);
+
+    for sample in &samples {
+        assert!(sample.game_scene_xy.x.is_finite());
+        assert!(sample.game_scene_xy.y.is_finite());
+        assert!(sample.z.is_finite());
+        assert!(sample.apparent_width.is_finite());
+        assert!(sample.apparent_height.is_finite());
+        assert!(sample.apparent_width > 0.0);
+        assert!(sample.apparent_height > 0.0);
+        assert!((sample.apparent_width / sample.apparent_height - expected_aspect).abs() < 0.0001);
+        assert!(sample.z <= CPU_CARD_MOVING_FRONT_Z + 0.0001);
+        assert!(sample.z >= source_transform.translation.z.min(hand_transform.translation.z) - 0.0001);
+    }
+
+    for window in samples.windows(2) {
+        let prev = window[0];
+        let next = window[1];
+        let max_step = match prev.phase {
+            crate::runtime::components::CpuPlacedCardAnimationPhase::MovingToHand => {
+                max_step_deck_to_hand
+            }
+            crate::runtime::components::CpuPlacedCardAnimationPhase::MovingToSlot => {
+                max_step_hand_to_slot
+            }
+            crate::runtime::components::CpuPlacedCardAnimationPhase::Revealing => 0.0,
+        };
+        let step = next.game_scene_xy.distance(prev.game_scene_xy);
+        assert!(
+            step <= max_step + 0.01,
+            "unexpected tween jump: step={step} max_step={max_step}"
+        );
+    }
+
+    let final_sample = samples[samples.len() - 1];
+    let final_target_xy = game_scene_position_from_world_position(slot_transform.translation);
+    assert_vec2_close(final_sample.game_scene_xy, final_target_xy);
+    assert_close(final_sample.z, slot_transform.translation.z);
+    assert_close(final_sample.apparent_width, slot_apparent_width);
+    assert_close(final_sample.apparent_height, slot_apparent_height);
+}
+
+#[test]
+fn cpu_card_tween_path_is_stable_deck_to_hand_to_location_1() {
+    assert_cpu_card_tween_path_stable_for_location(Vec2::new(380.0, 260.0));
+}
+
+#[test]
+fn cpu_card_tween_path_is_stable_deck_to_hand_to_location_2() {
+    assert_cpu_card_tween_path_stable_for_location(Vec2::new(640.0, 260.0));
+}
+
+#[test]
+fn cpu_card_tween_path_is_stable_deck_to_hand_to_location_3() {
+    assert_cpu_card_tween_path_stable_for_location(Vec2::new(900.0, 260.0));
 }
 
 #[test]
@@ -3194,20 +3315,14 @@ fn committed_cpu_placement_records_original_visible_hand_source() {
 
 #[test]
 fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
-    assert_eq!(
-        cpu_card_hand_visible_face(MatchPlayerSide::Near),
-        CardFace::Front
-    );
+    assert_eq!(cpu_card_hand_visible_face(MatchPlayerSide::Near), CardFace::Back);
     assert_eq!(
         cpu_card_hand_visible_face(MatchPlayerSide::Far),
         CardFace::Back
     );
     assert_eq!(
-        cpu_card_slot_visible_face(
-            MatchPlayerSide::Near,
-            PlacementVisibility::CurrentRoundHidden
-        ),
-        CardFace::Front
+        cpu_card_slot_visible_face(MatchPlayerSide::Near, PlacementVisibility::CurrentRoundHidden),
+        CardFace::Back
     );
     assert_eq!(
         cpu_card_slot_visible_face(
@@ -3294,8 +3409,7 @@ fn cpu_placed_card_reveal_waits_for_delay_without_destination_scale_pulse() {
     assert!(!advance_cpu_placed_card_animation(
         0.24,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert_eq!(animation.current_face(), CardFace::Back);
     assert_close(animation.start_delay_seconds, 0.01);
     assert_eq!(transform.scale, slot_transform.scale);
@@ -3303,25 +3417,58 @@ fn cpu_placed_card_reveal_waits_for_delay_without_destination_scale_pulse() {
     assert!(!advance_cpu_placed_card_animation(
         0.25,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert_eq!(animation.current_face(), CardFace::Front);
-    assert_close(animation.current_y_rotation, 0.0);
+    assert!(animation.current_y_rotation > 0.0);
     assert_eq!(transform.translation, slot_transform.translation);
     assert_eq!(transform.scale, slot_transform.scale);
-    assert_close(
-        transform.rotation.angle_between(slot_transform.rotation),
-        0.0,
-    );
+    assert!(transform.rotation.angle_between(slot_transform.rotation) > 0.0);
 
     assert!(advance_cpu_placed_card_animation(
-        0.26,
+        0.76,
         &mut transform,
-        &mut animation
-    ));
+        &mut animation, None));
     assert_eq!(animation.current_face(), CardFace::Front);
     assert_close(animation.current_y_rotation, 0.0);
     assert_eq!(transform.scale, slot_transform.scale);
+}
+
+#[test]
+fn cpu_swan_flip_keeps_game_scene_anchor_while_scale_and_depth_tween() {
+    let slot_transform = Transform {
+        translation: game_scene_world_position_from_game_scene(Vec2::new(880.0, 275.0), 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let anchor = game_scene_position_from_world_position(slot_transform.translation);
+    let mut transform = slot_transform;
+    transform.rotation = slot_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI);
+    let mut animation = CpuPlacedCardAnimation::swan_flip_to_front(slot_transform, 0.0);
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.30,
+        &mut transform,
+        &mut animation,
+        None
+    ));
+    assert_eq!(animation.phase, CpuPlacedCardAnimationPhase::Revealing);
+    assert!(transform.translation.z > slot_transform.translation.z);
+    assert!(transform.scale.x > slot_transform.scale.x);
+    assert_vec2_close(
+        game_scene_position_from_world_position(transform.translation),
+        anchor,
+    );
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.30,
+        &mut transform,
+        &mut animation,
+        None
+    ));
+    assert_vec2_close(
+        game_scene_position_from_world_position(transform.translation),
+        anchor,
+    );
 }
 
 #[test]

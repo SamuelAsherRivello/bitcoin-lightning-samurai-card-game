@@ -4,7 +4,6 @@ param(
     [switch]$AiRuntime,
     [switch]$UseSccache,
     [switch]$UseFastLinker,
-    [switch]$NoFastLinker,
     [switch]$NoFastDevFeature,
     [string]$TargetTriple,
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -16,7 +15,6 @@ $ErrorActionPreference = "Stop"
 $RepositoryRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $PackageName = "bevy-card-game"
 $TargetDir = Join-Path $RepositoryRoot "target\run-app-desktop"
-$AssetHotReloadFeature = "asset-hot-reload"
 $AiRuntimeFeature = "ai-runtime"
 
 if (-not $env:RUST_BACKTRACE) {
@@ -45,9 +43,9 @@ $Features = @()
 if ($Release) {
     $CompileParams.Release = $true
 } elseif (-not $NoFastDevFeature) {
-    $Features += @($AssetHotReloadFeature, "fast-dev")
+    $Features += "fast-dev"
 } else {
-    $Features += $AssetHotReloadFeature
+    $Features = @()
 }
 if ($AiRuntime) {
     $Features += $AiRuntimeFeature
@@ -60,9 +58,9 @@ if ($UseSccache) {
 }
 if ($UseFastLinker) {
     $CompileParams.UseFastLinker = $true
-}
-if ($NoFastLinker) {
-    $CompileParams.NoFastLinker = $true
+    Write-Host "Using fast linker mode from RunAppDesktop: lld-link requested."
+} else {
+    Write-Host "Using the default Windows linker. Pass -UseFastLinker to use lld-link."
 }
 
 Push-Location $RepositoryRoot
