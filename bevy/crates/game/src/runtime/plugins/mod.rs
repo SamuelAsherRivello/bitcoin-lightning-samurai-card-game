@@ -12,14 +12,14 @@ pub use ai_runtime_plugin::{
 };
 
 use crate::runtime::resources::{
-    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CardFlipState,
-    CardGestureModel, CardInspectionDefaults, CardInspectionState, CardModelRegistry,
-    CardSlotBoardModel, CardStateModel, CardUiState, CpuBrainModel, DebugDrawingModel,
-    DebugHudState, DeckScreenModel, FullscreenViewportTransitionState, GameDeckModel,
-    GameHandModel, GameLocationModel, GameRoundModel, GameTicks, HotReloadScreenModel,
-    LocationModelRegistry, MatchModel, MatchmakingModel, MetaGameSettingsModel,
-    PlayerDeckCollectionModel, PrimaryCameraDefaults, SelectedCardModalModel, TopNavigationModel,
-    WindowPlacementState, WorldModelRegistry,
+    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, AudioManagerModel,
+    CardFlipState, CardGestureModel, CardInspectionDefaults, CardInspectionState,
+    CardModelRegistry, CardSlotBoardModel, CardStateModel, CardUiState, CpuBrainModel,
+    DebugDrawingModel, DebugHudState, DeckScreenModel, FullscreenViewportTransitionState,
+    GameDeckModel, GameHandModel, GameLocationModel, GameRoundModel, GameTicks,
+    HotReloadScreenModel, LocationModelRegistry, MatchModel, MatchmakingModel,
+    MetaGameSettingsModel, PlayerDeckCollectionModel, PrimaryCameraDefaults,
+    SelectedCardModalModel, TopNavigationModel, WindowPlacementState, WorldModelRegistry,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::runtime::resources::{
@@ -28,16 +28,16 @@ use crate::runtime::resources::{
     create_player_deck_collection_store,
 };
 use crate::runtime::systems::{
-    advance_ticks, card_gesture_animation_system, card_gesture_update_system,
-    card_model_input_system, card_point_overlay_selection_update_system,
-    card_selected_modal_update_system, card_selection_update_system,
-    constrain_debug_camera_to_safe_area, constrain_deck_camera_to_safe_area,
-    constrain_game_scene_3d_cameras_to_safe_area, cpu_brain_update_system,
-    cpu_placed_card_animation_system, debug_draw_solo_update_system, debug_drawing_update_system,
-    deck_screen_update_system, drop_target_hint_update_system,
-    enforce_hidden_game_scene_visibility_system, hot_reload_auto_restart_app_scene,
-    initialize_game_models, load_saved_card_settings, load_saved_debug_hud_input,
-    load_saved_match_mode_preference, load_saved_meta_game_settings,
+    advance_ticks, audio_game_state_update_system, audio_playback_update_system,
+    card_gesture_animation_system, card_gesture_update_system, card_model_input_system,
+    card_point_overlay_selection_update_system, card_selected_modal_update_system,
+    card_selection_update_system, constrain_debug_camera_to_safe_area,
+    constrain_deck_camera_to_safe_area, constrain_game_scene_3d_cameras_to_safe_area,
+    cpu_brain_update_system, cpu_placed_card_animation_system, debug_draw_solo_update_system,
+    debug_drawing_update_system, deck_screen_update_system, drop_target_hint_update_system,
+    enforce_hidden_game_scene_visibility_system, game_control_audio_update_system,
+    hot_reload_auto_restart_app_scene, initialize_game_models, load_saved_card_settings,
+    load_saved_debug_hud_input, load_saved_match_mode_preference, load_saved_meta_game_settings,
     load_saved_player_deck_collection, load_saved_window_placement,
     log_game_scene_card_render_diagnostics, matchmaking_update_system, meta_screen_update_system,
     modal_block_game_control_interactions_system, quit_app_on_escape,
@@ -103,6 +103,7 @@ impl Plugin for CoreGamePlugin {
             .init_resource::<TopNavigationModel>()
             .init_resource::<MatchmakingModel>()
             .init_resource::<MetaGameSettingsModel>()
+            .init_resource::<AudioManagerModel>()
             .init_resource::<CardSlotBoardModel>()
             .init_resource::<CardStateModel>()
             .init_resource::<GameDeckModel>()
@@ -201,6 +202,12 @@ impl Plugin for CoreGamePlugin {
             )
             .add_systems(
                 Update,
+                game_control_audio_update_system
+                    .after(modal_block_game_control_interactions_system)
+                    .before(update_end_round_button),
+            )
+            .add_systems(
+                Update,
                 update_game_control_ui_system.after(update_end_round_button),
             )
             .add_systems(
@@ -287,6 +294,17 @@ impl Plugin for CoreGamePlugin {
                 visual_modifier_update_system
                     .after(update_location_power_points)
                     .after(update_card_power_point_views_system),
+            )
+            .add_systems(
+                Update,
+                audio_game_state_update_system
+                    .after(update_game_location_views_system)
+                    .after(update_location_power_points)
+                    .after(visual_modifier_update_system),
+            )
+            .add_systems(
+                Update,
+                audio_playback_update_system.after(audio_game_state_update_system),
             )
             .add_systems(
                 Update,

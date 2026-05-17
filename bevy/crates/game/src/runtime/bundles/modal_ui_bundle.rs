@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::runtime::bundles::ButtonUiStyle;
+
 pub const MODAL_UI_BACKDROP_OPACITY: f32 = 0.9;
 
 /// HUMAN: Full-screen modal overlay that blocks the rest of the app visually.
@@ -99,6 +101,7 @@ impl ModalMenuUiBundle {
 pub struct ModalButtonUiBundle {
     pub name: Name,
     pub button: Button,
+    pub style: ButtonUiStyle,
     pub node: Node,
     pub background_color: BackgroundColor,
     pub border_color: BorderColor,
@@ -109,6 +112,7 @@ impl ModalButtonUiBundle {
         Self {
             name: Name::new(name.into()),
             button: Button,
+            style: ButtonUiStyle::Default,
             node: Node {
                 width: Val::Px(120.0),
                 height: Val::Px(44.0),

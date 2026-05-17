@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "desktop-hot-reload")]
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod audio_manager_model;
 pub mod card_gesture_model;
 pub mod card_instance_state_model;
 pub mod card_slot_model;
@@ -22,6 +23,7 @@ pub mod point_model;
 pub mod selected_card_modal_model;
 pub mod top_navigation_model;
 
+pub use audio_manager_model::*;
 pub use card_gesture_model::*;
 pub use card_instance_state_model::*;
 pub use card_slot_model::*;

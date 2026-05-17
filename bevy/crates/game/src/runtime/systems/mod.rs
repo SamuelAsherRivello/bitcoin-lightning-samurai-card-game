@@ -32,6 +32,7 @@ use bevy_inspector_egui::{
 use bevy_persistent::prelude::Persistent;
 use std::time::Duration;
 
+pub mod audio_update_system;
 pub mod card_gesture_animation_system;
 pub mod card_gesture_update_system;
 pub mod card_point_overlay_selection_update_system;
@@ -40,6 +41,7 @@ pub mod card_selection_update_system;
 pub mod debug_drawing_update_system;
 pub mod visual_modifier_update_system;
 
+pub use audio_update_system::*;
 pub use card_gesture_animation_system::*;
 pub use card_gesture_update_system::*;
 pub use card_point_overlay_selection_update_system::*;
@@ -49,7 +51,7 @@ pub use debug_drawing_update_system::*;
 pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
-    CardViewBundle, DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH, DebugScreenBundle,
+    ButtonUiBundle, CardViewBundle, DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH, DebugScreenBundle,
     DeckScreenBundle, DeckViewBundle, GameScreenBundle, GridViewUiBundle, LightningScreenBundle,
     LocationViewBundle, MainMenuScreenBundle, MatchmakingScreenBundle, ModalButtonUiBundle,
     ModalMenuUiBundle, ModalPromptUiBundle, ModalUiBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE,
@@ -80,9 +82,10 @@ use crate::runtime::resources::CardState;
 #[cfg(test)]
 use crate::runtime::resources::MatchModeModel;
 use crate::runtime::resources::{
-    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, CARD_BACK_TEXTURE_PATH,
-    CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX, CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX,
-    CARD_LAYER_SCALE_MIN, CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
+    ActiveCardModel, ActiveLocations, ActiveView, ActiveWorldModel, AudioEnum, AudioManagerModel,
+    CARD_BACK_TEXTURE_PATH, CARD_DEPTH_FACTOR_DEFAULT, CARD_DEPTH_FACTOR_MAX,
+    CARD_DEPTH_FACTOR_MIN, CARD_LAYER_SCALE_MAX, CARD_LAYER_SCALE_MIN,
+    CARD_RENDER_ASPECT_RATIO_WIDTH_OVER_HEIGHT, CARD_SAFE_AREA_TEXTURE_PATH,
     CARD_SLOT_LOCATION_COUNT, CardFace, CardFlipState, CardGestureModel, CardGestureState,
     CardInspectionDefaults, CardInspectionState, CardModel, CardModelRegistry, CardSettingsStore,
     CardSlotBoardModel, CardSlotSide, CardSlotState, CardStateModel, CardUiState, CostPointModel,
@@ -866,28 +869,29 @@ fn spawn_menu_button_with_optional_icon(
     let text = text.into();
     parent
         .spawn((
-            Name::new(name),
-            Button,
+            ButtonUiBundle::new(name)
+                .with_node(Node {
+                    width: Val::Px(380.0),
+                    height: Val::Px(68.0),
+                    border: UiRect::all(Val::Px(3.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(12.0),
+                    ..Default::default()
+                })
+                .with_colors(
+                    if is_lightning {
+                        Color::srgb(0.86, 0.63, 0.18)
+                    } else {
+                        Color::srgb(0.20, 0.24, 0.32)
+                    },
+                    if is_lightning {
+                        Color::srgb(1.0, 0.82, 0.32)
+                    } else {
+                        Color::srgb(0.60, 0.64, 0.72)
+                    },
+                ),
             marker,
-            Node {
-                width: Val::Px(380.0),
-                height: Val::Px(68.0),
-                border: UiRect::all(Val::Px(3.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(12.0),
-                ..Default::default()
-            },
-            BackgroundColor(if is_lightning {
-                Color::srgb(0.86, 0.63, 0.18)
-            } else {
-                Color::srgb(0.20, 0.24, 0.32)
-            }),
-            BorderColor::all(if is_lightning {
-                Color::srgb(1.0, 0.82, 0.32)
-            } else {
-                Color::srgb(0.60, 0.64, 0.72)
-            }),
         ))
         .with_children(|parent| {
             if let Some(asset_server) = asset_server {
@@ -1059,10 +1063,7 @@ fn spawn_matchmaking_scene_contents(
     commands.entity(root).with_children(|parent| {
         parent
             .spawn((
-                Name::new("Matchmaking Back"),
-                Button,
-                MetaScreenButton::new(MetaScreenButtonAction::MatchmakingBack),
-                Node {
+                ButtonUiBundle::new("Matchmaking Back").with_node(Node {
                     position_type: PositionType::Absolute,
                     top: Val::Px(24.0),
                     left: Val::Px(565.0),
@@ -1072,9 +1073,8 @@ fn spawn_matchmaking_scene_contents(
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..Default::default()
-                },
-                BackgroundColor(Color::srgb(0.18, 0.22, 0.29)),
-                BorderColor::all(Color::srgb(0.43, 0.47, 0.56)),
+                }),
+                MetaScreenButton::new(MetaScreenButtonAction::MatchmakingBack),
             ))
             .with_children(|parent| {
                 parent.spawn((
@@ -1297,19 +1297,15 @@ fn spawn_settings_button(
 ) {
     parent
         .spawn((
-            Name::new(name),
-            Button,
-            marker,
-            Node {
+            ButtonUiBundle::new(name).with_node(Node {
                 width: Val::Percent(100.0),
                 height: Val::Px(68.0),
                 border: UiRect::all(Val::Px(3.0)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
-            },
-            BackgroundColor(Color::srgb(0.20, 0.24, 0.32)),
-            BorderColor::all(Color::srgb(0.60, 0.64, 0.72)),
+            }),
+            marker,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -2440,24 +2436,25 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            Name::new("Quit Game Button"),
+            ButtonUiBundle::new("Quit Game Button")
+                .with_node(Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(2.0),
+                    bottom: Val::Px(228.0),
+                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                    border: UiRect::all(Val::Px(3.0)),
+                    display: Display::Flex,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(
+                    END_ROUND_BUTTON_NORMAL_COLOR,
+                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                ),
             GameSceneEntity,
-            Button,
             GameControlButton::new(GameControlAction::QuitGame),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(2.0),
-                bottom: Val::Px(228.0),
-                width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                border: UiRect::all(Val::Px(3.0)),
-                display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
         ))
@@ -2474,24 +2471,25 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            Name::new("Restart Button"),
+            ButtonUiBundle::new("Restart Button")
+                .with_node(Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(2.0),
+                    bottom: Val::Px(132.0),
+                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                    border: UiRect::all(Val::Px(3.0)),
+                    display: Display::Flex,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(
+                    END_ROUND_BUTTON_NORMAL_COLOR,
+                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                ),
             GameSceneEntity,
-            Button,
             GameControlButton::new(GameControlAction::Restart),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(2.0),
-                bottom: Val::Px(132.0),
-                width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                border: UiRect::all(Val::Px(3.0)),
-                display: Display::Flex,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
         ))
@@ -2508,33 +2506,34 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            Name::new("Undo Button"),
+            ButtonUiBundle::new("Undo Button")
+                .with_node(Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(2.0),
+                    bottom: Val::Px(36.0),
+                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                    border: UiRect::all(Val::Px(3.0)),
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(
+                    if round_model.has_undoable_moves() {
+                        END_ROUND_BUTTON_NORMAL_COLOR
+                    } else {
+                        GAME_CONTROL_DISABLED_COLOR
+                    },
+                    if round_model.has_undoable_moves() {
+                        END_ROUND_BUTTON_NORMAL_BORDER_COLOR
+                    } else {
+                        GAME_CONTROL_DISABLED_BORDER_COLOR
+                    },
+                ),
             GameSceneEntity,
-            Button,
             GameControlButton::new(GameControlAction::Undo),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(2.0),
-                bottom: Val::Px(36.0),
-                width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                border: UiRect::all(Val::Px(3.0)),
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BorderColor::all(if round_model.has_undoable_moves() {
-                END_ROUND_BUTTON_NORMAL_BORDER_COLOR
-            } else {
-                GAME_CONTROL_DISABLED_BORDER_COLOR
-            }),
-            BackgroundColor(if round_model.has_undoable_moves() {
-                END_ROUND_BUTTON_NORMAL_COLOR
-            } else {
-                GAME_CONTROL_DISABLED_COLOR
-            }),
             GlobalZIndex(10),
             Visibility::Visible,
         ))
@@ -2560,26 +2559,27 @@ fn spawn_game_controls(
 
     parent
         .spawn((
-            Name::new("RoundUI"),
+            ButtonUiBundle::new("RoundUI")
+                .with_node(Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Percent(2.0),
+                    bottom: Val::Percent(3.0),
+                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                    border: UiRect::all(Val::Px(3.0)),
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(
+                    END_ROUND_BUTTON_NORMAL_COLOR,
+                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                ),
             RoundUi,
             GameSceneEntity,
-            Button,
             GameControlButton::new(GameControlAction::EndRound),
-            Node {
-                position_type: PositionType::Absolute,
-                right: Val::Percent(2.0),
-                bottom: Val::Percent(3.0),
-                width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                border: UiRect::all(Val::Px(3.0)),
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR),
-            BackgroundColor(END_ROUND_BUTTON_NORMAL_COLOR),
             GlobalZIndex(10),
             Visibility::Visible,
             EndRoundButton,
@@ -2816,29 +2816,30 @@ fn spawn_top_navigation_view(
                 let is_selected = destination == selected;
                 parent
                     .spawn((
-                        Name::new(format!("TopNav {}", destination.label())),
-                        Button,
+                        ButtonUiBundle::new(format!("TopNav {}", destination.label()))
+                            .with_node(Node {
+                                width: Val::Px(150.0),
+                                height: Val::Px(46.0),
+                                border: UiRect::all(Val::Px(2.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..Default::default()
+                            })
+                            .with_colors(
+                                if is_selected {
+                                    Color::srgb(0.18, 0.38, 0.58)
+                                } else if is_blocked {
+                                    Color::srgba(0.12, 0.14, 0.18, 0.65)
+                                } else {
+                                    Color::srgb(0.18, 0.22, 0.29)
+                                },
+                                if is_selected {
+                                    Color::srgb(0.56, 0.78, 1.0)
+                                } else {
+                                    Color::srgb(0.43, 0.47, 0.56)
+                                },
+                            ),
                         TopNavigationButton::new(destination),
-                        Node {
-                            width: Val::Px(150.0),
-                            height: Val::Px(46.0),
-                            border: UiRect::all(Val::Px(2.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            ..Default::default()
-                        },
-                        BackgroundColor(if is_selected {
-                            Color::srgb(0.18, 0.38, 0.58)
-                        } else if is_blocked {
-                            Color::srgba(0.12, 0.14, 0.18, 0.65)
-                        } else {
-                            Color::srgb(0.18, 0.22, 0.29)
-                        }),
-                        BorderColor::all(if is_selected {
-                            Color::srgb(0.56, 0.78, 1.0)
-                        } else {
-                            Color::srgb(0.43, 0.47, 0.56)
-                        }),
                     ))
                     .with_children(|parent| {
                         parent.spawn((
@@ -3355,19 +3356,15 @@ fn spawn_deck_command_button(
 ) {
     parent
         .spawn((
-            Name::new(format!("DeckScreen Command {label}")),
-            Button,
-            command,
-            Node {
+            ButtonUiBundle::new(format!("DeckScreen Command {label}")).with_node(Node {
                 width: Val::Px(DECK_SCREEN_DECK_COMMAND_WIDTH),
                 height: Val::Px(DECK_SCREEN_DECK_COMMAND_HEIGHT),
                 border: UiRect::all(Val::Px(2.0)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..Default::default()
-            },
-            BackgroundColor(Color::srgb(0.18, 0.22, 0.29)),
-            BorderColor::all(Color::srgb(0.43, 0.47, 0.56)),
+            }),
+            command,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -3399,19 +3396,17 @@ fn spawn_deck_library_menu_button(
     };
     parent
         .spawn((
-            Name::new(format!("DeckScreen Library Command {label}")),
-            Button,
+            ButtonUiBundle::new(format!("DeckScreen Library Command {label}"))
+                .with_node(Node {
+                    width: Val::Px(DECK_SCREEN_DECK_COMMAND_WIDTH),
+                    height: Val::Px(DECK_SCREEN_DECK_COMMAND_HEIGHT),
+                    border: UiRect::all(Val::Px(2.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(background, border),
             DeckScreenTabButton::new(tab),
-            Node {
-                width: Val::Px(DECK_SCREEN_DECK_COMMAND_WIDTH),
-                height: Val::Px(DECK_SCREEN_DECK_COMMAND_HEIGHT),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BackgroundColor(background),
-            BorderColor::all(border),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -3428,21 +3423,22 @@ fn spawn_deck_library_menu_button(
 fn spawn_deck_selection_new_deck_tile(parent: &mut ChildSpawnerCommands) {
     parent
         .spawn((
-            Name::new("DeckScreen + Deck Tile"),
-            Button,
+            ButtonUiBundle::new("DeckScreen + Deck Tile")
+                .with_node(Node {
+                    width: Val::Px(DECK_VIEW_TILE_WIDTH),
+                    height: Val::Px(DECK_VIEW_TILE_HEIGHT),
+                    border: UiRect::all(Val::Px(2.0)),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    row_gap: Val::Px(8.0),
+                    ..Default::default()
+                })
+                .with_colors(
+                    Color::srgba(1.0, 1.0, 1.0, 0.06),
+                    Color::srgba(0.85, 0.88, 0.94, 0.72),
+                ),
             DeckScreenDeckCommandButton::EditDeckName,
-            Node {
-                width: Val::Px(DECK_VIEW_TILE_WIDTH),
-                height: Val::Px(DECK_VIEW_TILE_HEIGHT),
-                border: UiRect::all(Val::Px(2.0)),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: Val::Px(8.0),
-                ..Default::default()
-            },
-            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.06)),
-            BorderColor::all(Color::srgba(0.85, 0.88, 0.94, 0.72)),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -3612,19 +3608,17 @@ fn spawn_deck_screen_selected_card_menu_button(
     };
     parent
         .spawn((
-            Name::new(format!("DeckScreen Selected Card Menu {label}")),
-            Button,
+            ButtonUiBundle::new(format!("DeckScreen Selected Card Menu {label}"))
+                .with_node(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_BUTTON_HEIGHT),
+                    border: UiRect::all(Val::Px(2.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                })
+                .with_colors(background, border),
             action,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_BUTTON_HEIGHT),
-                border: UiRect::all(Val::Px(2.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..Default::default()
-            },
-            BackgroundColor(background),
-            BorderColor::all(border),
             Pickable::default(),
         ))
         .with_children(|parent| {
@@ -3702,6 +3696,7 @@ fn spawn_deck_screen_prompt(
 /// HUMAN: Handles reusable top-navigation button activation.
 /// AI: DeckScreen card action menus live inside grid panels, while validation prompts block navigation.
 pub fn top_navigation_update_system(
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     mut deck_screen_model: Option<ResMut<DeckScreenModel>>,
     selected_card_modal: Option<Res<SelectedCardModalModel>>,
     player_deck_collection: Option<Res<PlayerDeckCollectionModel>>,
@@ -3743,6 +3738,7 @@ pub fn top_navigation_update_system(
             continue;
         }
 
+        request_button_click(audio_manager.as_deref_mut());
         let initial_rotation =
             composed_rotation_for_face(&params.card_state, flip_state.visible_face);
         match button.destination {
@@ -3777,6 +3773,7 @@ pub fn top_navigation_update_system(
 /// HUMAN: Handles buttons that belong to Main, Lightning, Matchmaking, and Settings screens.
 /// AI: Keep Lightning integration as placeholder navigation until the real backend exists.
 pub fn meta_screen_update_system(
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     mut settings: ResMut<MetaGameSettingsModel>,
     mut persistent_settings: Option<ResMut<Persistent<MetaGameSettingsModel>>>,
     mut persistent_match_mode: Option<ResMut<Persistent<MatchModePreferenceStore>>>,
@@ -3790,6 +3787,7 @@ pub fn meta_screen_update_system(
             continue;
         }
 
+        request_button_click(audio_manager.as_deref_mut());
         match button.action {
             MetaScreenButtonAction::LightningLogin => params.transition_to_lightning_login_scene(),
             MetaScreenButtonAction::MatchmakingBack => params.transition_to_main_menu_scene(),
@@ -4010,6 +4008,7 @@ pub struct DeckScreenUpdateQueries<'w, 's> {
 
 pub fn deck_screen_update_system(
     mut commands: Commands,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     asset_server: Res<AssetServer>,
     card_defaults: Res<CardInspectionDefaults>,
     card_model_registry: Res<CardModelRegistry>,
@@ -4039,6 +4038,7 @@ pub fn deck_screen_update_system(
         }
 
         if validation_ok.is_some() {
+            request_button_click(audio_manager.as_deref_mut());
             deck_screen_model.close_prompt();
             continue;
         }
@@ -4049,6 +4049,7 @@ pub fn deck_screen_update_system(
 
         if deck_screen_model.modal.is_some() {
             if let Some(action) = modal_action {
+                request_button_click(audio_manager.as_deref_mut());
                 match action {
                     DeckScreenModalActionButton::Back => {
                         deck_screen_model.close_modal();
@@ -4093,14 +4094,17 @@ pub fn deck_screen_update_system(
         }
 
         if deck_tile.is_some() {
+            request_button_click(audio_manager.as_deref_mut());
             deck_screen_model.open_editor();
             continue;
         }
         if deck_command.is_some() {
+            request_button_click(audio_manager.as_deref_mut());
             deck_screen_model.show_coming_soon_prompt();
             continue;
         }
         if let Some(tab_button) = tab_button {
+            request_button_click(audio_manager.as_deref_mut());
             match tab_button.tab {
                 DeckEditorTabModel::Library => {
                     deck_screen_model.select_tab(DeckEditorTabModel::Library)
@@ -7000,6 +7004,46 @@ pub fn modal_block_game_control_interactions_system(
     }
 }
 
+/// HUMAN: Plays shared click feedback for accepted GameScreen control buttons.
+/// AI: Keep this separate from update_end_round_button to avoid growing that system's param set.
+pub fn game_control_audio_update_system(
+    active_view: Option<Res<ActiveView>>,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
+    game_round_model: Option<Res<GameRoundModel>>,
+    match_model: Option<Res<MatchModel>>,
+    button_query: Query<(&Interaction, &GameControlButton), Changed<Interaction>>,
+) {
+    if !is_game_scene_active(active_view.as_deref()) {
+        return;
+    }
+
+    for (interaction, control) in &button_query {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        if game_control_action_is_disabled(
+            control.action,
+            game_round_model.as_deref(),
+            match_model.as_deref(),
+        ) {
+            continue;
+        }
+        request_button_click(audio_manager.as_deref_mut());
+    }
+}
+
+fn request_button_click(audio_manager: Option<&mut AudioManagerModel>) {
+    if let Some(audio_manager) = audio_manager {
+        audio_manager.request(AudioEnum::ButtonClick);
+    }
+}
+
+fn request_card_flip(audio_manager: Option<&mut AudioManagerModel>) {
+    if let Some(audio_manager) = audio_manager {
+        audio_manager.request(AudioEnum::CardFlip);
+    }
+}
+
 pub fn update_end_round_button(
     active_view: Option<Res<ActiveView>>,
     mut button_query: Query<
@@ -7035,6 +7079,11 @@ pub fn update_end_round_button(
     }
 
     for (interaction, control, mut background, mut border) in &mut button_query {
+        let is_disabled = game_control_action_is_disabled(
+            control.action,
+            game_round_model.as_deref(),
+            match_model.as_deref(),
+        );
         let (background_color, border_color) = match *interaction {
             Interaction::Pressed => {
                 match control.action {
@@ -7193,11 +7242,6 @@ pub fn update_end_round_button(
                 END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
             ),
         };
-        let is_disabled = game_control_action_is_disabled(
-            control.action,
-            game_round_model.as_deref(),
-            match_model.as_deref(),
-        );
         if is_disabled {
             background.0 = GAME_CONTROL_DISABLED_COLOR;
             *border = BorderColor::all(GAME_CONTROL_DISABLED_BORDER_COLOR);
@@ -7737,6 +7781,7 @@ pub fn sync_cpu_placed_card_entities_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     mut card_query: Query<(
         Entity,
         &mut CpuPlacedCardView,
@@ -7805,6 +7850,7 @@ pub fn sync_cpu_placed_card_entities_system(
             commands
                 .entity(entity)
                 .insert(CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.0));
+            request_card_flip(audio_manager.as_deref_mut());
         }
     }
 
@@ -9124,6 +9170,9 @@ pub fn card_ui(world: &mut World) {
     if flip_requested {
         if let Some(mut flip_state) = world.get_resource_mut::<CardFlipState>() {
             flip_state.request_flip();
+        }
+        if let Some(mut audio_manager) = world.get_resource_mut::<AudioManagerModel>() {
+            audio_manager.request(AudioEnum::CardFlip);
         }
     }
 }

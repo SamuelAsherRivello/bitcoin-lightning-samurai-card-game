@@ -1,4 +1,7 @@
 use super::*;
+use bevy::asset::AssetLoader;
+use bevy::audio::AudioLoader;
+use std::fs;
 
 #[test]
 fn window_placement_serializes_position_size_and_screen_identity() {
@@ -726,4 +729,145 @@ fn theme_owned_runtime_paths() -> Vec<&'static str> {
         paths.push(location_model.texture);
     }
     paths
+}
+
+fn audio_asset_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    collect_audio_asset_paths(&game_asset_root_path().join("audio"), &mut paths);
+    paths.sort();
+    paths
+}
+
+fn collect_audio_asset_paths(directory: &Path, paths: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(directory).expect("audio asset directory should be readable") {
+        let entry = entry.expect("audio asset entry should be readable");
+        let path = entry.path();
+        if path.is_dir() {
+            collect_audio_asset_paths(&path, paths);
+        } else {
+            paths.push(path);
+        }
+    }
+}
+
+#[test]
+fn audio_enum_maps_required_sfx_files_one_to_one() {
+    assert_eq!(AudioEnum::ButtonClick.asset_path(), "audio/sfx/Click01.wav");
+    assert_eq!(AudioEnum::CardSlide.asset_path(), "audio/sfx/Slide01.wav");
+    assert_eq!(AudioEnum::CardFlip.asset_path(), "audio/sfx/Flip01.wav");
+    assert_eq!(
+        AudioEnum::LocationOpen.asset_path(),
+        "audio/sfx/Tamborine01.wav"
+    );
+    assert_eq!(
+        AudioEnum::LocationLeadChange.asset_path(),
+        "audio/sfx/Upgrade01.wav"
+    );
+}
+
+#[test]
+fn mapped_audio_extensions_are_supported_by_bevy_audio_loader() {
+    let loader = AudioLoader::default();
+    let supported_extensions = loader.extensions();
+
+    for cue in [
+        AudioEnum::ButtonClick,
+        AudioEnum::CardSlide,
+        AudioEnum::CardFlip,
+        AudioEnum::LocationOpen,
+        AudioEnum::LocationLeadChange,
+    ] {
+        let extension = Path::new(cue.asset_path())
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .expect("mapped audio path should have an extension");
+        assert!(
+            supported_extensions.contains(&extension),
+            "mapped audio cue {cue:?} uses unsupported extension .{extension}; supported extensions: {supported_extensions:?}"
+        );
+    }
+}
+
+#[test]
+fn audio_enum_uses_requested_linear_volumes() {
+    assert_eq!(AudioEnum::ButtonClick.volume(), 1.0);
+    assert_eq!(AudioEnum::CardSlide.volume(), 1.0);
+    assert_eq!(AudioEnum::CardFlip.volume(), 0.4);
+    assert_eq!(AudioEnum::LocationOpen.volume(), 0.6);
+    assert_eq!(AudioEnum::LocationLeadChange.volume(), 0.25);
+}
+
+#[test]
+fn all_audio_asset_extensions_are_supported_by_bevy_audio_loader() {
+    let loader = AudioLoader::default();
+    let supported_extensions = loader.extensions();
+    let audio_paths = audio_asset_paths();
+
+    assert!(
+        !audio_paths.is_empty(),
+        "audio asset directory should contain files"
+    );
+    for path in audio_paths {
+        let extension = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .expect("audio asset path should have an extension");
+        assert!(
+            supported_extensions.contains(&extension),
+            "audio asset {} uses unsupported extension .{extension}; supported extensions: {supported_extensions:?}",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn audio_manager_drains_only_enabled_sfx_requests() {
+    let mut audio = AudioManagerModel::default();
+    audio.request(AudioEnum::ButtonClick);
+    audio.request(AudioEnum::CardSlide);
+
+    let drained = audio.drain_enabled_requests(false, true);
+
+    assert!(drained.is_empty());
+    assert!(audio.requests.is_empty());
+}
+
+#[test]
+fn audio_manager_keeps_sfx_requests_when_sfx_enabled() {
+    let mut audio = AudioManagerModel::default();
+    audio.request(AudioEnum::ButtonClick);
+    audio.request(AudioEnum::CardSlide);
+
+    let drained = audio.drain_enabled_requests(true, false);
+    let cues: Vec<_> = drained.iter().map(|request| request.cue).collect();
+
+    assert_eq!(cues, [AudioEnum::ButtonClick, AudioEnum::CardSlide]);
+}
+
+#[test]
+fn audio_manager_location_lead_changes_play_only_for_new_winning_side() {
+    let mut audio = AudioManagerModel::default();
+
+    audio.observe_location_winners(&[
+        (0, CardSlotSide::LocalPlayer, 0),
+        (0, CardSlotSide::Opponent, 0),
+    ]);
+    audio.observe_location_winners(&[
+        (0, CardSlotSide::LocalPlayer, 0),
+        (0, CardSlotSide::Opponent, 3),
+    ]);
+    audio.observe_location_winners(&[
+        (0, CardSlotSide::LocalPlayer, 0),
+        (0, CardSlotSide::Opponent, 5),
+    ]);
+    audio.observe_location_winners(&[
+        (0, CardSlotSide::LocalPlayer, 6),
+        (0, CardSlotSide::Opponent, 5),
+    ]);
+
+    let cues: Vec<_> = audio.requests.iter().map(|request| request.cue).collect();
+    assert_eq!(
+        cues,
+        [AudioEnum::LocationLeadChange, AudioEnum::LocationLeadChange]
+    );
 }

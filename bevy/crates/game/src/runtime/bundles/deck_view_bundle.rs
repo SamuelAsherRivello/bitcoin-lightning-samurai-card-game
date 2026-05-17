@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::runtime::bundles::ButtonUiStyle;
 use crate::runtime::components::DeckView;
 
 pub const DECK_VIEW_TILE_WIDTH: f32 = 132.0;
@@ -12,6 +13,7 @@ pub struct DeckViewBundle {
     name: Name,
     deck_view: DeckView,
     button: Button,
+    style: ButtonUiStyle,
     node: Node,
     background: BackgroundColor,
     border: BorderColor,
@@ -24,6 +26,7 @@ impl DeckViewBundle {
             name: Name::new(format!("DeckView {deck_name}")),
             deck_view: DeckView::new(deck_name),
             button: Button,
+            style: ButtonUiStyle::Default,
             node: Node {
                 width: Val::Px(DECK_VIEW_TILE_WIDTH),
                 height: Val::Px(DECK_VIEW_TILE_HEIGHT),
