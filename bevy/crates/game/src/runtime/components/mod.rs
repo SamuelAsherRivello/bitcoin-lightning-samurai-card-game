@@ -183,6 +183,9 @@ pub struct CpuPlacedCardAnimation {
     pub phase_elapsed_seconds: f32,
     pub start_delay_seconds: f32,
     pub phase: CpuPlacedCardAnimationPhase,
+    pub flip_style: CpuPlacedCardFlipStyle,
+    pub swan_peak_sfx_played: bool,
+    pub swan_land_sfx_played: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -190,6 +193,14 @@ pub enum CpuPlacedCardAnimationPhase {
     MovingToHand,
     MovingToSlot,
     Revealing,
+}
+
+/// HUMAN: Reveal style selector for CPU card front flips.
+/// AI: Standard keeps legacy rotation-only; Swan adds temporary scale bloom.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CpuPlacedCardFlipStyle {
+    Standard,
+    Swan,
 }
 
 impl CpuPlacedCardAnimation {
@@ -211,6 +222,9 @@ impl CpuPlacedCardAnimation {
             phase_elapsed_seconds: 0.0,
             start_delay_seconds: 0.0,
             phase: CpuPlacedCardAnimationPhase::MovingToHand,
+            flip_style: CpuPlacedCardFlipStyle::Standard,
+            swan_peak_sfx_played: false,
+            swan_land_sfx_played: false,
         }
     }
 
@@ -232,6 +246,9 @@ impl CpuPlacedCardAnimation {
             phase_elapsed_seconds: 0.0,
             start_delay_seconds: 0.0,
             phase: CpuPlacedCardAnimationPhase::MovingToSlot,
+            flip_style: CpuPlacedCardFlipStyle::Standard,
+            swan_peak_sfx_played: false,
+            swan_land_sfx_played: false,
         }
     }
 
@@ -256,6 +273,25 @@ impl CpuPlacedCardAnimation {
             phase_elapsed_seconds: 0.0,
             start_delay_seconds,
             phase: CpuPlacedCardAnimationPhase::Revealing,
+            flip_style: CpuPlacedCardFlipStyle::Standard,
+            swan_peak_sfx_played: false,
+            swan_land_sfx_played: false,
+        }
+    }
+
+    pub fn swan_flip_to_front(slot_transform: Transform, start_delay_seconds: f32) -> Self {
+        Self {
+            phase_start_transform: slot_transform,
+            target_transform: slot_transform,
+            slot_transform,
+            current_y_rotation: std::f32::consts::PI,
+            target_y_rotation: 0.0,
+            phase_elapsed_seconds: 0.0,
+            start_delay_seconds,
+            phase: CpuPlacedCardAnimationPhase::Revealing,
+            flip_style: CpuPlacedCardFlipStyle::Swan,
+            swan_peak_sfx_played: false,
+            swan_land_sfx_played: false,
         }
     }
 

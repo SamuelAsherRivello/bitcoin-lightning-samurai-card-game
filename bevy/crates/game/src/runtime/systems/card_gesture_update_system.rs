@@ -492,9 +492,10 @@ fn handle_release(
                     game_round_model.restore(record.energy_cost);
                 }
                 card_states.return_to_hand_at_order(hand_index, insertion_index);
+                let final_hand_count = card_states.indices_with_state(CardState::Hand).len();
                 gesture_model.return_to_hand_transform(
                     hand_index,
-                    hand_source_transform(insertion_index, hand_count + 1, card_defaults),
+                    hand_source_transform(insertion_index, final_hand_count, card_defaults),
                 );
                 return;
             }
@@ -504,9 +505,10 @@ fn handle_release(
                 let hand_count = card_states.indices_with_state(CardState::Hand).len();
                 let insertion_index = hand_insertion_index(game_scene_position, hand_count);
                 card_states.return_to_hand_at_order(hand_index, insertion_index);
+                let final_hand_count = card_states.indices_with_state(CardState::Hand).len();
                 gesture_model.return_to_hand_transform(
                     hand_index,
-                    hand_source_transform(insertion_index, hand_count + 1, card_defaults),
+                    hand_source_transform(insertion_index, final_hand_count, card_defaults),
                 );
                 return;
             }

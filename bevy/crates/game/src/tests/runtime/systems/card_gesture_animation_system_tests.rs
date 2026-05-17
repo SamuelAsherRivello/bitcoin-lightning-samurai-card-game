@@ -6,7 +6,7 @@ use super::*;
 fn selected_inspection_uses_ninety_percent_safe_height() {
     let defaults = CardInspectionDefaults::default();
     let transform = selected_inspection_transform(&defaults);
-    let rendered_height = defaults.height * transform.scale.y;
+    let rendered_height = selected_card_visual_height(&defaults) * transform.scale.y;
     let expected = game_scene_world_height_for_game_scene_height(
         GAME_SCENE_HEIGHT * DECK_SCENE_CARD_HEIGHT_FRACTION,
         CARD_GESTURE_SELECTED_Z,

@@ -10,17 +10,20 @@ use crate::runtime::resources::{
 };
 
 use super::{
-    DECK_SCENE_CARD_HEIGHT_FRACTION, GAME_SCENE_HAND_CARD_HEIGHT, GAME_SCENE_HEIGHT,
-    GAME_SCENE_WIDTH, active_pointer_position, game_scene_card_index_at_for_count,
-    game_scene_hand_card_z, game_scene_world_height_for_game_scene_height,
-    game_scene_world_position_from_game_scene, window_pointer_to_game_scene,
+    CARD_POINT_BADGE_INSET_RATIO, CARD_POINT_BADGE_SIZE, DECK_SCENE_CARD_HEIGHT_FRACTION,
+    GAME_SCENE_HAND_CARD_HEIGHT, GAME_SCENE_HEIGHT, GAME_SCENE_WIDTH, active_pointer_position,
+    game_scene_card_index_at_for_count, game_scene_hand_card_z,
+    game_scene_world_height_for_game_scene_height, game_scene_world_position_from_game_scene,
+    window_pointer_to_game_scene,
 };
 
 const CARD_GESTURE_ANIMATION_RATE: f32 = 14.0;
 pub(super) const CARD_GESTURE_DRAG_SCALE_MULTIPLIER: f32 = 1.5;
 const CARD_GESTURE_DRAG_SCALE_SECONDS: f32 = 0.25;
 const HAND_LAYOUT_TWEEN_SECONDS: f32 = 0.25;
+const CARD_GESTURE_SETTLE_SECONDS: f32 = 0.25;
 const CARD_GESTURE_RETURN_SETTLE_EPSILON: f32 = 0.001;
+const CARD_GESTURE_SCALE_TWEEN_Z_EPSILON: f32 = 0.0001;
 // Gesture depths sit above static card bands so dragged/inspected cards stay contiguous.
 pub(super) const CARD_GESTURE_SELECTED_Z: f32 = 0.88;
 pub(super) const CARD_GESTURE_DRAG_Z: f32 = 0.98;
@@ -88,6 +91,12 @@ pub fn card_gesture_animation_system(
     if gesture_model.state == CardGestureState::Dragging {
         gesture_model.drag_elapsed_seconds += time.delta_secs();
     }
+    if matches!(
+        gesture_model.state,
+        CardGestureState::Returning | CardGestureState::Placed
+    ) {
+        gesture_model.transition_elapsed_seconds += time.delta_secs();
+    }
     let interpolation = (time.delta_secs() * CARD_GESTURE_ANIMATION_RATE).clamp(0.0, 1.0);
     let drag_scale_progress = ease_out_cubic(
         (gesture_model.drag_elapsed_seconds / CARD_GESTURE_DRAG_SCALE_SECONDS).clamp(0.0, 1.0),
@@ -107,18 +116,46 @@ pub fn card_gesture_animation_system(
                 transform.scale = drag_preview_source_scale(source_transform, &card_defaults)
                     .lerp(target_transform.scale, drag_scale_progress);
             }
+        } else if matches!(
+            gesture_model.state,
+            CardGestureState::Returning | CardGestureState::Placed
+        ) {
+            let start_transform = gesture_model
+                .transition_start_transform
+                .unwrap_or(target_transform);
+            let settle_progress =
+                (gesture_model.transition_elapsed_seconds / CARD_GESTURE_SETTLE_SECONDS)
+                    .clamp(0.0, 1.0);
+            let settle_ease = ease_out_cubic(settle_progress);
+            transform.translation = start_transform
+                .translation
+                .lerp(target_transform.translation, settle_ease);
+            transform.rotation = start_transform
+                .rotation
+                .slerp(target_transform.rotation, settle_ease);
+            let base_scale = start_transform.scale.lerp(target_transform.scale, settle_ease);
+            let peak_scale_multiplier = if settle_progress < 0.5 {
+                1.0_f32.lerp(1.5, settle_progress * 2.0)
+            } else {
+                1.5_f32.lerp(1.0, (settle_progress - 0.5) * 2.0)
+            };
+            transform.scale = base_scale * peak_scale_multiplier;
         } else {
             transform.translation = transform
                 .translation
                 .lerp(target_transform.translation, interpolation);
             transform.scale = transform.scale.lerp(target_transform.scale, interpolation);
+            transform.rotation = transform
+                .rotation
+                .slerp(target_transform.rotation, interpolation);
         }
-        transform.rotation = transform
-            .rotation
-            .slerp(target_transform.rotation, interpolation);
+        if transform.scale.distance(target_transform.scale) > CARD_GESTURE_SCALE_TWEEN_Z_EPSILON {
+            transform.translation.z = transform.translation.z.max(CARD_GESTURE_DRAG_Z);
+        }
 
         if gesture_model.state == CardGestureState::Returning
-            && return_transform_is_settled(&transform, &target_transform)
+            && (gesture_model.transition_elapsed_seconds >= CARD_GESTURE_SETTLE_SECONDS
+                || return_transform_is_settled(&transform, &target_transform))
         {
             *transform = target_transform;
             returned_to_source = true;
@@ -132,8 +169,9 @@ pub fn card_gesture_animation_system(
 
 pub(super) fn selected_inspection_transform(card_defaults: &CardInspectionDefaults) -> Transform {
     let height = GAME_SCENE_HEIGHT * DECK_SCENE_CARD_HEIGHT_FRACTION;
+    let selected_visual_height = selected_card_visual_height(card_defaults);
     let scale = game_scene_world_height_for_game_scene_height(height, CARD_GESTURE_SELECTED_Z)
-        / card_defaults.height;
+        / selected_visual_height;
 
     Transform {
         translation: game_scene_world_position_from_game_scene(
@@ -143,6 +181,14 @@ pub(super) fn selected_inspection_transform(card_defaults: &CardInspectionDefaul
         scale: Vec3::splat(scale),
         ..Default::default()
     }
+}
+
+fn selected_card_visual_height(card_defaults: &CardInspectionDefaults) -> f32 {
+    let point_y = (card_defaults.height * 0.5) - (card_defaults.height * CARD_POINT_BADGE_INSET_RATIO);
+    let point_radius = CARD_POINT_BADGE_SIZE * 0.5;
+    let top_extent = (point_y + point_radius).max(card_defaults.height * 0.5);
+
+    top_extent * 2.0
 }
 
 pub(super) fn drag_preview_transform(

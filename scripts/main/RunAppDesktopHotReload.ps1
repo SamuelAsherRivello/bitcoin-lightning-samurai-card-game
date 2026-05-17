@@ -2,6 +2,7 @@ param(
     [switch]$EnableFastDevFeature,
     [switch]$AiRuntime,
     [switch]$NoAiRuntime,
+    [switch]$NoSccache,
     [string]$DioxusCliVersion = "0.7.9",
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$DxArgs
@@ -36,6 +37,27 @@ function Test-DioxusCliVersion {
     return $VersionOutput -match "0\.7(\.|-|$)"
 }
 
+function Get-PinnedToolchainChannel {
+    param([Parameter(Mandatory = $true)][string]$RepositoryRootPath)
+
+    $ToolchainTomlPath = Join-Path $RepositoryRootPath "rust-toolchain.toml"
+    if (-not (Test-Path $ToolchainTomlPath)) {
+        return $null
+    }
+
+    $ChannelLine = Get-Content $ToolchainTomlPath | Where-Object { $_ -match '^\s*channel\s*=\s*".+"\s*$' } | Select-Object -First 1
+    if (-not $ChannelLine) {
+        return $null
+    }
+
+    $Matches = [regex]::Match($ChannelLine, '^\s*channel\s*=\s*"(?<channel>[^"]+)"\s*$')
+    if (-not $Matches.Success) {
+        return $null
+    }
+
+    return $Matches.Groups["channel"].Value
+}
+
 & (Join-Path $PSScriptRoot "..\other\StopApp.ps1") -Quiet
 
 if (-not (Test-CommandExists "dx")) {
@@ -48,7 +70,6 @@ if (-not (Test-DioxusCliVersion -VersionOutput $DxVersionOutput)) {
     throw "Hot reload requires Dioxus CLI 0.7.x with --hot-patch support. Install a compatible version with: cargo install dioxus-cli --version $DioxusCliVersion --locked --force"
 }
 
-$env:CARGO_INCREMENTAL = "1"
 $env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target\run-app-desktop-hot-reload"
 $env:WGPU_BACKEND = "dx12"
 $env:BEVY_ASSET_ROOT = $RepositoryRoot
@@ -62,15 +83,58 @@ if (-not $env:CARGO_BUILD_JOBS) {
     $env:CARGO_BUILD_JOBS = [Environment]::ProcessorCount
 }
 
+$PinnedToolchain = Get-PinnedToolchainChannel -RepositoryRootPath $RepositoryRoot
+if ($PinnedToolchain) {
+    $env:RUSTUP_TOOLCHAIN = $PinnedToolchain
+    Write-Host "Pinned toolchain from rust-toolchain.toml: $PinnedToolchain"
+}
+
 if ($IsWindowsHost -and $EnableFastDevFeature) {
     Write-Warning "Windows hot-patch compatibility mode ignores -EnableFastDevFeature because Bevy dynamic linking can conflict with dx hot patching."
     $EnableFastDevFeature = $false
 }
 
-if (Test-CommandExists "sccache") {
-    Write-Host "sccache detected but CARGO_INCREMENTAL is set: skipping compiler cache."
+if (-not $NoSccache -and (Test-CommandExists "sccache")) {
+    $SccacheCommand = Get-Command "sccache" -ErrorAction SilentlyContinue
+    $DxCommand = Get-Command "dx" -ErrorAction SilentlyContinue
+    $RustcCommand = Get-Command "rustc" -ErrorAction SilentlyContinue
+    $SccacheIsCompatible = $true
+
+    if ($DxCommand -and $RustcCommand) {
+        $ProbeOut = Join-Path $env:TEMP "sccache-dx-probe.out.log"
+        $ProbeErr = Join-Path $env:TEMP "sccache-dx-probe.err.log"
+        if (Test-Path $ProbeOut) { Remove-Item $ProbeOut -Force }
+        if (Test-Path $ProbeErr) { Remove-Item $ProbeErr -Force }
+        $ProbeProcess = Start-Process -FilePath $SccacheCommand.Source -ArgumentList @($DxCommand.Source, $RustcCommand.Source, "-vV") -RedirectStandardOutput $ProbeOut -RedirectStandardError $ProbeErr -PassThru -WindowStyle Hidden -Wait
+        if ($ProbeProcess.ExitCode -ne 0) {
+            $SccacheIsCompatible = $false
+        }
+        if (Test-Path $ProbeOut) { Remove-Item $ProbeOut -Force }
+        if (Test-Path $ProbeErr) { Remove-Item $ProbeErr -Force }
+    }
+
+    if ($SccacheIsCompatible) {
+        $env:CARGO_INCREMENTAL = "0"
+        $env:RUSTC_WRAPPER = $SccacheCommand.Source
+        $env:SCCACHE_DIR = Join-Path $env:CARGO_TARGET_DIR "sccache"
+        Write-Host "Using sccache: $($SccacheCommand.Source)"
+    } else {
+        $env:CARGO_INCREMENTAL = "1"
+        if (Test-Path Env:\RUSTC_WRAPPER) {
+            Remove-Item Env:\RUSTC_WRAPPER
+        }
+        Write-Warning "sccache is installed but incompatible with current Dioxus hot-patch compiler driver. Falling back to incremental builds."
+    }
 } else {
-    Write-Host "No sccache detected."
+    $env:CARGO_INCREMENTAL = "1"
+    if (Test-Path Env:\RUSTC_WRAPPER) {
+        Remove-Item Env:\RUSTC_WRAPPER
+    }
+    if ($NoSccache) {
+        Write-Host "sccache explicitly disabled (-NoSccache)."
+    } else {
+        Write-Host "No sccache detected."
+    }
 }
 
 Write-Host ""
@@ -79,6 +143,10 @@ Write-Host "Package: $PackageName"
 Write-Host "Target dir: $env:CARGO_TARGET_DIR"
 Write-Host "Dioxus CLI: $DxVersionOutput"
 Write-Host "Rust backtrace: RUST_BACKTRACE=$env:RUST_BACKTRACE, RUST_LIB_BACKTRACE=$env:RUST_LIB_BACKTRACE"
+Write-Host "Incremental builds: $env:CARGO_INCREMENTAL"
+if ($env:RUSTUP_TOOLCHAIN) {
+    Write-Host "RUSTUP_TOOLCHAIN: $env:RUSTUP_TOOLCHAIN"
+}
 Write-Host "Edit hot-reload-enabled Rust systems and save."
 $FeatureList = @($HotReloadFeature, $AssetHotReloadFeature)
 if ($UseAiRuntime) {

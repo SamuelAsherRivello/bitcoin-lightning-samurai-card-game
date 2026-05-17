@@ -51,18 +51,19 @@ pub use debug_drawing_update_system::*;
 pub use visual_modifier_update_system::*;
 
 use crate::runtime::bundles::{
-    ButtonUiBundle, CardViewBundle, DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH, DebugScreenBundle,
-    DeckScreenBundle, DeckViewBundle, GameScreenBundle, GridViewUiBundle, LightningScreenBundle,
-    LocationViewBundle, MainMenuScreenBundle, MatchmakingScreenBundle, ModalButtonUiBundle,
-    ModalMenuUiBundle, ModalPromptUiBundle, ModalUiBundle, POINT_VIEW_BASE_TEXT_FONT_SIZE,
-    PointLocationView, PointModel, PointType, PointView, PointViewBundle, SettingsScreenBundle,
-    TopNavigationViewBundle,
+    ButtonUiBundle, ButtonUiStyle, CardViewBundle, DECK_VIEW_TILE_HEIGHT, DECK_VIEW_TILE_WIDTH,
+    DebugScreenBundle, DeckScreenBundle, DeckViewBundle, GameScreenBundle, GridViewUiBundle,
+    LightningScreenBundle, LocationViewBundle, MainMenuScreenBundle, MatchmakingScreenBundle,
+    ModalButtonUiBundle, ModalMenuUiBundle, ModalPromptUiBundle, ModalUiBundle,
+    POINT_VIEW_BASE_TEXT_FONT_SIZE, PointLocationView, PointModel, PointType, PointView,
+    PointViewBundle, SettingsScreenBundle, TopNavigationViewBundle,
 };
 use crate::runtime::components::{
     AppSceneEntity, AppSceneRoot, CardBackgroundLayer, CardFaceLayer, CardFrameLayer,
     CardGestureView, CardGrid, CardLayerRole, CardParallaxLayer, CardSelectionSource,
     CardSlotGestureTarget, CardView, CpuHandCardView, CpuPlacedCardAnimation,
-    CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer, CpuPlacedCardView, DebugHudFpsText,
+    CpuPlacedCardAnimationPhase, CpuPlacedCardFaceLayer, CpuPlacedCardFlipStyle,
+    CpuPlacedCardView, DebugHudFpsText,
     DebugHudKeyText, DebugHudText, DebugSceneEntity, DebugSceneRoot, DeckSceneEntity,
     DeckSceneRoot, DeckScreenCardView, DeckScreenDeckCommandButton, DeckScreenDeckTileButton,
     DeckScreenGridBackdrop, DeckScreenGridBackdropRole, DeckScreenModalActionButton,
@@ -101,6 +102,7 @@ use crate::runtime::resources::{
     PlayerDeckCollectionModel, PowerPointModel, PrimaryCameraDefaults, STARTING_HAND_CARD_COUNT,
     SelectedCardModalModel, TopNavigationDestination, TopNavigationModel, WORLD_MODEL_COUNT,
     WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
+    CARD_VFX_PLASMA_SWEEP_ACTIVE_SECONDS, CARD_VFX_PLASMA_SWEEP_CYCLE_SECONDS,
     choose_level1_moves, cpu_slot_hand_index, deck_screen_deck_cards, deck_screen_library_cards,
     ensure_deck_screen_collection_no_auto_fill, ensure_player_deck_collection_model,
     final_winner_from_slots, load_window_placement, modal_actions_for, move_deck_card_to_library,
@@ -135,6 +137,9 @@ const SAFE_AREA_APPARENT_DEPTH: f32 = 0.0;
 const FOREGROUND_APPARENT_DEPTH: f32 = 1.0;
 const TITLE_APPARENT_DEPTH: f32 = 2.0;
 const LAYER_RENDER_Z_STEP: f32 = 0.0001;
+const FRAME_VFX_RIM_STRENGTH: f32 = FRAME_SHINE_STRENGTH * 2.5;
+const FOREGROUND_VFX_NORMAL_STRENGTH: f32 = 1.0;
+const CARD_VFX_PLASMA_STRENGTH: f32 = 0.55;
 const BACKGROUND_DEPTH_BIAS: f32 = 0.0;
 const FRAME_DEPTH_BIAS: f32 = 8.0;
 const SAFE_AREA_DEPTH_BIAS: f32 = 12.0;
@@ -165,7 +170,10 @@ const GAME_SCENE_LOCAL_HAND_DEAL_SOURCE_Y: f32 = GAME_SCENE_HEIGHT + 140.0;
 const GAME_SCENE_FAR_HAND_Y: f32 = -142.0;
 const GAME_SCENE_CAMERA_DISTANCE_FROM_ORIGIN: f32 = 1.33;
 const GAME_SCENE_WORLD_BACKGROUND_BLEED: f32 = 1.18;
-const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -0.16;
+const GAME_SCENE_WORLD_BACKGROUND_Z: f32 = -2.0;
+const GAME_SCENE_CARD_CAMERA_ORDER: isize = 4;
+const GAME_SCENE_CARD_OVERLAY_CAMERA_ORDER: isize = 5;
+const CARD_POINT_TEXT_CAMERA_ORDER: isize = 6;
 const CARD_RENDER_LAYER: usize = 1;
 const CARD_POINT_TEXT_RENDER_LAYER: usize = 2;
 const GAME_SCENE_CARD_TILT_RADIANS: f32 = 0.07;
@@ -199,6 +207,10 @@ const DECK_SCREEN_SELECTED_CARD_MENU_BUTTON_HEIGHT: f32 = 42.0;
 const SETTINGS_BUTTONS_TOP_PX: f32 = 255.0;
 const SETTINGS_COLUMN_WIDTH_PERCENT: f32 = 100.0 / 3.0;
 const SETTINGS_COLUMN_GAP_PX: f32 = 20.0;
+const LOCATION_UI_Z_INDEX: i32 = 2;
+const LOCATION_UI_TEXT_Z_INDEX: i32 = 3;
+const PRODUCTION_UI_Z_INDEX: i32 = 10;
+const PRODUCTION_UI_OVERLAY_Z_INDEX: i32 = 12;
 const DEBUG_HUD_Z_INDEX: i32 = 1_200;
 const END_ROUND_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.22, 0.04, 0.44, 0.82);
 const END_ROUND_BUTTON_HOVER_COLOR: Color = Color::srgba(0.36, 0.08, 0.68, 0.9);
@@ -206,17 +218,32 @@ const END_ROUND_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.12, 0.02, 0.28, 0.9
 const END_ROUND_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.45, 0.18, 0.9);
 const END_ROUND_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.7, 0.42, 1.0);
 const END_ROUND_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(0.95, 0.82, 1.0);
+const NEGATIVE_BUTTON_NORMAL_COLOR: Color = Color::srgba(0.44, 0.12, 0.14, 0.9);
+const NEGATIVE_BUTTON_HOVER_COLOR: Color = Color::srgba(0.56, 0.16, 0.18, 0.94);
+const NEGATIVE_BUTTON_PRESSED_COLOR: Color = Color::srgba(0.3, 0.08, 0.1, 0.98);
+const NEGATIVE_BUTTON_NORMAL_BORDER_COLOR: Color = Color::srgb(0.88, 0.36, 0.38);
+const NEGATIVE_BUTTON_HOVER_BORDER_COLOR: Color = Color::srgb(0.96, 0.52, 0.54);
+const NEGATIVE_BUTTON_PRESSED_BORDER_COLOR: Color = Color::srgb(1.0, 0.68, 0.7);
 const GAME_CONTROL_DISABLED_COLOR: Color = Color::srgba(0.1, 0.1, 0.1, 0.55);
 const GAME_CONTROL_DISABLED_BORDER_COLOR: Color = Color::srgb(0.28, 0.28, 0.28);
 const CPU_CARD_MOVE_SECONDS: f32 = 0.5;
 const CPU_HAND_SETTLED_PAUSE_SECONDS: f32 = 0.5;
-const CPU_CARD_FLIP_SECONDS: f32 = 0.5;
+const CPU_CARD_FLIP_SECONDS: f32 = 1.0;
 const CPU_CARD_REVEAL_STAGGER_SECONDS: f32 = 0.25;
+const CPU_CARD_SWAN_FLIP_SECONDS: f32 = 1.0;
+const CPU_CARD_SWAN_SCALE_MULTIPLIER: f32 = 4.0;
+const CPU_CARD_SWAN_SCALE_UP_SECONDS: f32 = 0.25;
+const CPU_CARD_SWAN_SCALE_HOLD_SECONDS: f32 = 0.5;
+const CPU_CARD_SWAN_SCALE_DOWN_SECONDS: f32 = 0.25;
 const CPU_CARD_MOVING_FRONT_Z: f32 = 0.99;
 const CPU_CARD_MOVE_SCALE_MULTIPLIER: f32 = 1.5;
 const CPU_CARD_ANIMATION_SETTLE_EPSILON: f32 = 0.001;
 const GAME_CONTROL_BUTTON_WIDTH: f32 = 220.0;
 const GAME_CONTROL_BUTTON_HEIGHT: f32 = 88.0;
+const GAME_CONTROL_RIGHT_EDGE_PERCENT: f32 = 2.0;
+const GAME_CONTROL_BOTTOM_EDGE_PERCENT: f32 = 3.0;
+const GAME_CONTROL_LEFT_EDGE_PERCENT: f32 = 2.0;
+const GAME_CONTROL_MENU_GAP_PX: f32 = 8.0;
 const DEBUG_SCENE_CARD_GAP_TO_CARD_UI: f32 = 20.0;
 const DEBUG_SCENE_CARD_VERTICAL_OFFSET: f32 = 100.0;
 const DEBUG_SCENE_CARD_EXTRA_DOWN_OFFSET_PX: f32 = 100.0;
@@ -507,7 +534,7 @@ fn spawn_game_scene_card_camera(
             GameSceneEntity,
             Camera3d::default(),
             Camera {
-                order: 0,
+                order: GAME_SCENE_CARD_CAMERA_ORDER,
                 ..Default::default()
             },
             NoIndirectDrawing,
@@ -536,7 +563,7 @@ fn spawn_game_scene_card_overlay_camera(
             GameSceneEntity,
             Camera3d::default(),
             Camera {
-                order: 2,
+                order: GAME_SCENE_CARD_OVERLAY_CAMERA_ORDER,
                 clear_color: ClearColorConfig::None,
                 ..Default::default()
             },
@@ -565,7 +592,7 @@ fn spawn_card_point_text_camera(
             scene_marker,
             Camera2d,
             Camera {
-                order: 3,
+                order: CARD_POINT_TEXT_CAMERA_ORDER,
                 clear_color: ClearColorConfig::None,
                 ..Default::default()
             },
@@ -867,9 +894,14 @@ fn spawn_menu_button_with_optional_icon(
     is_lightning: bool,
 ) {
     let text = text.into();
+    let button_bundle = if is_lightning {
+        ButtonUiBundle::new(name).lightning_button_style()
+    } else {
+        ButtonUiBundle::new(name).affirmative_button_style()
+    };
     parent
         .spawn((
-            ButtonUiBundle::new(name)
+            button_bundle
                 .with_node(Node {
                     width: Val::Px(380.0),
                     height: Val::Px(68.0),
@@ -878,46 +910,74 @@ fn spawn_menu_button_with_optional_icon(
                     align_items: AlignItems::Center,
                     column_gap: Val::Px(12.0),
                     ..Default::default()
-                })
-                .with_colors(
-                    if is_lightning {
-                        Color::srgb(0.86, 0.63, 0.18)
-                    } else {
-                        Color::srgb(0.20, 0.24, 0.32)
-                    },
-                    if is_lightning {
-                        Color::srgb(1.0, 0.82, 0.32)
-                    } else {
-                        Color::srgb(0.60, 0.64, 0.72)
-                    },
-                ),
+                }),
             marker,
         ))
         .with_children(|parent| {
-            if let Some(asset_server) = asset_server {
-                parent.spawn((
-                    ImageNode::new(asset_server.load(LIGHTNING_BOLT_ICON_TEXTURE_PATH))
-                        .with_mode(bevy::ui::widget::NodeImageMode::Stretch),
-                    Node {
-                        width: Val::Px(24.0),
-                        height: Val::Px(34.0),
-                        ..Default::default()
-                    },
-                ));
-            }
-            parent.spawn((
-                Text::new(text),
-                TextFont {
-                    font_size: 24.0,
-                    ..Default::default()
-                },
-                TextColor(if is_lightning {
+            spawn_button_content_row(
+                parent,
+                asset_server.map(|server| server.load(LIGHTNING_BOLT_ICON_TEXTURE_PATH)),
+                Vec2::new(24.0, 34.0),
+                text,
+                24.0,
+                if is_lightning {
                     Color::srgb(0.04, 0.06, 0.08)
                 } else {
                     Color::WHITE
-                }),
-            ));
+                },
+                false,
+            );
         });
+}
+
+fn spawn_button_content_row(
+    parent: &mut ChildSpawnerCommands,
+    icon: Option<Handle<Image>>,
+    icon_size: Vec2,
+    text: String,
+    font_size: f32,
+    text_color: Color,
+    ignore_picking: bool,
+) {
+    let mut content_row = parent.spawn((
+        Name::new("Button Content Row"),
+        Node {
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(8.0),
+            ..Default::default()
+        },
+    ));
+    if ignore_picking {
+        content_row.insert(Pickable::IGNORE);
+    }
+    content_row.with_children(|row| {
+        if let Some(icon) = icon {
+            let mut icon_entity = row.spawn((
+                ImageNode::new(icon).with_mode(bevy::ui::widget::NodeImageMode::Stretch),
+                Node {
+                    width: Val::Px(icon_size.x),
+                    height: Val::Px(icon_size.y),
+                    ..Default::default()
+                },
+            ));
+            if ignore_picking {
+                icon_entity.insert(Pickable::IGNORE);
+            }
+        }
+        let mut text_entity = row.spawn((
+            Text::new(text),
+            TextFont {
+                font_size,
+                ..Default::default()
+            },
+            TextColor(text_color),
+        ));
+        if ignore_picking {
+            text_entity.insert(Pickable::IGNORE);
+        }
+    });
 }
 
 fn spawn_main_menu_scene_contents(
@@ -947,8 +1007,8 @@ fn spawn_main_menu_scene_contents(
                 spawn_lightning_menu_button(
                     parent,
                     asset_server,
-                    "Login with Lightning",
-                    "Login with Lightning",
+                    "Login With Lightning",
+                    "Login With Lightning",
                     MetaScreenButton::new(MetaScreenButtonAction::LightningLogin),
                 );
                 spawn_menu_button(
@@ -1469,7 +1529,7 @@ fn spawn_drop_target_hints(parent: &mut ChildSpawnerCommands, slot_board: &CardS
             },
             BorderColor::all(Color::srgb(0.48, 0.82, 1.0)),
             BackgroundColor(Color::srgba(0.28, 0.72, 1.0, 0.12)),
-            GlobalZIndex(12),
+            GlobalZIndex(PRODUCTION_UI_OVERLAY_Z_INDEX),
             Visibility::Hidden,
         ));
     }
@@ -1614,7 +1674,7 @@ fn spawn_location_area_bundles(
                         ..Default::default()
                     },
                     BorderColor::all(border_color),
-                    GlobalZIndex(2),
+                    GlobalZIndex(LOCATION_UI_Z_INDEX),
                 ));
 
                 let location_score = LocationScoreModel::empty(location_index);
@@ -1729,7 +1789,7 @@ fn spawn_location_title_and_body(
             align_items: AlignItems::Center,
             ..Default::default()
         },
-        GlobalZIndex(3),
+        GlobalZIndex(LOCATION_UI_TEXT_Z_INDEX),
     ));
     parent.spawn((
         Name::new("Game Location Body Text"),
@@ -1750,7 +1810,7 @@ fn spawn_location_title_and_body(
             align_items: AlignItems::Center,
             ..Default::default()
         },
-        GlobalZIndex(3),
+        GlobalZIndex(LOCATION_UI_TEXT_Z_INDEX),
     ));
 }
 
@@ -2249,7 +2309,7 @@ fn spawn_local_player_hand(parent: &mut ChildSpawnerCommands) {
         },
         BorderColor::all(Color::NONE),
         BackgroundColor(Color::NONE),
-        GlobalZIndex(10),
+        GlobalZIndex(PRODUCTION_UI_Z_INDEX),
         Transform::default(),
         GlobalTransform::default(),
         Visibility::Visible,
@@ -2413,198 +2473,219 @@ fn spawn_game_controls(
     _asset_server: &AssetServer,
     round_model: &GameRoundModel,
 ) {
-    parent.spawn((
-        Name::new("Match Status Text"),
-        GameSceneEntity,
-        MatchStatusText,
-        Text::new("Status: Playing"),
-        TextFont {
-            font_size: 20.0,
-            ..Default::default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Percent(2.0),
-            bottom: Val::Px(324.0),
-            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-            ..Default::default()
-        },
-        GlobalZIndex(10),
-        Visibility::Visible,
-    ));
-
     parent
         .spawn((
-            ButtonUiBundle::new("Quit Game Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(228.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
             GameSceneEntity,
-            GameControlButton::new(GameControlAction::QuitGame),
-            GlobalZIndex(10),
+            Name::new("Left Controls VBox"),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(GAME_CONTROL_LEFT_EDGE_PERCENT),
+                bottom: Val::Percent(GAME_CONTROL_BOTTOM_EDGE_PERCENT),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::FlexStart,
+                row_gap: Val::Px(GAME_CONTROL_MENU_GAP_PX),
+                ..Default::default()
+            },
+            GlobalZIndex(PRODUCTION_UI_Z_INDEX),
             Visibility::Visible,
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Quit Game"),
-                TextFont {
-                    font_size: 22.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-
-    parent
-        .spawn((
-            ButtonUiBundle::new("Restart Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(132.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
-            GameSceneEntity,
-            GameControlButton::new(GameControlAction::Restart),
-            GlobalZIndex(10),
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("Restart"),
-                TextFont {
-                    font_size: 22.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
-
-    parent
-        .spawn((
-            ButtonUiBundle::new("Undo Button")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(2.0),
-                    bottom: Val::Px(36.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    if round_model.has_undoable_moves() {
-                        END_ROUND_BUTTON_NORMAL_COLOR
-                    } else {
-                        GAME_CONTROL_DISABLED_COLOR
-                    },
-                    if round_model.has_undoable_moves() {
-                        END_ROUND_BUTTON_NORMAL_BORDER_COLOR
-                    } else {
-                        GAME_CONTROL_DISABLED_BORDER_COLOR
-                    },
-                ),
-            GameSceneEntity,
-            GameControlButton::new(GameControlAction::Undo),
-            GlobalZIndex(10),
-            Visibility::Visible,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(round_model.energy_label()),
+                Name::new("Match Status Text"),
+                GameSceneEntity,
+                MatchStatusText,
+                Text::new("Status: Playing"),
                 TextFont {
                     font_size: 20.0,
                     ..Default::default()
                 },
                 TextColor(Color::WHITE),
-                GameControlLabel::new(GameControlAction::Undo),
-            ));
-            parent.spawn((
-                Text::new("Undo"),
-                TextFont {
-                    font_size: 22.0,
+                Node {
+                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
                     ..Default::default()
                 },
-                TextColor(Color::WHITE),
+                Visibility::Visible,
             ));
+
+            parent.spawn((
+                ButtonUiBundle::new("Quit Game Button")
+                    .with_node(Node {
+                        width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                        height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(3.0)),
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    })
+                    .with_style(ButtonUiStyle::Affirmative)
+                    .with_colors(
+                        END_ROUND_BUTTON_NORMAL_COLOR,
+                        END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                    ),
+                GameSceneEntity,
+                GameControlButton::new(GameControlAction::QuitGame),
+                Visibility::Visible,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Quit Game"),
+                    TextFont {
+                        font_size: 22.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
+
+            parent.spawn((
+                ButtonUiBundle::new("Restart Button")
+                    .with_node(Node {
+                        width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                        height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(3.0)),
+                        display: Display::Flex,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    })
+                    .with_style(ButtonUiStyle::Affirmative)
+                    .with_colors(
+                        END_ROUND_BUTTON_NORMAL_COLOR,
+                        END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                    ),
+                GameSceneEntity,
+                GameControlButton::new(GameControlAction::Restart),
+                Visibility::Visible,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new("Restart"),
+                    TextFont {
+                        font_size: 22.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
         });
 
     parent
         .spawn((
-            ButtonUiBundle::new("RoundUI")
-                .with_node(Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Percent(2.0),
-                    bottom: Val::Percent(3.0),
-                    width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
-                    height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
-                    border: UiRect::all(Val::Px(3.0)),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..Default::default()
-                })
-                .with_colors(
-                    END_ROUND_BUTTON_NORMAL_COLOR,
-                    END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-                ),
-            RoundUi,
             GameSceneEntity,
-            GameControlButton::new(GameControlAction::EndRound),
-            GlobalZIndex(10),
+            Name::new("Right Controls VBox"),
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Percent(GAME_CONTROL_RIGHT_EDGE_PERCENT),
+                bottom: Val::Percent(GAME_CONTROL_BOTTOM_EDGE_PERCENT),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::FlexEnd,
+                row_gap: Val::Px(GAME_CONTROL_MENU_GAP_PX),
+                ..Default::default()
+            },
+            GlobalZIndex(PRODUCTION_UI_Z_INDEX),
             Visibility::Visible,
-            EndRoundButton,
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(format!(
-                    "Round {}/{}",
-                    round_model.round, round_model.max_rounds
-                )),
-                TextFont {
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-                GameControlLabel::new(GameControlAction::EndRound),
-            ));
-            parent.spawn((
-                Text::new("Next"),
-                TextFont {
-                    font_size: 24.0,
-                    ..Default::default()
-                },
-                TextColor(Color::WHITE),
-            ));
+                ButtonUiBundle::new("Undo Button")
+                    .with_node(Node {
+                        width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                        height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                        border: UiRect::all(Val::Px(3.0)),
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..Default::default()
+                    })
+                    .with_style(ButtonUiStyle::Negative)
+                    .with_colors(
+                        if round_model.has_undoable_moves() {
+                            NEGATIVE_BUTTON_NORMAL_COLOR
+                        } else {
+                            GAME_CONTROL_DISABLED_COLOR
+                        },
+                        if round_model.has_undoable_moves() {
+                            NEGATIVE_BUTTON_NORMAL_BORDER_COLOR
+                        } else {
+                            GAME_CONTROL_DISABLED_BORDER_COLOR
+                        },
+                    ),
+                GameSceneEntity,
+                GameControlButton::new(GameControlAction::Undo),
+                Visibility::Visible,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(round_model.energy_label()),
+                    TextFont {
+                        font_size: 20.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::WHITE),
+                    GameControlLabel::new(GameControlAction::Undo),
+                ));
+                parent.spawn((
+                    Text::new("Undo"),
+                    TextFont {
+                        font_size: 22.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
+            });
+
+            parent
+                .spawn((
+                    ButtonUiBundle::new("RoundUI")
+                        .with_node(Node {
+                            width: Val::Px(GAME_CONTROL_BUTTON_WIDTH),
+                            height: Val::Px(GAME_CONTROL_BUTTON_HEIGHT),
+                            border: UiRect::all(Val::Px(3.0)),
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        })
+                        .with_style(ButtonUiStyle::Affirmative)
+                        .with_colors(
+                            END_ROUND_BUTTON_NORMAL_COLOR,
+                            END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+                        ),
+                    RoundUi,
+                    GameSceneEntity,
+                    GameControlButton::new(GameControlAction::EndRound),
+                    Visibility::Visible,
+                    EndRoundButton,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(format!(
+                            "Round {}/{}",
+                            round_model.round, round_model.max_rounds
+                        )),
+                        TextFont {
+                            font_size: 20.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                        GameControlLabel::new(GameControlAction::EndRound),
+                    ));
+                    parent.spawn((
+                        Text::new("Next"),
+                        TextFont {
+                            font_size: 24.0,
+                            ..Default::default()
+                        },
+                        TextColor(Color::WHITE),
+                    ));
+                });
         });
 }
 
@@ -2873,6 +2954,7 @@ fn spawn_deck_screen_content(
         crate::runtime::resources::DeckScreenMode::Editor => {
             spawn_deck_editor(
                 parent,
+                asset_server,
                 card_model_registry,
                 player_deck_collection,
                 tab,
@@ -2891,6 +2973,7 @@ fn spawn_deck_selection(parent: &mut ChildSpawnerCommands, asset_server: &AssetS
     ];
     spawn_grid_view_ui_bundle(
         parent,
+        asset_server,
         "My Decks",
         DeckEditableZoneModel::Deck,
         false,
@@ -2910,6 +2993,7 @@ fn spawn_deck_selection(parent: &mut ChildSpawnerCommands, asset_server: &AssetS
 
 fn spawn_deck_editor(
     parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
     card_model_registry: &CardModelRegistry,
     player_deck_collection: &PlayerDeckCollectionModel,
     _tab: DeckEditorTabModel,
@@ -2919,6 +3003,7 @@ fn spawn_deck_editor(
     let library_cards = deck_screen_library_cards(&deck_cards);
     spawn_grid_view_ui_bundle(
         parent,
+        asset_server,
         "Deck 01",
         DeckEditableZoneModel::Deck,
         false,
@@ -2932,6 +3017,7 @@ fn spawn_deck_editor(
     );
     spawn_grid_view_ui_bundle(
         parent,
+        asset_server,
         "Not In Deck",
         DeckEditableZoneModel::Library,
         true,
@@ -3224,6 +3310,7 @@ fn deck_screen_card_view_transform(
 /// AI: This reuses `GridViewUiBundle` and accepts a pluggable grid item renderer.
 fn spawn_grid_view_ui_bundle(
     parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
     title: &str,
     zone: DeckEditableZoneModel,
     show_empty_state: bool,
@@ -3280,12 +3367,14 @@ fn spawn_grid_view_ui_bundle(
                     } else if zone == DeckEditableZoneModel::Library {
                         spawn_deck_library_menu_button(
                             parent,
+                            asset_server,
                             DeckEditorTabModel::Library,
                             "Library",
                             true,
                         );
                         spawn_deck_library_menu_button(
                             parent,
+                            asset_server,
                             DeckEditorTabModel::Shop,
                             "Shop",
                             false,
@@ -3380,19 +3469,22 @@ fn spawn_deck_command_button(
 
 fn spawn_deck_library_menu_button(
     parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
     tab: DeckEditorTabModel,
     label: &'static str,
     is_toggled_on: bool,
 ) {
-    let background = if is_toggled_on {
-        Color::srgb(0.32, 0.38, 0.5)
+    let is_lightning_tab = tab == DeckEditorTabModel::Shop;
+    let (background, border) = if is_lightning_tab {
+        if is_toggled_on {
+            (Color::srgb(0.9, 0.68, 0.22), Color::srgb(1.0, 0.9, 0.48))
+        } else {
+            (Color::srgb(0.74, 0.54, 0.14), Color::srgb(0.93, 0.78, 0.28))
+        }
+    } else if is_toggled_on {
+        (Color::srgb(0.32, 0.38, 0.5), Color::srgb(0.82, 0.87, 0.96))
     } else {
-        Color::srgb(0.18, 0.22, 0.29)
-    };
-    let border = if is_toggled_on {
-        Color::srgb(0.82, 0.87, 0.96)
-    } else {
-        Color::srgb(0.43, 0.47, 0.56)
+        (Color::srgb(0.18, 0.22, 0.29), Color::srgb(0.43, 0.47, 0.56))
     };
     parent
         .spawn((
@@ -3405,18 +3497,32 @@ fn spawn_deck_library_menu_button(
                     align_items: AlignItems::Center,
                     ..Default::default()
                 })
+                .with_style(if is_lightning_tab {
+                    ButtonUiStyle::Lightning
+                } else {
+                    ButtonUiStyle::Affirmative
+                })
                 .with_colors(background, border),
             DeckScreenTabButton::new(tab),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new(label),
-                TextFont {
-                    font_size: 14.0,
-                    ..Default::default()
+            spawn_button_content_row(
+                parent,
+                if is_lightning_tab {
+                    Some(asset_server.load(LIGHTNING_BOLT_ICON_TEXTURE_PATH))
+                } else {
+                    None
                 },
-                TextColor(Color::WHITE),
-            ));
+                Vec2::new(10.0, 14.0),
+                label.to_string(),
+                14.0,
+                if is_lightning_tab {
+                    Color::srgb(0.04, 0.06, 0.08)
+                } else {
+                    Color::WHITE
+                },
+                false,
+            );
         });
 }
 
@@ -3538,6 +3644,7 @@ fn spawn_deck_screen_card_tile(
 /// AI: Actions are the only way to clear screen-local card selection.
 fn spawn_deck_screen_selected_card_menu(
     parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
     ui_camera: Entity,
     modal: &crate::runtime::resources::DeckScreenCardModalModel,
 ) {
@@ -3565,24 +3672,28 @@ fn spawn_deck_screen_selected_card_menu(
         .with_children(|parent| {
             spawn_deck_screen_selected_card_menu_button(
                 parent,
+                asset_server,
                 DeckScreenModalActionButton::MoveToLibrary,
                 "Move to Library",
                 modal.actions.move_to_library,
             );
             spawn_deck_screen_selected_card_menu_button(
                 parent,
+                asset_server,
                 DeckScreenModalActionButton::MoveToDeck,
                 "Move to Deck",
                 modal.actions.move_to_deck,
             );
             spawn_deck_screen_selected_card_menu_button(
                 parent,
+                asset_server,
                 DeckScreenModalActionButton::TransferOut,
                 "Transfer",
                 true,
             );
             spawn_deck_screen_selected_card_menu_button(
                 parent,
+                asset_server,
                 DeckScreenModalActionButton::Back,
                 "Back",
                 modal.actions.back,
@@ -3592,19 +3703,18 @@ fn spawn_deck_screen_selected_card_menu(
 
 fn spawn_deck_screen_selected_card_menu_button(
     parent: &mut ChildSpawnerCommands,
+    asset_server: &AssetServer,
     action: DeckScreenModalActionButton,
     label: &'static str,
     is_primary_action: bool,
 ) {
-    let background = if is_primary_action {
-        Color::srgb(0.24, 0.28, 0.36)
+    let is_lightning_action = action == DeckScreenModalActionButton::TransferOut;
+    let (background, border) = if is_lightning_action {
+        (Color::srgb(0.86, 0.63, 0.18), Color::srgb(1.0, 0.82, 0.32))
+    } else if is_primary_action {
+        (Color::srgb(0.24, 0.28, 0.36), Color::srgb(0.68, 0.74, 0.86))
     } else {
-        Color::srgb(0.14, 0.16, 0.21)
-    };
-    let border = if is_primary_action {
-        Color::srgb(0.68, 0.74, 0.86)
-    } else {
-        Color::srgb(0.36, 0.4, 0.5)
+        (Color::srgb(0.14, 0.16, 0.21), Color::srgb(0.36, 0.4, 0.5))
     };
     parent
         .spawn((
@@ -3615,22 +3725,36 @@ fn spawn_deck_screen_selected_card_menu_button(
                     border: UiRect::all(Val::Px(2.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
                     ..Default::default()
+                })
+                .with_style(if is_lightning_action {
+                    ButtonUiStyle::Lightning
+                } else {
+                    ButtonUiStyle::Affirmative
                 })
                 .with_colors(background, border),
             action,
             Pickable::default(),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Text::new(label),
-                TextFont {
-                    font_size: 16.0,
-                    ..Default::default()
+            spawn_button_content_row(
+                parent,
+                if is_lightning_action {
+                    Some(asset_server.load(LIGHTNING_BOLT_ICON_TEXTURE_PATH))
+                } else {
+                    None
                 },
-                TextColor(Color::WHITE),
-                Pickable::IGNORE,
-            ));
+                Vec2::new(12.0, 16.0),
+                label.to_string(),
+                16.0,
+                if is_lightning_action {
+                    Color::srgb(0.04, 0.06, 0.08)
+                } else {
+                    Color::WHITE
+                },
+                true,
+            );
         });
 }
 
@@ -4129,6 +4253,7 @@ pub fn deck_screen_update_system(
     if !should_rebuild {
         sync_deck_screen_selected_card_menu_view(
             &mut commands,
+            &asset_server,
             &queries.scene_root_query,
             &queries.ui_camera_query,
             &queries.selection_menu_query,
@@ -4181,7 +4306,7 @@ pub fn deck_screen_update_system(
                 DECK_SCREEN_COMING_SOON_MESSAGE,
             );
         } else if let Some(modal) = deck_screen_model.modal.as_ref() {
-            spawn_deck_screen_selected_card_menu(parent, ui_camera, modal);
+            spawn_deck_screen_selected_card_menu(parent, &asset_server, ui_camera, modal);
         }
     });
     if deck_screen_model.mode == crate::runtime::resources::DeckScreenMode::Editor {
@@ -4241,6 +4366,7 @@ fn sync_deck_screen_modal_to_selected_card(
 
 fn sync_deck_screen_selected_card_menu_view(
     commands: &mut Commands,
+    asset_server: &AssetServer,
     scene_root_query: &Query<Entity, With<DeckSceneRoot>>,
     ui_camera_query: &Query<
         Entity,
@@ -4270,7 +4396,7 @@ fn sync_deck_screen_selected_card_menu_view(
         return;
     };
     commands.entity(scene_root).with_children(|parent| {
-        spawn_deck_screen_selected_card_menu(parent, ui_camera, modal);
+        spawn_deck_screen_selected_card_menu(parent, asset_server, ui_camera, modal);
     });
 }
 
@@ -4460,11 +4586,13 @@ fn spawn_card_structure_for_type(
     card_model: CardModel,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
+    mut masked_background_materials: Option<&mut Assets<CardBackgroundMaskMaterial>>,
     visible_face: CardFace,
     uses_cpu_face_control: bool,
     transform: Transform,
 ) -> Entity {
+    let frame_dimensions = frame_dimensions(card_defaults);
+    let frame_mask_inner_aperture = frame_mask_inner_aperture(card_defaults, &frame_dimensions);
     let background_material = card_model_material(
         asset_server,
         materials,
@@ -4507,9 +4635,25 @@ fn spawn_card_structure_for_type(
         AlphaMode::Opaque,
         BACKGROUND_DEPTH_BIAS,
     );
-
-    let frame_dimensions = frame_dimensions(&card_defaults);
-    let frame_mask_inner_aperture = frame_mask_inner_aperture(card_defaults, &frame_dimensions);
+    let background_masked_material = if card_model.background_uses_frame_mask {
+        masked_background_materials
+            .as_deref_mut()
+            .map(|materials| card_masked_layer_material(
+                materials,
+                asset_server,
+                card_model.background_texture,
+                card_model.foreground_normal_map_texture,
+                card_model.frame_texture,
+                frame_mask_inner_aperture,
+                CardLayerRole::Background,
+                AlphaMode::Blend,
+            ))
+    } else {
+        None
+    };
+    let frame_masked_material: Option<Handle<CardBackgroundMaskMaterial>> = None;
+    let foreground_masked_material: Option<Handle<CardBackgroundMaskMaterial>> = None;
+    let title_masked_material: Option<Handle<CardBackgroundMaskMaterial>> = None;
     let card_front_z = (card_defaults.thickness * 0.5) + LAYER_RENDER_Z_STEP;
     let background_z = card_front_z;
     let frame_z = card_front_z + (LAYER_RENDER_Z_STEP * 3.0);
@@ -4531,6 +4675,7 @@ fn spawn_card_structure_for_type(
     let safe_area_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let title_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
     let card_back_mesh = meshes.add(Rectangle::new(card_defaults.width, card_defaults.height));
+    let card_origin_mesh = meshes.add(Cuboid::new(0.04, 0.04, 0.04));
     let cost_point_background_mesh = meshes.add(Circle::new(CARD_POINT_BADGE_SIZE * 0.5));
     let power_point_background_mesh = meshes.add(Circle::new(CARD_POINT_BADGE_SIZE * 0.5));
     let cost_point_background_material = materials.add(StandardMaterial {
@@ -4554,6 +4699,12 @@ fn spawn_card_structure_for_type(
         unlit: true,
         ..Default::default()
     });
+    let card_origin_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.0, 0.0),
+        alpha_mode: AlphaMode::Opaque,
+        unlit: true,
+        ..Default::default()
+    });
     let point_x =
         (card_defaults.width * 0.5) - (card_defaults.width * CARD_POINT_BADGE_INSET_RATIO);
     let cost_point_x = point_x + (CARD_POINT_BADGE_SIZE * 0.5);
@@ -4563,6 +4714,16 @@ fn spawn_card_structure_for_type(
 
     let mut scene_root = commands.spawn(CardViewBundle::new(&card_model, transform));
     scene_root.with_children(|parent| {
+        parent.spawn((
+            Name::new("card origin"),
+            Mesh3d(card_origin_mesh),
+            MeshMaterial3d(card_origin_material),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            RenderLayers::layer(CARD_RENDER_LAYER),
+            NoCpuCulling,
+            Visibility::Visible,
+        ));
+
         spawn_card_back_plane(
             parent,
             card_back_mesh,
@@ -4573,17 +4734,12 @@ fn spawn_card_structure_for_type(
         );
 
         if card_model.background_uses_frame_mask {
-            if let Some(masked_background_materials) = masked_background_materials {
+            if let Some(masked_background_material) = background_masked_material {
                 spawn_masked_background_plane(
                     parent,
                     Name::new(format!("Card Background {}", card_model.display_name)),
                     background_mesh,
-                    masked_background_materials.add(CardBackgroundMaskMaterial {
-                        background_texture: asset_server.load(card_model.background_texture),
-                        frame_texture: asset_server.load(card_model.frame_texture),
-                        inner_aperture: frame_mask_inner_aperture,
-                        alpha_mode: AlphaMode::Blend,
-                    }),
+                    masked_background_material,
                     BACKGROUND_APPARENT_DEPTH,
                     Vec3::new(0.0, 0.0, background_z),
                     visible_face == CardFace::Front,
@@ -4620,19 +4776,34 @@ fn spawn_card_structure_for_type(
             );
         }
 
-        spawn_parallax_plane(
-            parent,
-            Name::new("Card Frame Cutout"),
-            frame_mesh,
-            frame_material.clone(),
-            CardLayerRole::Frame,
-            FRAME_APPARENT_DEPTH,
-            Vec3::new(0.0, 0.0, frame_z),
-            None,
-            true,
-            visible_face == CardFace::Front,
-            uses_cpu_face_control,
-        );
+        if let Some(frame_material) = frame_masked_material {
+            spawn_parallax_masked_plane(
+                parent,
+                Name::new("Card Frame Cutout"),
+                frame_mesh,
+                frame_material,
+                CardLayerRole::Frame,
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, frame_z),
+                true,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        } else {
+            spawn_parallax_plane(
+                parent,
+                Name::new("Card Frame Cutout"),
+                frame_mesh,
+                frame_material.clone(),
+                CardLayerRole::Frame,
+                FRAME_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, frame_z),
+                None,
+                true,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        }
 
         spawn_parallax_plane(
             parent,
@@ -4648,39 +4819,76 @@ fn spawn_card_structure_for_type(
             uses_cpu_face_control,
         );
 
-        spawn_parallax_plane(
-            parent,
-            Name::new(format!(
-                "Card Foreground {} Character",
-                card_model.display_name
-            )),
-            foreground_mesh,
-            foreground_material,
-            CardLayerRole::Foreground,
-            FOREGROUND_APPARENT_DEPTH,
-            Vec3::new(
-                card_defaults.width * card_model.foreground_x_ratio,
-                card_defaults.height * card_model.foreground_y_ratio,
-                foreground_z,
-            ),
-            None,
-            false,
-            visible_face == CardFace::Front,
-            uses_cpu_face_control,
-        );
-        spawn_parallax_plane(
-            parent,
-            Name::new(format!("Card Title {}", card_model.display_name)),
-            title_mesh,
-            title_material,
-            CardLayerRole::Title,
-            TITLE_APPARENT_DEPTH,
-            Vec3::new(0.0, 0.0, title_z),
-            None,
-            false,
-            visible_face == CardFace::Front,
-            uses_cpu_face_control,
-        );
+        if let Some(foreground_material) = foreground_masked_material {
+            spawn_parallax_masked_plane(
+                parent,
+                Name::new(format!(
+                    "Card Foreground {} Character",
+                    card_model.display_name
+                )),
+                foreground_mesh,
+                foreground_material,
+                CardLayerRole::Foreground,
+                FOREGROUND_APPARENT_DEPTH,
+                Vec3::new(
+                    card_defaults.width * card_model.foreground_x_ratio,
+                    card_defaults.height * card_model.foreground_y_ratio,
+                    foreground_z,
+                ),
+                false,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        } else {
+            spawn_parallax_plane(
+                parent,
+                Name::new(format!(
+                    "Card Foreground {} Character",
+                    card_model.display_name
+                )),
+                foreground_mesh,
+                foreground_material,
+                CardLayerRole::Foreground,
+                FOREGROUND_APPARENT_DEPTH,
+                Vec3::new(
+                    card_defaults.width * card_model.foreground_x_ratio,
+                    card_defaults.height * card_model.foreground_y_ratio,
+                    foreground_z,
+                ),
+                None,
+                false,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        }
+        if let Some(title_material) = title_masked_material {
+            spawn_parallax_masked_plane(
+                parent,
+                Name::new(format!("Card Title {}", card_model.display_name)),
+                title_mesh,
+                title_material,
+                CardLayerRole::Title,
+                TITLE_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, title_z),
+                false,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        } else {
+            spawn_parallax_plane(
+                parent,
+                Name::new(format!("Card Title {}", card_model.display_name)),
+                title_mesh,
+                title_material,
+                CardLayerRole::Title,
+                TITLE_APPARENT_DEPTH,
+                Vec3::new(0.0, 0.0, title_z),
+                None,
+                false,
+                visible_face == CardFace::Front,
+                uses_cpu_face_control,
+            );
+        }
         spawn_card_power_point_view(
             parent,
             asset_server,
@@ -4945,6 +5153,36 @@ fn card_model_material(
     })
 }
 
+/// HUMAN: Builds a reusable masked material instance for foreground-like card layers.
+/// AI: Keep normal/frame textures plus VFX defaults in one construction path.
+fn card_masked_layer_material(
+    materials: &mut Assets<CardBackgroundMaskMaterial>,
+    asset_server: &AssetServer,
+    layer_texture: &'static str,
+    normal_map_texture: &'static str,
+    frame_texture: &'static str,
+    inner_aperture: Vec4,
+    role: CardLayerRole,
+    alpha_mode: AlphaMode,
+) -> Handle<CardBackgroundMaskMaterial> {
+    let vfx_layer = card_masked_vfx_layer(role);
+    materials.add(CardBackgroundMaskMaterial {
+        layer_texture: asset_server.load(layer_texture),
+        normal_map_texture: asset_server.load(normal_map_texture),
+        frame_texture: asset_server.load(frame_texture),
+        inner_aperture,
+        vfx_layer,
+        vfx_tilt: Vec4::ZERO,
+        vfx_sweep: Vec4::new(
+            0.0,
+            CARD_VFX_PLASMA_SWEEP_CYCLE_SECONDS,
+            CARD_VFX_PLASMA_SWEEP_ACTIVE_SECONDS,
+            0.0,
+        ),
+        alpha_mode,
+    })
+}
+
 fn spawn_parallax_plane(
     parent: &mut ChildSpawnerCommands,
     name: Name,
@@ -4984,6 +5222,62 @@ fn spawn_parallax_plane(
     if uses_cpu_face_control {
         entity.insert(CpuPlacedCardFaceLayer);
     }
+}
+
+fn card_masked_vfx_layer(role: CardLayerRole) -> Vec4 {
+    match role {
+        CardLayerRole::Background => Vec4::new(0.0, 0.0, 0.0, 0.0),
+        CardLayerRole::SafeArea => Vec4::new(2.0, 0.0, 0.0, 0.0),
+        CardLayerRole::Frame => {
+            Vec4::new(1.0, 0.0, FRAME_VFX_RIM_STRENGTH, CARD_VFX_PLASMA_STRENGTH)
+        }
+        CardLayerRole::Foreground => {
+            Vec4::new(3.0, FOREGROUND_VFX_NORMAL_STRENGTH, 0.0, CARD_VFX_PLASMA_STRENGTH)
+        }
+        CardLayerRole::Title => Vec4::new(4.0, 0.0, 0.0, CARD_VFX_PLASMA_STRENGTH),
+    }
+}
+
+/// HUMAN: Spawns a parallax-driven card layer using masked card material.
+/// AI: Keep role/depth metadata with same transform and pointer interaction behavior as parallax planes.
+fn spawn_parallax_masked_plane(
+    parent: &mut ChildSpawnerCommands,
+    name: Name,
+    mesh: Handle<Mesh>,
+    material: Handle<CardBackgroundMaskMaterial>,
+    role: CardLayerRole,
+    apparent_depth: f32,
+    neutral_translation: Vec3,
+    is_frame: bool,
+    is_visible: bool,
+    uses_cpu_face_control: bool,
+) {
+    let mut entity = parent.spawn((
+        name,
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform::from_translation(neutral_translation),
+        RenderLayers::layer(CARD_RENDER_LAYER),
+        NoCpuCulling,
+        if is_visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        },
+        CardFaceLayer::new(CardFace::Front),
+        CardParallaxLayer::new(role, apparent_depth, neutral_translation),
+    ));
+    if is_frame {
+        entity.insert(CardFrameLayer);
+    }
+    if matches!(role, CardLayerRole::Background) {
+        entity.insert(CardBackgroundLayer::new(true));
+    }
+    if uses_cpu_face_control {
+        entity.insert(CpuPlacedCardFaceLayer);
+    }
+    entity.observe(card_click_navigation);
+    entity.observe(card_click_selection);
 }
 
 fn spawn_masked_background_plane(
@@ -5359,25 +5653,34 @@ fn card_layer_scale(card_ui_state: &CardUiState, role: CardLayerRole) -> f32 {
 }
 
 pub fn update_card_frame_shine(
+    time: Res<Time>,
     card_defaults: Res<CardInspectionDefaults>,
     card_state: Res<CardInspectionState>,
-    frame_query: Query<&MeshMaterial3d<StandardMaterial>, With<CardFrameLayer>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    frame_query: Query<(&CardParallaxLayer, &MeshMaterial3d<CardBackgroundMaskMaterial>)>,
+    mut materials: ResMut<Assets<CardBackgroundMaskMaterial>>,
 ) {
     let (yaw, pitch, _) = card_state.target_rotation.to_euler(EulerRot::YXZ);
     let max_tilt = card_defaults.max_tilt_radians.max(f32::EPSILON);
     let tilt =
         Vec2::new(yaw / max_tilt, -pitch / max_tilt).clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
-    let shine = ((tilt.x * 0.65) + (tilt.y * 0.35) + 1.0) * 0.5;
-    let lift = shine * FRAME_SHINE_STRENGTH;
-    let frame_tint = Color::srgb(0.82 + lift, 0.84 + lift, 0.88 + lift);
+    let frame_tilt = Vec4::new(tilt.x, -tilt.y, 0.0, 0.0);
+    let frame_sweep = Vec4::new(
+        time.elapsed_secs(),
+        CARD_VFX_PLASMA_SWEEP_CYCLE_SECONDS,
+        CARD_VFX_PLASMA_SWEEP_ACTIVE_SECONDS,
+        0.0,
+    );
 
-    for material_handle in &frame_query {
+    for (layer, material_handle) in &frame_query {
+        let vfx_layer = card_masked_vfx_layer(layer.role);
         if let Some(material) = materials.get_mut(&material_handle.0) {
-            material.base_color = frame_tint;
+            material.vfx_layer = vfx_layer;
+            material.vfx_tilt = frame_tilt;
+            material.vfx_sweep = frame_sweep;
         }
     }
 }
+
 
 /// HUMAN: Handles T-key model/view cycling behavior.
 /// AI: Uses domain_schedule_system naming; non-game scenes toggle card UI depth.
@@ -6991,13 +7294,16 @@ fn is_game_scene_active(active_view: Option<&ActiveView>) -> bool {
 /// AI: Run before button action systems so modal capture blocks lower UI presses at the source.
 pub fn modal_block_game_control_interactions_system(
     selected_modal: Option<Res<SelectedCardModalModel>>,
-    mut interaction_query: Query<&mut Interaction, With<GameControlButton>>,
+    mut interaction_query: Query<(&GameControlButton, &mut Interaction)>,
 ) {
     if !selected_modal.is_some_and(|modal| modal.blocks_lower_interactions()) {
         return;
     }
 
-    for mut interaction in &mut interaction_query {
+    for (control, mut interaction) in &mut interaction_query {
+        if control.action == GameControlAction::EndRound {
+            continue;
+        }
         if *interaction != Interaction::None {
             *interaction = Interaction::None;
         }
@@ -7044,6 +7350,27 @@ fn request_card_flip(audio_manager: Option<&mut AudioManagerModel>) {
     }
 }
 
+fn game_control_palette(action: GameControlAction) -> (Color, Color, Color, Color, Color, Color) {
+    match action {
+        GameControlAction::Undo => (
+            NEGATIVE_BUTTON_NORMAL_COLOR,
+            NEGATIVE_BUTTON_NORMAL_BORDER_COLOR,
+            NEGATIVE_BUTTON_HOVER_COLOR,
+            NEGATIVE_BUTTON_HOVER_BORDER_COLOR,
+            NEGATIVE_BUTTON_PRESSED_COLOR,
+            NEGATIVE_BUTTON_PRESSED_BORDER_COLOR,
+        ),
+        _ => (
+            END_ROUND_BUTTON_NORMAL_COLOR,
+            END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
+            END_ROUND_BUTTON_HOVER_COLOR,
+            END_ROUND_BUTTON_HOVER_BORDER_COLOR,
+            END_ROUND_BUTTON_PRESSED_COLOR,
+            END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
+        ),
+    }
+}
+
 pub fn update_end_round_button(
     active_view: Option<Res<ActiveView>>,
     mut button_query: Query<
@@ -7079,6 +7406,14 @@ pub fn update_end_round_button(
     }
 
     for (interaction, control, mut background, mut border) in &mut button_query {
+        let (
+            normal_background,
+            normal_border,
+            hover_background,
+            hover_border,
+            pressed_background,
+            pressed_border,
+        ) = game_control_palette(control.action);
         let is_disabled = game_control_action_is_disabled(
             control.action,
             game_round_model.as_deref(),
@@ -7228,19 +7563,10 @@ pub fn update_end_round_button(
                         }
                     }
                 }
-                (
-                    END_ROUND_BUTTON_PRESSED_COLOR,
-                    END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
-                )
+                (pressed_background, pressed_border)
             }
-            Interaction::Hovered => (
-                END_ROUND_BUTTON_HOVER_COLOR,
-                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
-            ),
-            Interaction::None => (
-                END_ROUND_BUTTON_NORMAL_COLOR,
-                END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-            ),
+            Interaction::Hovered => (hover_background, hover_border),
+            Interaction::None => (normal_background, normal_border),
         };
         if is_disabled {
             background.0 = GAME_CONTROL_DISABLED_COLOR;
@@ -7294,9 +7620,9 @@ pub fn restart_game_control_button_system(
 
 fn card_gesture_blocks_game_controls(gesture_model: Option<&CardGestureModel>) -> bool {
     gesture_model.is_some_and(|gesture_model| {
-        !matches!(
+        matches!(
             gesture_model.state,
-            CardGestureState::Idle | CardGestureState::Placed
+            CardGestureState::Dragging | CardGestureState::Returning
         )
     })
 }
@@ -7359,12 +7685,20 @@ pub fn update_game_control_ui_system(
     }
 
     for (interaction, control, mut background, mut border) in &mut button_query {
+        let (
+            normal_background,
+            normal_border,
+            hover_background,
+            hover_border,
+            pressed_background,
+            pressed_border,
+        ) = game_control_palette(control.action);
         if selected_modal
             .as_ref()
             .is_some_and(|modal| modal.blocks_lower_interactions())
         {
-            background.0 = END_ROUND_BUTTON_NORMAL_COLOR;
-            *border = BorderColor::all(END_ROUND_BUTTON_NORMAL_BORDER_COLOR);
+            background.0 = normal_background;
+            *border = BorderColor::all(normal_border);
             continue;
         }
         if game_control_action_is_disabled(
@@ -7378,18 +7712,9 @@ pub fn update_game_control_ui_system(
         }
 
         let (background_color, border_color) = match *interaction {
-            Interaction::Pressed => (
-                END_ROUND_BUTTON_PRESSED_COLOR,
-                END_ROUND_BUTTON_PRESSED_BORDER_COLOR,
-            ),
-            Interaction::Hovered => (
-                END_ROUND_BUTTON_HOVER_COLOR,
-                END_ROUND_BUTTON_HOVER_BORDER_COLOR,
-            ),
-            Interaction::None => (
-                END_ROUND_BUTTON_NORMAL_COLOR,
-                END_ROUND_BUTTON_NORMAL_BORDER_COLOR,
-            ),
+            Interaction::Pressed => (pressed_background, pressed_border),
+            Interaction::Hovered => (hover_background, hover_border),
+            Interaction::None => (normal_background, normal_border),
         };
         background.0 = background_color;
         *border = BorderColor::all(border_color);
@@ -7849,7 +8174,10 @@ pub fn sync_cpu_placed_card_entities_system(
             );
             commands
                 .entity(entity)
-                .insert(CpuPlacedCardAnimation::flip_to_front(slot_transform, 0.0));
+                .insert(CpuPlacedCardAnimation::swan_flip_to_front(
+                    slot_transform,
+                    0.0,
+                ));
             request_card_flip(audio_manager.as_deref_mut());
         }
     }
@@ -7926,21 +8254,17 @@ fn cpu_card_deck_transform(owner: MatchPlayerSide, target_transform: Transform) 
 }
 
 fn cpu_card_hand_visible_face(owner: MatchPlayerSide) -> CardFace {
-    match owner {
-        MatchPlayerSide::Near => CardFace::Front,
-        MatchPlayerSide::Far => CardFace::Back,
-    }
+    let _ = owner;
+    CardFace::Back
 }
 
 fn cpu_card_slot_visible_face(
-    owner: MatchPlayerSide,
+    _owner: MatchPlayerSide,
     placement_visibility: PlacementVisibility,
 ) -> CardFace {
-    match (owner, placement_visibility) {
-        (MatchPlayerSide::Near, _)
-        | (_, PlacementVisibility::Revealing)
-        | (_, PlacementVisibility::Revealed) => CardFace::Front,
-        (_, PlacementVisibility::CurrentRoundHidden) => CardFace::Back,
+    match placement_visibility {
+        PlacementVisibility::CurrentRoundHidden => CardFace::Back,
+        PlacementVisibility::Revealing | PlacementVisibility::Revealed => CardFace::Front,
     }
 }
 
@@ -7997,6 +8321,7 @@ pub fn cpu_placed_card_animation_system(
     active_view: Option<Res<ActiveView>>,
     time: Res<Time>,
     mut commands: Commands,
+    mut audio_manager: Option<ResMut<AudioManagerModel>>,
     mut card_query: Query<(Entity, &mut Transform, &mut CpuPlacedCardAnimation)>,
 ) {
     if !is_game_scene_active(active_view.as_deref()) {
@@ -8004,7 +8329,12 @@ pub fn cpu_placed_card_animation_system(
     }
 
     for (entity, mut transform, mut animation) in &mut card_query {
-        if advance_cpu_placed_card_animation(time.delta_secs(), &mut transform, &mut animation) {
+        if advance_cpu_placed_card_animation(
+            time.delta_secs(),
+            &mut transform,
+            &mut animation,
+            audio_manager.as_deref_mut(),
+        ) {
             commands.entity(entity).remove::<CpuPlacedCardAnimation>();
         }
     }
@@ -8014,6 +8344,7 @@ fn advance_cpu_placed_card_animation(
     delta_seconds: f32,
     transform: &mut Transform,
     animation: &mut CpuPlacedCardAnimation,
+    mut audio_manager: Option<&mut AudioManagerModel>,
 ) -> bool {
     let mut active_delta_seconds = delta_seconds.max(0.0);
     if animation.start_delay_seconds > 0.0 {
@@ -8028,7 +8359,52 @@ fn advance_cpu_placed_card_animation(
     animation.phase_elapsed_seconds += active_delta_seconds;
 
     if animation.phase == CpuPlacedCardAnimationPhase::Revealing {
-        animation.current_y_rotation = animation.target_y_rotation;
+        let reveal_seconds = match animation.flip_style {
+            CpuPlacedCardFlipStyle::Standard => CPU_CARD_FLIP_SECONDS,
+            CpuPlacedCardFlipStyle::Swan => CPU_CARD_SWAN_FLIP_SECONDS,
+        };
+        let progress = (animation.phase_elapsed_seconds / reveal_seconds).clamp(0.0, 1.0);
+        let eased_progress = ease_out_cubic(progress);
+        animation.current_y_rotation =
+            std::f32::consts::PI.lerp(animation.target_y_rotation, eased_progress);
+        transform.translation = animation.target_transform.translation;
+        transform.scale = match animation.flip_style {
+            CpuPlacedCardFlipStyle::Standard => animation.target_transform.scale,
+            CpuPlacedCardFlipStyle::Swan => {
+                let swan_elapsed = animation.phase_elapsed_seconds.max(0.0);
+                let scale_multiplier = if swan_elapsed < CPU_CARD_SWAN_SCALE_UP_SECONDS {
+                    let up_progress = (swan_elapsed / CPU_CARD_SWAN_SCALE_UP_SECONDS).clamp(0.0, 1.0);
+                    1.0_f32.lerp(CPU_CARD_SWAN_SCALE_MULTIPLIER, ease_out_cubic(up_progress))
+                } else if swan_elapsed
+                    < CPU_CARD_SWAN_SCALE_UP_SECONDS + CPU_CARD_SWAN_SCALE_HOLD_SECONDS
+                {
+                    if !animation.swan_peak_sfx_played {
+                        if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                            audio_manager.request(AudioEnum::CardSwanPeak);
+                        }
+                        animation.swan_peak_sfx_played = true;
+                    }
+                    CPU_CARD_SWAN_SCALE_MULTIPLIER
+                } else if swan_elapsed
+                    < CPU_CARD_SWAN_SCALE_UP_SECONDS
+                        + CPU_CARD_SWAN_SCALE_HOLD_SECONDS
+                        + CPU_CARD_SWAN_SCALE_DOWN_SECONDS
+                {
+                    let down_elapsed =
+                        swan_elapsed - (CPU_CARD_SWAN_SCALE_UP_SECONDS + CPU_CARD_SWAN_SCALE_HOLD_SECONDS);
+                    let down_progress =
+                        (down_elapsed / CPU_CARD_SWAN_SCALE_DOWN_SECONDS).clamp(0.0, 1.0);
+                    CPU_CARD_SWAN_SCALE_MULTIPLIER.lerp(1.0, ease_out_cubic(down_progress))
+                } else {
+                    1.0
+                };
+                animation.target_transform.scale * scale_multiplier
+            }
+        };
+        if transform.scale.distance(animation.target_transform.scale) > CPU_CARD_ANIMATION_SETTLE_EPSILON
+        {
+            transform.translation.z = CPU_CARD_MOVING_FRONT_Z;
+        }
     } else {
         let progress = (animation.phase_elapsed_seconds / CPU_CARD_MOVE_SECONDS).clamp(0.0, 1.0);
         let eased_progress = ease_out_cubic(progress);
@@ -8045,10 +8421,10 @@ fn advance_cpu_placed_card_animation(
         );
         transform.scale = if progress < 1.0 {
             let scale_multiplier = match animation.phase {
-                CpuPlacedCardAnimationPhase::MovingToSlot => {
+                CpuPlacedCardAnimationPhase::MovingToHand
+                | CpuPlacedCardAnimationPhase::MovingToSlot => {
                     cpu_card_move_scale_multiplier(progress)
                 }
-                CpuPlacedCardAnimationPhase::MovingToHand => 1.0,
                 CpuPlacedCardAnimationPhase::Revealing => 1.0,
             };
             cpu_card_move_scale(
@@ -8066,7 +8442,11 @@ fn advance_cpu_placed_card_animation(
         animation.target_transform.rotation * Quat::from_rotation_y(animation.current_y_rotation);
 
     let reveal_duration_complete = animation.phase != CpuPlacedCardAnimationPhase::Revealing
-        || animation.phase_elapsed_seconds >= CPU_CARD_FLIP_SECONDS;
+        || animation.phase_elapsed_seconds
+            >= match animation.flip_style {
+                CpuPlacedCardFlipStyle::Standard => CPU_CARD_FLIP_SECONDS,
+                CpuPlacedCardFlipStyle::Swan => CPU_CARD_SWAN_FLIP_SECONDS,
+            };
     let is_settled = reveal_duration_complete
         && transform
             .translation
@@ -8077,6 +8457,15 @@ fn advance_cpu_placed_card_animation(
         && (animation.target_y_rotation - animation.current_y_rotation).abs()
             <= CPU_CARD_ANIMATION_SETTLE_EPSILON;
     if is_settled {
+        if animation.phase == CpuPlacedCardAnimationPhase::Revealing
+            && animation.flip_style == CpuPlacedCardFlipStyle::Swan
+            && !animation.swan_land_sfx_played
+        {
+            if let Some(audio_manager) = audio_manager.as_deref_mut() {
+                audio_manager.request(AudioEnum::CardSwanLand);
+            }
+            animation.swan_land_sfx_played = true;
+        }
         *transform = animation.target_transform;
         transform.rotation = animation.target_transform.rotation
             * Quat::from_rotation_y(animation.target_y_rotation);

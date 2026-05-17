@@ -26,7 +26,7 @@ impl DeckViewBundle {
             name: Name::new(format!("DeckView {deck_name}")),
             deck_view: DeckView::new(deck_name),
             button: Button,
-            style: ButtonUiStyle::Default,
+            style: ButtonUiStyle::Affirmative,
             node: Node {
                 width: Val::Px(DECK_VIEW_TILE_WIDTH),
                 height: Val::Px(DECK_VIEW_TILE_HEIGHT),

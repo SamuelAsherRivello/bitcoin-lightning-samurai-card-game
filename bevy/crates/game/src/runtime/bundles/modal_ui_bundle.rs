@@ -112,7 +112,7 @@ impl ModalButtonUiBundle {
         Self {
             name: Name::new(name.into()),
             button: Button,
-            style: ButtonUiStyle::Default,
+            style: ButtonUiStyle::Affirmative,
             node: Node {
                 width: Val::Px(120.0),
                 height: Val::Px(44.0),

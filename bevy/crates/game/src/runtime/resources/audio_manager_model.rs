@@ -11,6 +11,8 @@ pub const AUDIO_SFX_SLIDE_01_PATH: &str = "audio/sfx/Slide01.wav";
 pub const AUDIO_SFX_TAMBORINE_01_PATH: &str = "audio/sfx/Tamborine01.wav";
 pub const AUDIO_SFX_UPGRADE_01_PATH: &str = "audio/sfx/Upgrade01.wav";
 pub const AUDIO_SFX_FLIP_01_PATH: &str = "audio/sfx/Flip01.wav";
+pub const AUDIO_SFX_FIREBALL_01_PATH: &str = "audio/sfx/Fireball01.wav";
+pub const AUDIO_SFX_DRUM_01_PATH: &str = "audio/sfx/Drum01.mp3";
 
 /// HUMAN: User-facing audio channel controlled by SettingsScreen preferences.
 /// AI: Keep channel policy centralized so callers only request named audio.
@@ -27,6 +29,8 @@ pub enum AudioEnum {
     ButtonClick,
     CardSlide,
     CardFlip,
+    CardSwanPeak,
+    CardSwanLand,
     LocationOpen,
     LocationLeadChange,
 }
@@ -37,6 +41,8 @@ impl AudioEnum {
             Self::ButtonClick
             | Self::CardSlide
             | Self::CardFlip
+            | Self::CardSwanPeak
+            | Self::CardSwanLand
             | Self::LocationOpen
             | Self::LocationLeadChange => AudioChannelModel::Sfx,
         }
@@ -47,6 +53,8 @@ impl AudioEnum {
             Self::ButtonClick => AUDIO_SFX_CLICK_01_PATH,
             Self::CardSlide => AUDIO_SFX_SLIDE_01_PATH,
             Self::CardFlip => AUDIO_SFX_FLIP_01_PATH,
+            Self::CardSwanPeak => AUDIO_SFX_FIREBALL_01_PATH,
+            Self::CardSwanLand => AUDIO_SFX_DRUM_01_PATH,
             Self::LocationOpen => AUDIO_SFX_TAMBORINE_01_PATH,
             Self::LocationLeadChange => AUDIO_SFX_UPGRADE_01_PATH,
         }
@@ -57,6 +65,7 @@ impl AudioEnum {
             Self::LocationOpen => 0.6,
             Self::LocationLeadChange => 0.25,
             Self::CardFlip => 0.4,
+            Self::CardSwanPeak | Self::CardSwanLand => 0.2,
             Self::ButtonClick | Self::CardSlide => 1.0,
         }
     }

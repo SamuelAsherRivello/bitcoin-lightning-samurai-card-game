@@ -164,6 +164,8 @@ fn sync_backdrop(
     }
 }
 
+/// HUMAN: Keeps inspected cards visibly raised while modal selection is active.
+/// AI: Preserve original source interpolation and only force elevation while selected.
 fn animate_selected_card(
     interpolation: f32,
     selected_modal: &mut SelectedCardModalModel,

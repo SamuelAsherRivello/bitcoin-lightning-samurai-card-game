@@ -57,6 +57,8 @@ pub const CARD_THICKNESS_WORLD_UNITS: f32 = 0.02;
 pub const CARD_MAX_TILT_DEGREES: f32 = 20.0;
 pub const CARD_SMOOTHING_RESPONSE_SECONDS: f32 = 0.1;
 pub const CARD_MODEL_SLOT_COUNT: usize = 5;
+pub const CARD_VFX_PLASMA_SWEEP_CYCLE_SECONDS: f32 = 5.0;
+pub const CARD_VFX_PLASMA_SWEEP_ACTIVE_SECONDS: f32 = 1.0;
 pub const GAME_MASTER_DECK_CARD_COUNT: usize = 15;
 pub const STARTING_DECK_CARD_COUNT: usize = 12;
 pub const STARTING_HAND_CARD_COUNT: usize = 5;
@@ -177,6 +179,7 @@ pub struct CardModel {
     pub background_texture: &'static str,
     pub frame_texture: &'static str,
     pub foreground_texture: &'static str,
+    pub foreground_normal_map_texture: &'static str,
     pub title_texture: &'static str,
     pub background_uses_frame_mask: bool,
     pub foreground_width_ratio: f32,
@@ -196,8 +199,10 @@ impl CardModel {
             background_texture: "themes/theme_japan/cards/card_kage_ren/background.png",
             frame_texture: "themes/theme_japan/cards/card_kage_ren/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_kage_ren/foreground_character.png",
+            foreground_normal_map_texture:
+                "themes/theme_japan/cards/card_kage_ren/foreground_character.png",
             title_texture: "themes/theme_japan/cards/card_kage_ren/title.png",
-            background_uses_frame_mask: true,
+            background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
             foreground_x_ratio: 0.0,
             foreground_y_ratio: 0.0,
@@ -215,6 +220,8 @@ impl CardModel {
             background_texture: "themes/theme_japan/cards/card_lord_daichi/background.png",
             frame_texture: "themes/theme_japan/cards/card_lord_daichi/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_lord_daichi/foreground_character.png",
+            foreground_normal_map_texture:
+                "themes/theme_japan/cards/card_lord_daichi/foreground_character.png",
             title_texture: "themes/theme_japan/cards/card_lord_daichi/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
@@ -234,6 +241,8 @@ impl CardModel {
             background_texture: "themes/theme_japan/cards/card_sister_hotaru/background.png",
             frame_texture: "themes/theme_japan/cards/card_sister_hotaru/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_sister_hotaru/foreground_character.png",
+            foreground_normal_map_texture:
+                "themes/theme_japan/cards/card_sister_hotaru/foreground_character.png",
             title_texture: "themes/theme_japan/cards/card_sister_hotaru/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
@@ -253,6 +262,8 @@ impl CardModel {
             background_texture: "themes/theme_japan/cards/card_yokai_placeholder/background.png",
             frame_texture: "themes/theme_japan/cards/card_yokai_placeholder/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_yokai_placeholder/foreground_character.png",
+            foreground_normal_map_texture:
+                "themes/theme_japan/cards/card_yokai_placeholder/foreground_character.png",
             title_texture: "themes/theme_japan/cards/card_yokai_placeholder/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,
@@ -272,6 +283,8 @@ impl CardModel {
             background_texture: "themes/theme_japan/cards/card_goro_takeshi/background.png",
             frame_texture: "themes/theme_japan/cards/card_goro_takeshi/frame.png",
             foreground_texture: "themes/theme_japan/cards/card_goro_takeshi/foreground_character.png",
+            foreground_normal_map_texture:
+                "themes/theme_japan/cards/card_goro_takeshi/foreground_character.png",
             title_texture: "themes/theme_japan/cards/card_goro_takeshi/title.png",
             background_uses_frame_mask: false,
             foreground_width_ratio: 1.0,

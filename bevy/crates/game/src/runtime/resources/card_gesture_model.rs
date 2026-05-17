@@ -92,6 +92,8 @@ pub struct CardGestureModel {
     pub target_slot: Option<CardGestureSlotTarget>,
     pub resolved_destination: Option<CardGestureDestination>,
     pub drag_elapsed_seconds: f32,
+    pub transition_start_transform: Option<Transform>,
+    pub transition_elapsed_seconds: f32,
 }
 
 impl Default for CardGestureModel {
@@ -105,6 +107,8 @@ impl Default for CardGestureModel {
             target_slot: None,
             resolved_destination: None,
             drag_elapsed_seconds: 0.0,
+            transition_start_transform: None,
+            transition_elapsed_seconds: 0.0,
         }
     }
 }
@@ -129,6 +133,8 @@ impl CardGestureModel {
         self.target_slot = None;
         self.resolved_destination = None;
         self.drag_elapsed_seconds = 0.0;
+        self.transition_start_transform = None;
+        self.transition_elapsed_seconds = 0.0;
         true
     }
 
@@ -148,6 +154,8 @@ impl CardGestureModel {
     pub fn select(&mut self, target_transform: Transform) {
         self.state = CardGestureState::SelectedInspecting;
         self.pointer = None;
+        self.transition_start_transform = self.target_transform.or(self.source_transform);
+        self.transition_elapsed_seconds = 0.0;
         self.target_transform = Some(target_transform);
         self.target_slot = None;
         self.resolved_destination = None;
@@ -157,6 +165,8 @@ impl CardGestureModel {
     pub fn return_to_source(&mut self) {
         self.state = CardGestureState::Returning;
         self.pointer = None;
+        self.transition_start_transform = self.target_transform.or(self.source_transform);
+        self.transition_elapsed_seconds = 0.0;
         self.target_transform = self.source_transform;
         self.target_slot = None;
         self.resolved_destination = self
@@ -168,6 +178,8 @@ impl CardGestureModel {
     pub fn return_to_hand_transform(&mut self, hand_index: usize, target_transform: Transform) {
         self.state = CardGestureState::Returning;
         self.pointer = None;
+        self.transition_start_transform = self.target_transform.or(self.source_transform);
+        self.transition_elapsed_seconds = 0.0;
         self.target_transform = Some(target_transform);
         self.target_slot = None;
         self.resolved_destination = Some(CardGestureDestination::HandCardSlot { hand_index });
@@ -177,6 +189,8 @@ impl CardGestureModel {
     pub fn place(&mut self, target_slot: CardGestureSlotTarget, target_transform: Transform) {
         self.state = CardGestureState::Placed;
         self.pointer = None;
+        self.transition_start_transform = self.target_transform.or(self.source_transform);
+        self.transition_elapsed_seconds = 0.0;
         self.target_slot = Some(target_slot);
         self.target_transform = Some(target_transform);
         self.resolved_destination = Some(CardGestureDestination::LocationCardSlot {

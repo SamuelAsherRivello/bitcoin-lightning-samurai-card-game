@@ -52,8 +52,21 @@ Default assistant model for this project: `gpt-5.5`.
 - Keep persistent overlays such as DebugHUD and Card UI inside the aspect-ratio safe area. For Bevy UI, spawn under the `bevy_aspect_ratio_mask::Hud` root; for egui windows, offset anchors by the 1280x800 safe-area margins.
 - Keep desktop window defaults in `bevy/crates/shared/src/window.rs`; update `DEFAULT_WINDOW_WIDTH` and `DEFAULT_WINDOW_HEIGHT` there when changing the project-approved launch/fallback size.
 - Use `scripts/main/InstallDependencies.ps1` once per machine to verify Rust setup, then use `scripts/other/RunTests.ps1`, `scripts/main/RunAppDesktop.ps1`, and `scripts/other/StopApp.ps1` for repeatable local workflows.
+- For desktop hot reload, prefer `scripts/main/RunAppDesktopHotReload.ps1` as the default dev loop with a stable feature set (`desktop-hot-reload,asset-hot-reload`) and pinned toolchain from `rust-toolchain.toml`.
+- Keep compile flags stable between runs; avoid flipping features/targets in the hot-reload loop because changed build inputs invalidate caches and slow recompiles.
+- Treat `target/run-app-desktop-hot-reload/` as persistent cache state and do not clean it during normal development.
+- `sccache` is currently incompatible with Dioxus hot-patch driver (`dx`) in this workflow; hot reload must automatically fall back to Cargo incremental compilation when that probe fails.
+- For non-hot-reload build/check/test workflows, `sccache` remains preferred where compatible to accelerate repeated full compiles across sessions.
 - If the user says to "peek" at the app, running app, game, or desktop runtime, use the AI runtime workflow: query the local Bevy Remote Protocol endpoint at `http://localhost:15702` when available, capture a screenshot through `bevy_debugger/screenshot` to `target/ai-runtime-screenshots/`, inspect the image, and report both runtime facts and visual observations. If the endpoint is unavailable, say so and ask the user to start `scripts/main/RunAppDesktopHotReload.ps1` or `scripts/other/RunAppDesktop.ps1 -AiRuntime`.
 - Treat `AppScene` as the always-present app-level scene and report the currently active view, such as `GameScene`, `DeckScene`, or `DebugScene`, when describing runtime scene state.
+
+## Compile Priority
+
+| Priority | Goal | Project Default |
+| ---- | ---- | ----------- |
+| 1 | Hot reload always works | Use `scripts/main/RunAppDesktopHotReload.ps1`; if `sccache` probe fails, continue with incremental compilation (no hard failure). |
+| 2 | Fastest recompiles | Keep toolchain, target dir, features, and target triple stable; reuse hot-reload target dir and incremental artifacts. |
+| 3 | Fastest original compiles | Use stable toolchain, parallel jobs, and `sccache` for compatible non-hot-reload cargo paths; avoid unnecessary feature expansion. |
 
 <!-- SPECKIT START -->
 Active implementation plan: `specs/021-card-view-vfx/plan.md`

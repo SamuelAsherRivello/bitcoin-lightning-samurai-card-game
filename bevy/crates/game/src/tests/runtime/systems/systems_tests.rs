@@ -2962,7 +2962,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
         CardFace::Back,
     );
 
-    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation, None);
 
     assert!(!is_settled);
     assert_eq!(
@@ -2978,7 +2978,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
             < 0.000_1
     );
 
-    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation);
+    let is_settled = advance_cpu_placed_card_animation(10.0, &mut transform, &mut animation, None);
 
     assert!(is_settled);
     assert_close(transform.translation.x, slot_transform.translation.x);
@@ -2993,7 +2993,7 @@ fn cpu_placed_card_animation_moves_deck_to_hand_then_slot_face_down() {
 }
 
 #[test]
-fn cpu_deck_to_hand_animation_lifts_without_scale_pulse() {
+fn cpu_deck_to_hand_animation_lifts_with_scale_pulse() {
     let hand_transform = Transform {
         translation: Vec3::new(0.0, -3.0, 0.52),
         rotation: Quat::IDENTITY,
@@ -3021,13 +3021,13 @@ fn cpu_deck_to_hand_animation_lifts_without_scale_pulse() {
         CPU_CARD_MOVE_SECONDS * 0.5,
         &mut transform,
         &mut animation
-    ));
+    , None));
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
-    assert_close(
-        apparent_scale_at_z(transform.scale.x, transform.translation.z),
-        apparent_scale_at_z(source_transform.scale.x, source_transform.translation.z),
-    );
+    let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
+    let source_apparent_scale =
+        apparent_scale_at_z(source_transform.scale.x, source_transform.translation.z);
+    assert!(apparent_scale > source_apparent_scale);
 }
 
 #[test]
@@ -3050,7 +3050,7 @@ fn cpu_placed_card_position_move_takes_half_second() {
         CPU_CARD_MOVE_SECONDS - 0.01,
         &mut transform,
         &mut animation
-    ));
+    , None));
     assert!(transform.translation.distance(slot_transform.translation) > 0.0);
     let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
     let target_apparent_scale =
@@ -3062,7 +3062,7 @@ fn cpu_placed_card_position_move_takes_half_second() {
         0.01,
         &mut transform,
         &mut animation
-    ));
+    , None));
     assert_close(transform.translation.x, slot_transform.translation.x);
     assert_close(transform.translation.y, slot_transform.translation.y);
     assert_close(transform.translation.z, slot_transform.translation.z);
@@ -3089,7 +3089,7 @@ fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
         CPU_CARD_MOVE_SECONDS * 0.1,
         &mut transform,
         &mut animation
-    ));
+    , None));
     let apparent_scale = apparent_scale_at_z(transform.scale.x, transform.translation.z);
     let hand_apparent_scale =
         apparent_scale_at_z(hand_transform.scale.x, hand_transform.translation.z);
@@ -3100,7 +3100,7 @@ fn cpu_placed_card_scale_tweens_up_before_returning_to_slot_scale() {
         CPU_CARD_MOVE_SECONDS * 0.4,
         &mut transform,
         &mut animation
-    ));
+    , None));
     assert_close(
         apparent_scale_at_z(transform.scale.x, transform.translation.z),
         hand_apparent_scale * CPU_CARD_MOVE_SCALE_MULTIPLIER,
@@ -3136,7 +3136,7 @@ fn cpu_placed_card_move_preserves_tweened_game_scene_path_while_lifted_forward()
         CPU_CARD_MOVE_SECONDS * 0.5,
         &mut transform,
         &mut animation
-    ));
+    , None));
 
     assert_close(transform.translation.z, CPU_CARD_MOVING_FRONT_Z);
     assert_vec2_close(
@@ -3193,10 +3193,10 @@ fn committed_cpu_placement_records_original_visible_hand_source() {
 }
 
 #[test]
-fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
+fn cpu_card_faces_stay_facedown_until_revealed() {
     assert_eq!(
         cpu_card_hand_visible_face(MatchPlayerSide::Near),
-        CardFace::Front
+        CardFace::Back
     );
     assert_eq!(
         cpu_card_hand_visible_face(MatchPlayerSide::Far),
@@ -3207,7 +3207,7 @@ fn cpu_card_faces_keep_near_front_and_far_hidden_until_revealed() {
             MatchPlayerSide::Near,
             PlacementVisibility::CurrentRoundHidden
         ),
-        CardFace::Front
+        CardFace::Back
     );
     assert_eq!(
         cpu_card_slot_visible_face(
@@ -3295,7 +3295,7 @@ fn cpu_placed_card_reveal_waits_for_delay_without_destination_scale_pulse() {
         0.24,
         &mut transform,
         &mut animation
-    ));
+    , None));
     assert_eq!(animation.current_face(), CardFace::Back);
     assert_close(animation.start_delay_seconds, 0.01);
     assert_eq!(transform.scale, slot_transform.scale);
@@ -3304,24 +3304,58 @@ fn cpu_placed_card_reveal_waits_for_delay_without_destination_scale_pulse() {
         0.25,
         &mut transform,
         &mut animation
-    ));
-    assert_eq!(animation.current_face(), CardFace::Front);
-    assert_close(animation.current_y_rotation, 0.0);
+    , None));
+    assert!(animation.current_y_rotation > 0.0);
+    assert!(animation.current_y_rotation < std::f32::consts::PI);
     assert_eq!(transform.translation, slot_transform.translation);
     assert_eq!(transform.scale, slot_transform.scale);
+    assert!(transform.rotation.angle_between(slot_transform.rotation) > 0.0);
+
+    assert!(advance_cpu_placed_card_animation(
+        0.76,
+        &mut transform,
+        &mut animation
+    , None));
+    assert_eq!(animation.current_face(), CardFace::Front);
+    assert_close(animation.current_y_rotation, 0.0);
+    assert_eq!(transform.scale, slot_transform.scale);
+}
+
+#[test]
+fn cpu_swan_flip_applies_scale_bloom_then_returns_to_base_scale() {
+    let slot_transform = Transform {
+        translation: Vec3::new(4.0, 2.0, 0.52),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::splat(0.25),
+    };
+    let mut transform = slot_transform;
+    transform.rotation = slot_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI);
+    let mut animation = CpuPlacedCardAnimation::swan_flip_to_front(slot_transform, 0.0);
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.25,
+        &mut transform,
+        &mut animation
+    , None));
+    assert_close(transform.scale.x, slot_transform.scale.x * 4.0);
+
+    assert!(!advance_cpu_placed_card_animation(
+        0.5,
+        &mut transform,
+        &mut animation
+    , None));
+    assert_close(transform.scale.x, slot_transform.scale.x * 4.0);
+
+    assert!(advance_cpu_placed_card_animation(
+        0.25,
+        &mut transform,
+        &mut animation
+    , None));
+    assert_close(transform.scale.x, slot_transform.scale.x);
     assert_close(
         transform.rotation.angle_between(slot_transform.rotation),
         0.0,
     );
-
-    assert!(advance_cpu_placed_card_animation(
-        0.26,
-        &mut transform,
-        &mut animation
-    ));
-    assert_eq!(animation.current_face(), CardFace::Front);
-    assert_close(animation.current_y_rotation, 0.0);
-    assert_eq!(transform.scale, slot_transform.scale);
 }
 
 #[test]
@@ -4138,6 +4172,49 @@ fn selected_card_modal_blocks_game_control_interactions() {
 }
 
 #[test]
+fn modal_block_system_keeps_end_round_clickable() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<SelectedCardModalModel>()
+        .add_systems(Update, modal_block_game_control_interactions_system);
+
+    let blocking_owner = app.world_mut().spawn_empty().id();
+    app.world_mut()
+        .resource_mut::<SelectedCardModalModel>()
+        .select_entity(
+            blocking_owner,
+            Transform::default(),
+            Transform::from_scale(Vec3::splat(2.0)),
+        );
+
+    let restart_button = app
+        .world_mut()
+        .spawn((
+            GameControlButton::new(GameControlAction::Restart),
+            Interaction::Pressed,
+        ))
+        .id();
+    let end_round_button = app
+        .world_mut()
+        .spawn((
+            GameControlButton::new(GameControlAction::EndRound),
+            Interaction::Pressed,
+        ))
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        *app.world().get::<Interaction>(restart_button).unwrap(),
+        Interaction::None
+    );
+    assert_eq!(
+        *app.world().get::<Interaction>(end_round_button).unwrap(),
+        Interaction::Pressed
+    );
+}
+
+#[test]
 fn restart_button_restarts_game_model_and_randomizes_world() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
@@ -4727,12 +4804,11 @@ fn deck_card_layers_use_shared_render_aspect_ratio() {
 }
 
 #[test]
-fn kage_ren_background_uses_frame_mask_full_card_space() {
+fn kage_ren_background_uses_unmasked_aperture_geometry() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
-        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
         .init_asset::<Image>()
         .init_resource::<PrimaryCameraDefaults>()
         .init_resource::<CardInspectionDefaults>()
@@ -4762,37 +4838,11 @@ fn kage_ren_background_uses_frame_mask_full_card_space() {
 
     let (width, height) = mesh_bounds(mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap());
     let (uv_width, uv_height) = mesh_uv_bounds(mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap());
-    let (mask_uv_width, mask_uv_height) =
-        mesh_uv_bounds(mesh.attribute(Mesh::ATTRIBUTE_UV_1).unwrap());
-
-    assert!(background_layer.uses_frame_mask);
-    assert_close(width, card_defaults.width);
-    assert_close(height, card_defaults.height);
-    assert_close(uv_width, 1.0);
-    assert_close(uv_height, 1.0);
-    assert_close(mask_uv_width, 1.0);
-    assert_close(mask_uv_height, 1.0);
-
-    let mut material_query = app.world_mut().query::<(
-        &CardParallaxLayer,
-        &MeshMaterial3d<CardBackgroundMaskMaterial>,
-    )>();
-    let masked_material_handle = material_query
-        .iter(app.world())
-        .find_map(|(parallax_layer, material)| {
-            (parallax_layer.role == CardLayerRole::Background).then_some(material)
-        })
-        .unwrap();
-    let masked_material = app
-        .world()
-        .resource::<Assets<CardBackgroundMaskMaterial>>()
-        .get(&masked_material_handle.0)
-        .unwrap();
-    assert_eq!(
-        masked_material.inner_aperture,
-        frame_mask_inner_aperture(&card_defaults, &frame_dimensions)
-    );
-    assert_eq!(masked_material.alpha_mode, AlphaMode::Blend);
+    assert!(!background_layer.uses_frame_mask);
+    assert_close(width, frame_dimensions.hole_width);
+    assert_close(height, frame_dimensions.hole_height);
+    assert_close(uv_width, 1.0 / BACKGROUND_APERTURE_SCALE);
+    assert_close(uv_height, 1.0 / BACKGROUND_APERTURE_SCALE);
 }
 
 #[test]
@@ -6202,3 +6252,4 @@ fn restored_resolution_applies_saved_size_as_logical_units() {
     assert_eq!(restored.physical_width(), 768);
     assert_eq!(restored.physical_height(), 576);
 }
+
