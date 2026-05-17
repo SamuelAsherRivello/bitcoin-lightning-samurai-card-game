@@ -6,6 +6,8 @@ A Bevy ECS card game project built from the Codex Project Template.
 
 ![Bevy Card Game running app screenshot](documentation/images/Workflow01.png)
 
+![Bevy Card Game visual layer stack](documentation/images/VisualLayers03.svg)
+
 ## Getting Started
 
 | Task | Command |
