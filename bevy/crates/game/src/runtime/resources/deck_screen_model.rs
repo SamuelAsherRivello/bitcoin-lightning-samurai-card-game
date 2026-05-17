@@ -95,27 +95,9 @@ impl DeckScreenModel {
         }
     }
 
-    pub fn open_modal(
-        &mut self,
-        card_id: impl Into<String>,
-        source_zone: DeckEditableZoneModel,
-        source_index: usize,
-        deck_cards: &[String],
-    ) {
-        let card_id = card_id.into();
-        self.modal = Some(DeckScreenCardModalModel {
-            actions: modal_actions_for(source_zone, &card_id, deck_cards),
-            card_id,
-            source_zone,
-            source_index,
-        });
-        self.needs_rebuild = true;
-    }
-
     pub fn close_modal(&mut self) {
         if self.modal.is_some() {
             self.modal = None;
-            self.needs_rebuild = true;
         }
     }
 
@@ -234,6 +216,12 @@ fn ensure_deck_screen_collection_with_repair(
 
 pub fn ensure_deck_screen_collection(collection: &mut PlayerDeckCollectionModel) {
     ensure_deck_screen_collection_with_repair(collection, true);
+}
+
+/// HUMAN: Keep deck-screen editing in a mutable, user-driven state.
+/// AI: Deck editing needs temporary short decks until save-time validation occurs.
+pub fn ensure_deck_screen_collection_no_auto_fill(collection: &mut PlayerDeckCollectionModel) {
+    ensure_deck_screen_collection_with_repair(collection, false);
 }
 
 pub fn move_deck_card_to_library(

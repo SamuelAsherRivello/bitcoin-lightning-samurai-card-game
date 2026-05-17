@@ -67,25 +67,6 @@ impl DeckView {
 #[derive(Component, Debug, Default)]
 pub struct DeckScreenDeckTileButton;
 
-/// HUMAN: Selectable DeckScreen card tile.
-/// AI: Source zone and index determine modal action enablement.
-#[derive(Component, Clone, Debug, Eq, PartialEq)]
-pub struct DeckScreenCardTileButton {
-    pub card_id: String,
-    pub zone: DeckEditableZoneModel,
-    pub index: usize,
-}
-
-impl DeckScreenCardTileButton {
-    pub fn new(card_id: impl Into<String>, zone: DeckEditableZoneModel, index: usize) -> Self {
-        Self {
-            card_id: card_id.into(),
-            zone,
-            index,
-        }
-    }
-}
-
 /// HUMAN: World-space card view rendered inside a DeckScreen editor grid.
 /// AI: Zone metadata lets selection and future editor actions identify the source card.
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
@@ -152,6 +133,11 @@ pub enum DeckScreenModalActionButton {
     TransferOut,
     Back,
 }
+
+/// HUMAN: Root marker for the DeckScreen Selected Card Menu.
+/// AI: This menu is deck-screen-only and is separate from the fullscreen selected-card modal.
+#[derive(Component, Debug, Default)]
+pub struct DeckScreenSelectedCardMenuRoot;
 
 /// HUMAN: Root marker for the DeckScreen fullscreen modal.
 /// AI: Presence means lower DeckScreen and top-nav input is blocked.

@@ -1,7 +1,7 @@
 use super::*;
 use crate::runtime::components::{
-    CardGrid, DeckScreenCardTileButton, DeckScreenContentRoot, DeckScreenDeckCommandButton,
-    DeckScreenTabButton, DeckView, SelectableCard,
+    CardGrid, DeckScreenContentRoot, DeckScreenDeckCommandButton, DeckScreenModalActionButton,
+    DeckScreenSelectedCardMenuRoot, DeckScreenTabButton, DeckView, SelectableCard,
 };
 use crate::runtime::resources::deck_screen_model::DECK_SCREEN_VISIBLE_CARD_COUNT;
 use crate::runtime::resources::{
@@ -9,6 +9,7 @@ use crate::runtime::resources::{
     DECK_SCREEN_COMING_SOON_MESSAGE, DECK_SCREEN_COMING_SOON_TITLE, DebugDrawMode,
     DeckEditorTabModel, DeckScreenMode, MATCHMAKING_PREPARING_SECONDS, MatchmakingPhaseModel,
 };
+use bevy::camera::RenderTargetInfo;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::text::Font;
 use bevy_persistent::prelude::StorageFormat;
@@ -143,6 +144,76 @@ fn spawn_test_primary_window(app: &mut App) -> Entity {
             PrimaryWindow,
         ))
         .id()
+}
+
+fn sync_debug_scene_global_transforms(app: &mut App) {
+    let transforms: Vec<(Entity, Transform)> = app
+        .world_mut()
+        .query_filtered::<(Entity, &Transform), With<DebugSceneEntity>>()
+        .iter(app.world())
+        .map(|(entity, transform)| (entity, *transform))
+        .collect();
+    for (entity, transform) in transforms {
+        if let Some(mut global_transform) = app.world_mut().get_mut::<GlobalTransform>(entity) {
+            *global_transform = GlobalTransform::from(transform);
+        }
+    }
+}
+
+fn window_pointer_for_debug_card_center(app: &mut App, card: Entity) -> Vec2 {
+    let card_world_position = app
+        .world()
+        .get::<Transform>(card)
+        .expect("debug card should have a Transform")
+        .translation;
+    let mut camera_query = app.world_mut().query_filtered::<(&Camera, &Transform), (
+        With<PrimaryViewCamera>,
+        With<DebugSceneEntity>,
+        With<Camera3d>,
+    )>();
+    let (camera, camera_transform) = camera_query
+        .single(app.world())
+        .expect("debug scene should have one primary 3D camera");
+    let camera_global_transform = GlobalTransform::from(*camera_transform);
+    let mut ndc = camera
+        .world_to_ndc(&camera_global_transform, card_world_position)
+        .expect("debug card center should project into NDC");
+    ndc.y = -ndc.y;
+    let mut window_query = app
+        .world_mut()
+        .query_filtered::<&Window, With<PrimaryWindow>>();
+    let window = window_query
+        .single(app.world())
+        .expect("test should have one primary window");
+    let window_size = Vec2::new(window.resolution.width(), window.resolution.height());
+
+    (ndc.truncate() + Vec2::ONE) * 0.5 * window_size
+}
+
+fn prepare_debug_camera_for_test_viewport(app: &mut App, window: Entity) {
+    let _ = app
+        .world()
+        .get::<Window>(window)
+        .expect("test should have a primary window");
+    let physical_size = UVec2::new(DEFAULT_WINDOW_WIDTH as u32, DEFAULT_WINDOW_HEIGHT as u32);
+    let logical_size = Vec2::new(DEFAULT_WINDOW_WIDTH as f32, DEFAULT_WINDOW_HEIGHT as f32);
+    let mut camera_query = app
+        .world_mut()
+        .query_filtered::<(&mut Camera, &mut Projection), (
+            With<PrimaryViewCamera>,
+            With<DebugSceneEntity>,
+            With<Camera3d>,
+        )>();
+    let (mut camera, mut projection) = camera_query
+        .single_mut(app.world_mut())
+        .expect("debug scene should have one primary 3D camera");
+    projection.update(logical_size.x, logical_size.y);
+    camera.computed.target_info = Some(RenderTargetInfo {
+        physical_size,
+        scale_factor: 1.0,
+    });
+    camera.computed.clip_from_view = projection.get_clip_from_view();
+    sync_debug_scene_global_transforms(app);
 }
 
 fn test_monitor(name: &str, position: IVec2, size: UVec2) -> Monitor {
@@ -333,12 +404,29 @@ fn deck_scene_owns_camera_light_and_deck_screen_ui() {
         .query_filtered::<(Entity, &Camera, Option<&PrimaryEguiContext>), (
             With<Camera2d>,
             With<DeckSceneEntity>,
+            Without<CardPointTextCamera>,
         )>()
         .single(app.world())
         .unwrap();
     assert_eq!(ui_camera.order, 1);
     assert!(matches!(ui_camera.clear_color, ClearColorConfig::None));
     assert!(egui_context.is_some());
+
+    let mut point_text_camera_query = app.world_mut().query_filtered::<
+        (&Camera, &RenderLayers),
+        (With<CardPointTextCamera>, With<DeckSceneEntity>),
+    >();
+    let (point_text_camera, point_text_layers) =
+        point_text_camera_query.single(app.world()).unwrap();
+    assert_eq!(point_text_camera.order, 3);
+    assert!(matches!(
+        point_text_camera.clear_color,
+        ClearColorConfig::None
+    ));
+    assert_eq!(
+        *point_text_layers,
+        RenderLayers::layer(CARD_POINT_TEXT_RENDER_LAYER)
+    );
 
     let mut root_query = app
         .world_mut()
@@ -498,6 +586,22 @@ fn debug_scene_owns_camera_light_and_card() {
         .world_mut()
         .query_filtered::<Entity, (With<DirectionalLight>, With<DebugSceneEntity>)>();
     assert_eq!(light_query.iter(app.world()).count(), 1);
+
+    let mut point_text_camera_query = app.world_mut().query_filtered::<
+        (&Camera, &RenderLayers),
+        (With<CardPointTextCamera>, With<DebugSceneEntity>),
+    >();
+    let (point_text_camera, point_text_layers) =
+        point_text_camera_query.single(app.world()).unwrap();
+    assert_eq!(point_text_camera.order, 3);
+    assert!(matches!(
+        point_text_camera.clear_color,
+        ClearColorConfig::None
+    ));
+    assert_eq!(
+        *point_text_layers,
+        RenderLayers::layer(CARD_POINT_TEXT_RENDER_LAYER)
+    );
 
     let mut card_query = app
         .world_mut()
@@ -720,7 +824,7 @@ fn deck_scene_root_does_not_inherit_ui_layout_transform() {
 }
 
 #[test]
-fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
+fn deck_screen_editor_selects_card_tiles_and_shows_action_menu() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, AssetPlugin::default()))
         .init_resource::<Assets<Mesh>>()
@@ -728,16 +832,25 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
         .init_resource::<Assets<CardBackgroundMaskMaterial>>()
         .init_asset::<Image>()
         .init_asset::<Font>()
+        .init_resource::<ButtonInput<MouseButton>>()
+        .init_resource::<Touches>()
+        .init_resource::<ActiveView>()
         .init_resource::<PrimaryCameraDefaults>()
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardModelRegistry>()
         .init_resource::<ActiveCardModel>()
         .init_resource::<DeckScreenModel>()
         .init_resource::<SelectedCardModalModel>()
+        .init_resource::<CardGestureModel>()
+        .init_resource::<CardFlipState>()
         .init_resource::<TopNavigationModel>()
         .init_resource::<PlayerDeckCollectionModel>()
         .add_systems(Startup, setup_deck_scene)
-        .add_systems(Update, deck_screen_update_system);
+        .add_systems(
+            Update,
+            (card_selection_update_system, deck_screen_update_system).chain(),
+        );
+    let _window = spawn_test_primary_window(&mut app);
 
     app.update();
 
@@ -749,6 +862,7 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
     app.world_mut()
         .entity_mut(deck_tile)
         .insert(Interaction::Pressed);
+    app.update();
     app.update();
 
     assert_eq!(
@@ -907,17 +1021,16 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
     assert!(!app.world().resource::<DeckScreenModel>().coming_soon_prompt);
     assert_eq!(
         app.world_mut()
-            .query_filtered::<Entity, With<DeckScreenCardTileButton>>()
-            .iter(app.world())
-            .count(),
-        0
-    );
-    assert_eq!(
-        app.world_mut()
             .query_filtered::<Entity, (With<DeckScreenCardView>, With<SelectableCard>)>()
             .iter(app.world())
             .count(),
-        0
+        DECK_SCREEN_VISIBLE_CARD_COUNT + 3
+    );
+    assert!(
+        app.world_mut()
+            .query_filtered::<&Pickable, With<GridViewContentArea>>()
+            .iter(app.world())
+            .all(|pickable| *pickable == Pickable::IGNORE)
     );
     assert_eq!(
         app.world_mut()
@@ -933,6 +1046,8 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
         .len(),
         3
     );
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
+    app.update();
 
     let (first_deck_card, source_transform) = app
         .world_mut()
@@ -949,6 +1064,61 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
         .select_entity(first_deck_card, source_transform, target_transform);
     app.update();
 
+    assert!(app.world().resource::<SelectedCardModalModel>().is_active());
+    assert!(app.world().resource::<DeckScreenModel>().modal.is_some());
+    assert_eq!(
+        app.world()
+            .resource::<SelectedCardModalModel>()
+            .selected_entity,
+        Some(first_deck_card)
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenSelectedCardMenuRoot>>()
+            .iter(app.world())
+            .count(),
+        1
+    );
+    let menu_labels: Vec<String> = app
+        .world_mut()
+        .query::<&Text>()
+        .iter(app.world())
+        .map(|text| text.0.clone())
+        .collect();
+    for label in ["Move to Library", "Move to Deck", "Transfer", "Back"] {
+        assert!(menu_labels.iter().any(|text| text == label));
+    }
+
+    let transfer_entity = app
+        .world_mut()
+        .query::<(Entity, &DeckScreenModalActionButton)>()
+        .iter(app.world())
+        .find_map(|(entity, action)| {
+            (*action == DeckScreenModalActionButton::TransferOut).then_some(entity)
+        })
+        .unwrap();
+    app.world_mut()
+        .entity_mut(transfer_entity)
+        .insert(Interaction::Pressed);
+    app.update();
+
+    assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
+    assert!(app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    let ok_entity = app
+        .world_mut()
+        .query_filtered::<Entity, With<DeckScreenValidationOkButton>>()
+        .single(app.world())
+        .unwrap();
+    app.world_mut()
+        .entity_mut(ok_entity)
+        .insert(Interaction::Pressed);
+    app.update();
+    assert!(!app.world().resource::<DeckScreenModel>().coming_soon_prompt);
+    app.world_mut()
+        .resource_mut::<SelectedCardModalModel>()
+        .clear();
+    app.update();
+
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
     assert!(!app.world().resource::<SelectedCardModalModel>().is_active());
 
@@ -963,11 +1133,11 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
 
     let deck_cards = deck_screen_deck_cards(app.world().resource::<PlayerDeckCollectionModel>());
     let library_cards = deck_screen_library_cards(&deck_cards);
-    assert_eq!(deck_cards.len(), DECK_SCREEN_VISIBLE_CARD_COUNT);
-    assert_eq!(library_cards.len(), 3);
+    assert_eq!(deck_cards.len(), DECK_SCREEN_VISIBLE_CARD_COUNT - 1);
+    assert_eq!(library_cards.len(), 4);
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
     let library_column_card_view_count = deck_screen_card_views_right_of(&mut app, 600.0);
-    assert_eq!(library_column_card_view_count, 3);
+    assert_eq!(library_column_card_view_count, 4);
     assert_matching_deck_screen_grid_backdrops(&mut app);
     let library_card_view_metadata_count = app
         .world_mut()
@@ -975,14 +1145,7 @@ fn deck_screen_editor_uses_two_passive_grids_without_card_click_behavior() {
         .iter(app.world())
         .filter(|view| view.zone == DeckEditableZoneModel::Library)
         .count();
-    assert_eq!(library_card_view_metadata_count, 3);
-    assert_eq!(
-        app.world_mut()
-            .query_filtered::<Entity, With<DeckScreenCardTileButton>>()
-            .iter(app.world())
-            .count(),
-        0
-    );
+    assert_eq!(library_card_view_metadata_count, 4);
     assert!(app.world().resource::<DeckScreenModel>().modal.is_none());
 }
 
@@ -1153,6 +1316,86 @@ fn game_scene_card_point_text_camera_uses_centered_safe_area_viewport() {
     let mut camera_query = app
         .world_mut()
         .query_filtered::<&Camera, (With<GameSceneEntity>, With<CardPointTextCamera>)>();
+    let camera = camera_query.single(app.world()).unwrap();
+    let viewport = camera.viewport.as_ref().unwrap();
+
+    assert_eq!(
+        viewport.physical_position,
+        expected_viewport.physical_position
+    );
+    assert_eq!(viewport.physical_size, expected_viewport.physical_size);
+    assert_eq!(viewport.depth, expected_viewport.depth);
+}
+
+#[test]
+fn deck_scene_card_point_text_camera_uses_centered_safe_area_viewport() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+        .init_asset::<Image>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .add_systems(Startup, setup_deck_scene)
+        .add_systems(Update, constrain_deck_camera_to_safe_area);
+    app.world_mut().spawn((
+        Window {
+            resolution: WindowResolution::new(1280, 1536),
+            ..Default::default()
+        },
+        PrimaryWindow,
+    ));
+
+    app.update();
+    app.update();
+
+    let expected_viewport = game_scene_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
+    let mut camera_query = app
+        .world_mut()
+        .query_filtered::<&Camera, (With<DeckSceneEntity>, With<CardPointTextCamera>)>();
+    let camera = camera_query.single(app.world()).unwrap();
+    let viewport = camera.viewport.as_ref().unwrap();
+
+    assert_eq!(
+        viewport.physical_position,
+        expected_viewport.physical_position
+    );
+    assert_eq!(viewport.physical_size, expected_viewport.physical_size);
+    assert_eq!(viewport.depth, expected_viewport.depth);
+}
+
+#[test]
+fn debug_scene_card_point_text_camera_uses_centered_safe_area_viewport() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+        .init_asset::<Image>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .add_systems(Startup, setup_debug_scene)
+        .add_systems(Update, constrain_debug_camera_to_safe_area);
+    app.world_mut().spawn((
+        Window {
+            resolution: WindowResolution::new(1280, 1536),
+            ..Default::default()
+        },
+        PrimaryWindow,
+    ));
+
+    app.update();
+    app.update();
+
+    let expected_viewport = game_scene_safe_area_viewport(UVec2::new(1280, 1536)).unwrap();
+    let mut camera_query = app
+        .world_mut()
+        .query_filtered::<&Camera, (With<DebugSceneEntity>, With<CardPointTextCamera>)>();
     let camera = camera_query.single(app.world()).unwrap();
     let viewport = camera.viewport.as_ref().unwrap();
 
@@ -3638,6 +3881,7 @@ fn clicking_game_card_selects_in_game_without_opening_deck() {
         .init_resource::<CardInspectionDefaults>()
         .init_resource::<CardInspectionState>()
         .init_resource::<CardGestureModel>()
+        .init_resource::<SelectedCardModalModel>()
         .init_resource::<CardSlotBoardModel>()
         .init_resource::<CardStateModel>()
         .init_resource::<CardFlipState>()
@@ -3683,6 +3927,14 @@ fn clicking_game_card_selects_in_game_without_opening_deck() {
         app.world().resource::<CardGestureModel>().state,
         CardGestureState::SelectedInspecting
     );
+    assert!(app.world().resource::<SelectedCardModalModel>().is_active());
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenSelectedCardMenuRoot>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
     assert_eq!(active_child_scene_root_count(&mut app), 1);
     let mut game_scene_query = app
         .world_mut()
@@ -3700,6 +3952,67 @@ fn clicking_game_card_selects_in_game_without_opening_deck() {
         .world_mut()
         .query_filtered::<Entity, With<PrimaryViewCamera>>();
     assert_eq!(camera_query.iter(app.world()).count(), 2);
+}
+
+#[test]
+fn clicking_debug_card_selects_card_without_selected_card_menu() {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+        .init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<Assets<CardBackgroundMaskMaterial>>()
+        .init_asset::<Image>()
+        .init_resource::<ButtonInput<MouseButton>>()
+        .init_resource::<Touches>()
+        .init_resource::<ActiveView>()
+        .init_resource::<PrimaryCameraDefaults>()
+        .init_resource::<CardInspectionDefaults>()
+        .init_resource::<CardGestureModel>()
+        .init_resource::<SelectedCardModalModel>()
+        .init_resource::<CardSlotBoardModel>()
+        .init_resource::<CardStateModel>()
+        .init_resource::<CardFlipState>()
+        .init_resource::<CardModelRegistry>()
+        .init_resource::<ActiveCardModel>()
+        .add_systems(Startup, setup_debug_scene)
+        .add_systems(Update, card_selection_update_system);
+    let window = spawn_test_primary_window(&mut app);
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DebugScene;
+
+    app.update();
+
+    let debug_card = app
+        .world_mut()
+        .query_filtered::<Entity, (With<CardView>, With<DebugSceneEntity>, With<SelectableCard>)>()
+        .single(app.world())
+        .unwrap();
+    prepare_debug_camera_for_test_viewport(&mut app, window);
+    let pointer_position = window_pointer_for_debug_card_center(&mut app, debug_card);
+    app.world_mut()
+        .get_mut::<Window>(window)
+        .unwrap()
+        .set_cursor_position(Some(pointer_position));
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .press(MouseButton::Left);
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .release(MouseButton::Left);
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<SelectedCardModalModel>()
+            .selected_entity,
+        Some(debug_card)
+    );
+    assert_eq!(
+        app.world_mut()
+            .query_filtered::<Entity, With<DeckScreenSelectedCardMenuRoot>>()
+            .iter(app.world())
+            .count(),
+        0
+    );
 }
 
 #[test]

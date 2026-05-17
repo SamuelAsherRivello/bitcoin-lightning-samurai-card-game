@@ -54,6 +54,19 @@ fn selected_modal_backdrop_dismiss_sets_flag_without_clearing_selection() {
 }
 
 #[test]
+fn selected_modal_suppresses_the_opening_click_dismiss_once() {
+    let mut model = SelectedCardModalModel::default();
+    model.select_entity(
+        Entity::from_bits(4),
+        Transform::default(),
+        Transform::from_scale(Vec3::splat(2.0)),
+    );
+
+    assert!(model.take_suppressed_pointer_dismiss());
+    assert!(!model.take_suppressed_pointer_dismiss());
+}
+
+#[test]
 fn selected_modal_press_candidate_rejects_dragged_clicks() {
     let mut model = SelectedCardModalModel::default();
     let entity = Entity::from_bits(3);

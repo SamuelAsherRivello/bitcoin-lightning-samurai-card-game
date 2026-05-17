@@ -35,6 +35,7 @@ fn release_after_threshold_does_not_select_for_inspection() {
                     Some(&registry),
                     Some(&hand),
                     Some(&round),
+                    true,
                     &mut gesture,
                     &mut states,
                 );
@@ -69,6 +70,95 @@ fn release_after_threshold_does_not_select_for_inspection() {
         app.world().resource::<CardStateModel>().state(0),
         Some(CardState::Hand)
     );
+}
+
+#[test]
+fn completed_match_drag_threshold_does_not_select_for_inspection() {
+    let mut app = test_app_with_gesture_card(0);
+    {
+        let mut gesture = app.world_mut().resource_mut::<CardGestureModel>();
+        assert!(gesture.press(0, Vec2::ZERO, Vec2::ZERO, Transform::default()));
+    }
+
+    app.world_mut()
+        .run_system_once(
+            |defaults: Res<CardInspectionDefaults>,
+             registry: Res<CardModelRegistry>,
+             hand: Res<GameHandModel>,
+             locations: Res<GameLocationModel>,
+             mut round: ResMut<GameRoundModel>,
+             mut gesture: ResMut<CardGestureModel>,
+             mut selected_modal: ResMut<SelectedCardModalModel>,
+             mut slots: ResMut<CardSlotBoardModel>,
+             mut states: ResMut<CardStateModel>,
+             mut cards: Query<
+                (Entity, &HandCardGestureTarget, &Transform, &mut Visibility),
+                With<CardGestureView>,
+            >| {
+                handle_move(
+                    Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
+                    &defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&round),
+                    false,
+                    &mut gesture,
+                    &mut states,
+                );
+                assert_eq!(gesture.state, CardGestureState::Returning);
+                handle_release(
+                    None,
+                    &defaults,
+                    Some(&registry),
+                    Some(&hand),
+                    Some(&locations),
+                    Some(&mut round),
+                    &mut gesture,
+                    &mut selected_modal,
+                    &mut slots,
+                    &mut states,
+                    &mut cards,
+                );
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        app.world().resource::<CardGestureModel>().state,
+        CardGestureState::Returning
+    );
+    assert!(!app.world().resource::<SelectedCardModalModel>().is_active());
+    assert_eq!(
+        app.world().resource::<CardStateModel>().state(0),
+        Some(CardState::Hand)
+    );
+}
+
+#[test]
+fn completed_match_cancels_existing_drag() {
+    let mut gesture = CardGestureModel::default();
+    let mut card_states = CardStateModel::with_size(1);
+    assert!(gesture.press(0, Vec2::ZERO, Vec2::ZERO, Transform::default()));
+    assert!(card_states.begin_drag(0));
+    gesture.state = CardGestureState::Dragging;
+
+    handle_move(
+        Vec2::new(CARD_GESTURE_DRAG_THRESHOLD, 0.0),
+        &CardInspectionDefaults::default(),
+        None,
+        None,
+        None,
+        false,
+        &mut gesture,
+        &mut card_states,
+    );
+
+    assert_eq!(gesture.state, CardGestureState::Returning);
+    assert_eq!(
+        gesture.resolved_destination,
+        Some(CardGestureDestination::HandCardSlot { hand_index: 0 })
+    );
+    assert_eq!(card_states.state(0), Some(CardState::Hand));
 }
 
 #[test]
@@ -300,6 +390,7 @@ fn unaffordable_hand_card_can_drag_but_shows_no_drop_targets() {
             None,
             None,
             None,
+            true,
             &mut gesture,
             &mut states,
         );
@@ -780,6 +871,7 @@ fn locked_location_card_drag_returns_to_source() {
         None,
         None,
         None,
+        true,
         &mut gesture,
         &mut card_states,
     );

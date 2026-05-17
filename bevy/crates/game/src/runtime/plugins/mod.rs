@@ -5,8 +5,10 @@ mod ai_runtime_plugin;
 
 #[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
 pub use ai_runtime_plugin::{
-    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_SCREENSHOT_METHOD, AI_RUNTIME_SHOW_DECK_LIBRARY_METHOD,
-    AI_RUNTIME_SHOW_DECK_SCREEN_METHOD, AiRuntimePlugin,
+    AI_RUNTIME_BRP_ENDPOINT, AI_RUNTIME_MOUSE_PRESS_METHOD, AI_RUNTIME_MOUSE_RELEASE_METHOD,
+    AI_RUNTIME_ON_CARD_CLICKED_METHOD, AI_RUNTIME_SCREENSHOT_METHOD,
+    AI_RUNTIME_SHOW_DEBUG_SCREEN_METHOD, AI_RUNTIME_SHOW_DECK_LIBRARY_METHOD,
+    AI_RUNTIME_SHOW_DECK_SCREEN_METHOD, AI_RUNTIME_SHOW_GAME_SCREEN_METHOD, AiRuntimePlugin,
 };
 
 use crate::runtime::resources::{
@@ -159,7 +161,7 @@ impl Plugin for CoreGamePlugin {
                     track_window_size,
                     save_window_placement_on_close.before(bevy::window::close_when_requested),
                     toggle_debug_hud_inputs,
-                    view_input_system,
+                    view_input_system.after(card_selection_update_system),
                     track_card_pointer_target,
                     update_card_flip_animation,
                     smooth_card_rotation.after(track_card_pointer_target),

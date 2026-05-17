@@ -10,6 +10,7 @@ pub struct GridViewUiBundle {
     pub name: Name,
     pub card_grid: CardGrid,
     pub node: Node,
+    pub pickable: Pickable,
 }
 
 impl GridViewUiBundle {
@@ -34,6 +35,7 @@ impl GridViewUiBundle {
                 row_gap,
                 ..Default::default()
             },
+            pickable: Pickable::IGNORE,
         }
     }
 }

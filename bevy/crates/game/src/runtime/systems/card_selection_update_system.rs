@@ -3,6 +3,8 @@ use bevy::{
     window::{PrimaryWindow, Window},
 };
 
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+use crate::runtime::components::CardGestureView;
 use crate::runtime::components::{
     CardSelectionSource, CardView, CpuHandCardView, CpuPlacedCardAnimation, CpuPlacedCardView,
     DebugSceneEntity, DeckSceneEntity, GameSceneEntity, HandCardGestureTarget, SelectableCard,
@@ -11,10 +13,17 @@ use crate::runtime::resources::{
     ActiveView, CARD_GESTURE_DRAG_THRESHOLD, CardFace, CardFlipState, CardGestureModel,
     CardGestureState, CardInspectionDefaults, SelectedCardModalModel,
 };
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+use crate::runtime::resources::{CardState, CardStateModel};
 
 use super::{
     active_pointer_position, is_deck_card_hit, just_pressed_pointer_position,
     selected_inspection_transform,
+};
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+use super::{
+    game_scene_card_hitboxes_for_count, game_scene_card_index_at_for_count,
+    window_pointer_to_game_scene,
 };
 
 type GameCardCameraFilter = (
@@ -90,6 +99,21 @@ pub fn card_selection_update_system(
             &mut camera_queries,
             &selectable_query,
         ) {
+            if matches!(*active_view, ActiveView::DeckScene | ActiveView::DebugScene) {
+                let Some((source_transform, target_transform)) =
+                    selectable_card_selection_transforms(
+                        entity,
+                        selected_inspection_transform(&card_defaults),
+                        &selectable_query,
+                        &parent_transform_query,
+                    )
+                else {
+                    return;
+                };
+                commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+                selected_modal.select_entity(entity, source_transform, target_transform);
+                return;
+            }
             selected_modal.begin_press_candidate(entity, pointer_position, source_transform);
         }
     }
@@ -114,6 +138,196 @@ pub fn card_selection_update_system(
             .remove::<CpuPlacedCardAnimation>();
         selected_modal.select_entity(candidate.entity, source_transform, target_transform);
     }
+}
+
+/// HUMAN: Public AI-runtime hook for the consequence of a card click at a window coordinate.
+/// AI: This bypasses OS input synthesis but reuses the same selectable-card resolution and modal state.
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub fn ai_runtime_on_card_clicked_system(
+    In(params): In<Option<serde_json::Value>>,
+    mut commands: Commands,
+    mut primary_window_query: Query<&mut Window, With<PrimaryWindow>>,
+    active_view: Res<ActiveView>,
+    card_defaults: Res<CardInspectionDefaults>,
+    flip_state: Res<CardFlipState>,
+    mut selected_modal: ResMut<SelectedCardModalModel>,
+    mut gesture_model: ResMut<CardGestureModel>,
+    card_states: Res<CardStateModel>,
+    mut camera_queries: ParamSet<(
+        Query<(&Camera, &GlobalTransform), GameCardCameraFilter>,
+        Query<(&Camera, &GlobalTransform), DeckCardCameraFilter>,
+        Query<(&Camera, &GlobalTransform), DebugCardCameraFilter>,
+    )>,
+    selectable_query: Query<
+        (
+            Entity,
+            &SelectableCard,
+            &GlobalTransform,
+            &Transform,
+            Option<&CpuHandCardView>,
+            Option<&CpuPlacedCardView>,
+            Option<&CpuPlacedCardAnimation>,
+            Option<&HandCardGestureTarget>,
+            Option<&GameSceneEntity>,
+            Option<&DeckSceneEntity>,
+            Option<&DebugSceneEntity>,
+            Option<&ChildOf>,
+        ),
+        With<CardView>,
+    >,
+    hand_card_query: Query<(Entity, &HandCardGestureTarget, &Transform), With<CardGestureView>>,
+    parent_transform_query: Query<&GlobalTransform>,
+) -> bevy::remote::BrpResult {
+    let pointer_position = match ai_runtime_card_click_pointer_position(params) {
+        Ok(position) => position,
+        Err(message) => {
+            return Ok(serde_json::json!({
+                "success": false,
+                "error": message
+            }));
+        }
+    };
+    let Ok(mut primary_window) = primary_window_query.single_mut() else {
+        return Ok(serde_json::json!({
+            "success": false,
+            "error": "Primary window unavailable"
+        }));
+    };
+
+    primary_window.set_cursor_position(Some(pointer_position));
+
+    if selected_modal.is_active() {
+        selected_modal.request_dismiss();
+    }
+
+    if *active_view == ActiveView::GameScene
+        && let Some(entity) = ai_runtime_select_game_hand_card_at_pointer(
+            pointer_position,
+            primary_window.size(),
+            &card_defaults,
+            &card_states,
+            &mut gesture_model,
+            &mut selected_modal,
+            &hand_card_query,
+        )
+    {
+        return Ok(serde_json::json!({
+            "active_view": format!("{:?}", *active_view),
+            "entity": format!("{entity:?}"),
+            "success": true,
+            "x": pointer_position.x,
+            "y": pointer_position.y
+        }));
+    }
+
+    let Some((entity, _)) = top_selectable_card_at_pointer(
+        pointer_position,
+        *active_view,
+        &card_defaults,
+        &flip_state,
+        &gesture_model,
+        &mut camera_queries,
+        &selectable_query,
+    ) else {
+        return Ok(serde_json::json!({
+            "active_view": format!("{:?}", *active_view),
+            "success": false,
+            "error": "No selectable card at pointer",
+            "x": pointer_position.x,
+            "y": pointer_position.y
+        }));
+    };
+
+    let Some((source_transform, target_transform)) = selectable_card_selection_transforms(
+        entity,
+        selected_inspection_transform(&card_defaults),
+        &selectable_query,
+        &parent_transform_query,
+    ) else {
+        return Ok(serde_json::json!({
+            "active_view": format!("{:?}", *active_view),
+            "entity": format!("{entity:?}"),
+            "success": false,
+            "error": "Selectable card transform unavailable",
+            "x": pointer_position.x,
+            "y": pointer_position.y
+        }));
+    };
+
+    commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+    selected_modal.select_entity(entity, source_transform, target_transform);
+
+    Ok(serde_json::json!({
+        "active_view": format!("{:?}", *active_view),
+        "entity": format!("{entity:?}"),
+        "success": true,
+        "x": pointer_position.x,
+        "y": pointer_position.y
+    }))
+}
+
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+fn ai_runtime_select_game_hand_card_at_pointer(
+    pointer_position: Vec2,
+    window_size: Vec2,
+    card_defaults: &CardInspectionDefaults,
+    card_states: &CardStateModel,
+    gesture_model: &mut CardGestureModel,
+    selected_modal: &mut SelectedCardModalModel,
+    hand_card_query: &Query<(Entity, &HandCardGestureTarget, &Transform), With<CardGestureView>>,
+) -> Option<Entity> {
+    let game_scene_position = window_pointer_to_game_scene(pointer_position, window_size)?;
+    let hand_indices = card_states.indices_with_state(CardState::Hand);
+    let order_index =
+        game_scene_card_index_at_for_count(pointer_position, window_size, hand_indices.len())?;
+    let hand_index = card_states.hand_index_at_order(order_index)?;
+    if !card_states.is_selectable(hand_index) {
+        return None;
+    }
+    let (card_min, card_max) = game_scene_card_hitboxes_for_count(hand_indices.len())
+        .get(order_index)
+        .copied()?;
+    let card_center = (card_min + card_max) * 0.5;
+    let (entity, source_transform) =
+        hand_card_query
+            .iter()
+            .find_map(|(entity, target, transform)| {
+                (target.hand_index == hand_index).then_some((entity, *transform))
+            })?;
+    let target_transform = selected_inspection_transform(card_defaults);
+
+    gesture_model.press(
+        hand_index,
+        game_scene_position,
+        card_center,
+        source_transform,
+    );
+    gesture_model.select(target_transform);
+    selected_modal.select_entity(entity, source_transform, target_transform);
+
+    Some(entity)
+}
+
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+fn ai_runtime_card_click_pointer_position(
+    params: Option<serde_json::Value>,
+) -> Result<Vec2, String> {
+    let Some(params) = params else {
+        return Err("Invalid pointer: expected x and y".to_string());
+    };
+    let x = params
+        .get("x")
+        .and_then(serde_json::Value::as_f64)
+        .ok_or_else(|| "Invalid pointer: x must be a number".to_string())?;
+    let y = params
+        .get("y")
+        .and_then(serde_json::Value::as_f64)
+        .ok_or_else(|| "Invalid pointer: y must be a number".to_string())?;
+    if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
+        return Err("Invalid pointer: x and y must be finite non-negative numbers".to_string());
+    }
+
+    Ok(Vec2::new(x as f32, y as f32))
 }
 
 fn top_selectable_card_at_pointer(

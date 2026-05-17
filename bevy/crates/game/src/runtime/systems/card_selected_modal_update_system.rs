@@ -97,6 +97,9 @@ fn handle_modal_pointer_press(
     if !pointer_just_pressed(mouse_buttons, touches) {
         return;
     }
+    if selected_modal.take_suppressed_pointer_dismiss() {
+        return;
+    }
     let Ok(primary_window) = primary_window_query.single() else {
         return;
     };

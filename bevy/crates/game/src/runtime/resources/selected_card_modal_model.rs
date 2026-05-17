@@ -14,6 +14,7 @@ pub struct SelectedCardModalModel {
     pub fade_elapsed_seconds: f32,
     pub max_opacity: f32,
     pub dismiss_pending: bool,
+    pub suppress_next_pointer_dismiss: bool,
     pub press_candidate: Option<SelectedCardPressCandidate>,
 }
 
@@ -26,6 +27,7 @@ impl Default for SelectedCardModalModel {
             fade_elapsed_seconds: 0.0,
             max_opacity: SELECTED_CARD_MODAL_MAX_OPACITY,
             dismiss_pending: false,
+            suppress_next_pointer_dismiss: false,
             press_candidate: None,
         }
     }
@@ -86,7 +88,12 @@ impl SelectedCardModalModel {
         self.target_transform = Some(target_transform);
         self.fade_elapsed_seconds = 0.0;
         self.dismiss_pending = false;
+        self.suppress_next_pointer_dismiss = true;
         self.press_candidate = None;
+    }
+
+    pub fn take_suppressed_pointer_dismiss(&mut self) -> bool {
+        std::mem::take(&mut self.suppress_next_pointer_dismiss)
     }
 
     pub fn request_dismiss(&mut self) {

@@ -61,6 +61,9 @@ pub fn card_gesture_update_system(
     {
         return;
     }
+    let dragging_allowed = match_model
+        .as_deref()
+        .is_none_or(|model| !model.is_complete());
 
     let Ok(primary_window) = primary_window_query.single() else {
         return;
@@ -93,6 +96,7 @@ pub fn card_gesture_update_system(
             card_model_registry.as_deref(),
             game_hand_model.as_deref(),
             game_round_model.as_deref(),
+            dragging_allowed,
             &mut gesture_model,
             &mut card_states,
         );
@@ -141,6 +145,7 @@ pub fn drop_target_hint_update_system(
     card_model_registry: Option<Res<CardModelRegistry>>,
     game_hand_model: Option<Res<GameHandModel>>,
     game_round_model: Option<Res<GameRoundModel>>,
+    match_model: Option<Res<MatchModel>>,
     card_states: Option<Res<CardStateModel>>,
     slot_board: Res<CardSlotBoardModel>,
     selected_modal: Res<SelectedCardModalModel>,
@@ -161,6 +166,9 @@ pub fn drop_target_hint_update_system(
     let should_show = *active_view == ActiveView::GameScene
         && gesture_model.state == CardGestureState::Dragging
         && !selected_modal.blocks_lower_interactions()
+        && match_model
+            .as_deref()
+            .is_none_or(|model| !model.is_complete())
         && can_pay_for_dragged_card;
     let focused_location_index = should_show
         .then(|| dragged_card_drop_location_index(&gesture_model, &card_defaults, &slot_board))
@@ -278,9 +286,26 @@ fn handle_move(
     _card_model_registry: Option<&CardModelRegistry>,
     _game_hand_model: Option<&GameHandModel>,
     _game_round_model: Option<&GameRoundModel>,
+    dragging_allowed: bool,
     gesture_model: &mut CardGestureModel,
     card_states: &mut CardStateModel,
 ) {
+    if !dragging_allowed {
+        if gesture_model.state == CardGestureState::Dragging {
+            if let Some(hand_index) = gesture_model.active_hand_index
+                && card_states.state(hand_index) == Some(CardState::Dragging)
+            {
+                card_states.return_to_hand(hand_index);
+            }
+            gesture_model.return_to_source();
+            return;
+        }
+        if gesture_model.update_pointer(game_scene_position, CARD_GESTURE_DRAG_THRESHOLD) {
+            gesture_model.return_to_source();
+        }
+        return;
+    }
+
     let started_drag =
         gesture_model.update_pointer(game_scene_position, CARD_GESTURE_DRAG_THRESHOLD);
     if started_drag && let Some(hand_index) = gesture_model.active_hand_index {

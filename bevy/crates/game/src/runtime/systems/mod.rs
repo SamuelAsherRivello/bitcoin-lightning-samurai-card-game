@@ -64,15 +64,16 @@ use crate::runtime::components::{
     DebugHudKeyText, DebugHudText, DebugSceneEntity, DebugSceneRoot, DeckSceneEntity,
     DeckSceneRoot, DeckScreenCardView, DeckScreenDeckCommandButton, DeckScreenDeckTileButton,
     DeckScreenGridBackdrop, DeckScreenGridBackdropRole, DeckScreenModalActionButton,
-    DeckScreenModalRoot, DeckScreenTabButton, DeckScreenValidationOkButton, DropTargetHint,
-    EndRoundButton, GameControlAction, GameControlButton, GameControlLabel, GameLocation,
-    GameLocationBodyText, GameLocationBorder, GameLocationTitleText, GameSceneEntity,
-    GameSceneRoot, GridViewContentArea, GridViewMenuArea, GridViewTitleArea, HandCardGestureTarget,
-    InspectorState, LocalPlayerHand, LocalPlayerHandCardPreview, LocationRevealState,
-    MatchStatusText, MetaSceneEntity, MetaSceneRoot, MetaScreenButton, MetaScreenButtonAction,
-    Player, PointViewCircle, PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard,
-    TopNavigationButton, TopNavigationRoot, VISUAL_MODIFIER_CARD_OUTLINE_SCALE,
-    VisualModificationTarget, VisualModifier, WorldBackground,
+    DeckScreenModalRoot, DeckScreenSelectedCardMenuRoot, DeckScreenTabButton,
+    DeckScreenValidationOkButton, DropTargetHint, EndRoundButton, GameControlAction,
+    GameControlButton, GameControlLabel, GameLocation, GameLocationBodyText, GameLocationBorder,
+    GameLocationTitleText, GameSceneEntity, GameSceneRoot, GridViewContentArea, GridViewMenuArea,
+    GridViewTitleArea, HandCardGestureTarget, InspectorState, LocalPlayerHand,
+    LocalPlayerHandCardPreview, LocationRevealState, MatchStatusText, MetaSceneEntity,
+    MetaSceneRoot, MetaScreenButton, MetaScreenButtonAction, Player, PointViewCircle,
+    PointViewOutlineTreatment, PrimaryViewCamera, RoundUi, SelectableCard, TopNavigationButton,
+    TopNavigationRoot, VISUAL_MODIFIER_CARD_OUTLINE_SCALE, VisualModificationTarget,
+    VisualModifier, WorldBackground,
 };
 #[cfg(test)]
 use crate::runtime::resources::CardState;
@@ -98,10 +99,10 @@ use crate::runtime::resources::{
     SelectedCardModalModel, TopNavigationDestination, TopNavigationModel, WORLD_MODEL_COUNT,
     WindowPlacement, WindowPlacementState, WindowPlacementStore, WorldModelRegistry,
     choose_level1_moves, cpu_slot_hand_index, deck_screen_deck_cards, deck_screen_library_cards,
-    ensure_deck_screen_collection, ensure_player_deck_collection_model, final_winner_from_slots,
-    load_window_placement, move_deck_card_to_library, move_library_card_to_deck,
-    random_shuffled_default_deck_cards, reset_two_player_match, start_match_round,
-    sync_near_human_from_game_models, valid_window_placement,
+    ensure_deck_screen_collection_no_auto_fill, ensure_player_deck_collection_model,
+    final_winner_from_slots, load_window_placement, modal_actions_for, move_deck_card_to_library,
+    move_library_card_to_deck, random_shuffled_default_deck_cards, reset_two_player_match,
+    start_match_round, sync_near_human_from_game_models, valid_window_placement,
 };
 use crate::runtime::shaders::materials::CardBackgroundMaskMaterial;
 
@@ -188,6 +189,10 @@ const DECK_SCREEN_GRID_PANEL_WIDTH: f32 = 600.0;
 const DECK_SCREEN_GRID_PANEL_HEIGHT: f32 = 580.0;
 const DECK_SCREEN_GRID_BACKDROP_WORLD_Z: f32 = -0.05;
 const DECK_SCREEN_GRID_BORDER_THICKNESS: f32 = 2.0;
+const DECK_SCREEN_SELECTED_CARD_MENU_LEFT: f32 = 1038.0;
+const DECK_SCREEN_SELECTED_CARD_MENU_TOP: f32 = 236.0;
+const DECK_SCREEN_SELECTED_CARD_MENU_WIDTH: f32 = 212.0;
+const DECK_SCREEN_SELECTED_CARD_MENU_BUTTON_HEIGHT: f32 = 42.0;
 const SETTINGS_BUTTONS_TOP_PX: f32 = 255.0;
 const SETTINGS_COLUMN_WIDTH_PERCENT: f32 = 100.0 / 3.0;
 const SETTINGS_COLUMN_GAP_PX: f32 = 20.0;
@@ -242,9 +247,8 @@ pub fn constrain_deck_camera_to_safe_area(
     mut camera_query: Query<
         &mut Camera,
         (
-            With<PrimaryViewCamera>,
             With<DeckSceneEntity>,
-            With<Camera3d>,
+            Or<(With<Camera3d>, With<CardPointTextCamera>)>,
         ),
     >,
 ) {
@@ -263,9 +267,8 @@ pub fn constrain_debug_camera_to_safe_area(
     mut camera_query: Query<
         &mut Camera,
         (
-            With<PrimaryViewCamera>,
             With<DebugSceneEntity>,
-            With<Camera3d>,
+            Or<(With<Camera3d>, With<CardPointTextCamera>)>,
         ),
     >,
 ) {
@@ -547,12 +550,16 @@ fn spawn_game_scene_card_overlay_camera(
         .id()
 }
 
-fn spawn_game_scene_card_point_text_camera(commands: &mut Commands) -> Entity {
+fn spawn_card_point_text_camera(
+    commands: &mut Commands,
+    name: &'static str,
+    scene_marker: impl Bundle,
+) -> Entity {
     commands
         .spawn((
-            Name::new("GameScene Card Point Text Camera"),
+            Name::new(name),
             CardPointTextCamera,
-            GameSceneEntity,
+            scene_marker,
             Camera2d,
             Camera {
                 order: 3,
@@ -571,8 +578,8 @@ fn spawn_game_scene_card_point_text_camera(commands: &mut Commands) -> Entity {
         .id()
 }
 
-/// HUMAN: Marks the GameScene 2D camera that draws card point Text2d above point circles.
-/// AI: The marker lets safe-area viewport code match the 3D card cameras exactly.
+/// HUMAN: Marks the 2D camera that draws card point Text2d above point circles.
+/// AI: Each card-rendering scene keeps this camera aligned with its 3D card camera.
 #[derive(Clone, Copy, Component, Debug, Default, Eq, PartialEq)]
 pub struct CardPointTextCamera;
 
@@ -1354,7 +1361,11 @@ fn spawn_game_scene_contents(
     let scene_entity = scene.id();
     spawn_game_scene_card_camera(commands, camera_defaults);
     spawn_game_scene_card_overlay_camera(commands, camera_defaults);
-    spawn_game_scene_card_point_text_camera(commands);
+    spawn_card_point_text_camera(
+        commands,
+        "GameScene Card Point Text Camera",
+        GameSceneEntity,
+    );
     spawn_game_scene_world_background(
         commands,
         asset_server,
@@ -2689,6 +2700,11 @@ fn spawn_deck_scene_contents(
     let scene_root = commands.spawn(DeckScreenBundle::default()).id();
     let camera = spawn_primary_camera(commands, camera_defaults);
     let ui_camera = spawn_deck_ui_camera(commands);
+    let point_text_camera = spawn_card_point_text_camera(
+        commands,
+        "DeckScene Card Point Text Camera",
+        DeckSceneEntity,
+    );
     let light = spawn_deck_light(commands);
     let mode = deck_screen_model.map_or(Default::default(), |model| model.mode);
     let tab = deck_screen_model.map_or(Default::default(), |model| model.editor_tab);
@@ -2766,6 +2782,7 @@ fn spawn_deck_scene_contents(
     }
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
+    commands.entity(scene_root).add_child(point_text_camera);
     commands.entity(scene_root).add_child(light);
     if let Some(parent) = app_scene_parent {
         commands.entity(parent).add_child(scene_root);
@@ -3062,6 +3079,7 @@ fn spawn_deck_screen_grid_backdrop_rect(
             Visibility::Visible,
             NoCpuCulling,
             NoFrustumCulling,
+            Pickable::IGNORE,
         ))
         .id();
     commands.entity(scene_root).add_child(entity);
@@ -3161,8 +3179,11 @@ fn spawn_deck_screen_card_views_for_zone(
         commands.entity(card).insert((
             DeckSceneEntity,
             DeckScreenCardView::new(card_id.clone(), zone, index),
+            SelectableCard::new(CardSelectionSource::ScreenCard {
+                view: ActiveView::DeckScene,
+            }),
         ));
-        commands.entity(card).remove::<SelectableCard>();
+        commands.entity(card).observe(card_click_selection);
         commands.entity(scene_root).add_child(card);
     }
 }
@@ -3241,6 +3262,7 @@ fn spawn_grid_view_ui_bundle(
                         column_gap: Val::Px(12.0),
                         ..Default::default()
                     },
+                    Pickable::IGNORE,
                 ))
                 .with_children(|parent| {
                     if zone == DeckEditableZoneModel::Deck && title == DECK_SCREEN_DECK_NAME {
@@ -3277,6 +3299,7 @@ fn spawn_grid_view_ui_bundle(
                     ..Default::default()
                 },
                 TextColor(Color::WHITE),
+                Pickable::IGNORE,
                 Node {
                     position_type: PositionType::Relative,
                     left: Val::Px(DECK_SCREEN_GRID_TITLE_OFFSET_X),
@@ -3304,6 +3327,7 @@ fn spawn_grid_view_ui_bundle(
                     },
                     BackgroundColor(Color::NONE),
                     BorderColor::all(Color::NONE),
+                    Pickable::IGNORE,
                 ))
                 .with_children(|parent| {
                     if cards.is_empty() && show_empty_state {
@@ -3314,6 +3338,7 @@ fn spawn_grid_view_ui_bundle(
                                 ..Default::default()
                             },
                             TextColor(Color::srgb(0.68, 0.72, 0.78)),
+                            Pickable::IGNORE,
                         ));
                     }
                     for (index, card_id) in cards.iter().enumerate() {
@@ -3481,6 +3506,7 @@ fn spawn_deck_selection_empty_tile(parent: &mut ChildSpawnerCommands) {
         },
         BackgroundColor(Color::NONE),
         BorderColor::all(Color::NONE),
+        Pickable::IGNORE,
     ));
 }
 
@@ -3508,7 +3534,110 @@ fn spawn_deck_screen_card_tile(
         },
         BackgroundColor(Color::NONE),
         BorderColor::all(Color::NONE),
+        Pickable::IGNORE,
     ));
+}
+
+/// HUMAN: Spawns the right-side action menu for the selected DeckScreen card.
+/// AI: Actions are the only way to clear screen-local card selection.
+fn spawn_deck_screen_selected_card_menu(
+    parent: &mut ChildSpawnerCommands,
+    ui_camera: Entity,
+    modal: &crate::runtime::resources::DeckScreenCardModalModel,
+) {
+    parent
+        .spawn((
+            Name::new("DeckScreen Selected Card Menu"),
+            DeckScreenSelectedCardMenuRoot,
+            UiTargetCamera(ui_camera),
+            GlobalZIndex(700),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_LEFT),
+                top: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_TOP),
+                width: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_WIDTH),
+                border: UiRect::all(Val::Px(2.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.0),
+                padding: UiRect::all(Val::Px(12.0)),
+                ..Default::default()
+            },
+            BackgroundColor(Color::srgb(0.06, 0.07, 0.09)),
+            BorderColor::all(Color::srgb(0.58, 0.64, 0.76)),
+            Pickable::IGNORE,
+        ))
+        .with_children(|parent| {
+            spawn_deck_screen_selected_card_menu_button(
+                parent,
+                DeckScreenModalActionButton::MoveToLibrary,
+                "Move to Library",
+                modal.actions.move_to_library,
+            );
+            spawn_deck_screen_selected_card_menu_button(
+                parent,
+                DeckScreenModalActionButton::MoveToDeck,
+                "Move to Deck",
+                modal.actions.move_to_deck,
+            );
+            spawn_deck_screen_selected_card_menu_button(
+                parent,
+                DeckScreenModalActionButton::TransferOut,
+                "Transfer",
+                true,
+            );
+            spawn_deck_screen_selected_card_menu_button(
+                parent,
+                DeckScreenModalActionButton::Back,
+                "Back",
+                modal.actions.back,
+            );
+        });
+}
+
+fn spawn_deck_screen_selected_card_menu_button(
+    parent: &mut ChildSpawnerCommands,
+    action: DeckScreenModalActionButton,
+    label: &'static str,
+    is_primary_action: bool,
+) {
+    let background = if is_primary_action {
+        Color::srgb(0.24, 0.28, 0.36)
+    } else {
+        Color::srgb(0.14, 0.16, 0.21)
+    };
+    let border = if is_primary_action {
+        Color::srgb(0.68, 0.74, 0.86)
+    } else {
+        Color::srgb(0.36, 0.4, 0.5)
+    };
+    parent
+        .spawn((
+            Name::new(format!("DeckScreen Selected Card Menu {label}")),
+            Button,
+            action,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(DECK_SCREEN_SELECTED_CARD_MENU_BUTTON_HEIGHT),
+                border: UiRect::all(Val::Px(2.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            BackgroundColor(background),
+            BorderColor::all(border),
+            Pickable::default(),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(label),
+                TextFont {
+                    font_size: 16.0,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+                Pickable::IGNORE,
+            ));
+        });
 }
 
 fn spawn_deck_screen_prompt(
@@ -3521,6 +3650,7 @@ fn spawn_deck_screen_prompt(
         .spawn((
             ModalUiBundle::new("DeckScreen Prompt Modal", ui_camera),
             DeckScreenModalRoot,
+            Pickable::default(),
         ))
         .with_children(|parent| {
             parent
@@ -3533,6 +3663,7 @@ fn spawn_deck_screen_prompt(
                             ..Default::default()
                         },
                         TextColor(Color::WHITE),
+                        Pickable::IGNORE,
                     ));
                     parent.spawn((
                         Text::new(body),
@@ -3541,6 +3672,7 @@ fn spawn_deck_screen_prompt(
                             ..Default::default()
                         },
                         TextColor(Color::srgb(0.86, 0.88, 0.92)),
+                        Pickable::IGNORE,
                     ));
                     parent
                         .spawn(ModalMenuUiBundle::new("DeckScreen Prompt Menu"))
@@ -3549,6 +3681,7 @@ fn spawn_deck_screen_prompt(
                                 .spawn((
                                     ModalButtonUiBundle::new("DeckScreen Prompt OK"),
                                     DeckScreenValidationOkButton,
+                                    Pickable::default(),
                                 ))
                                 .with_children(|parent| {
                                     parent.spawn((
@@ -3558,6 +3691,7 @@ fn spawn_deck_screen_prompt(
                                             ..Default::default()
                                         },
                                         TextColor(Color::WHITE),
+                                        Pickable::IGNORE,
                                     ));
                                 });
                         });
@@ -3829,6 +3963,51 @@ pub fn matchmaking_update_system(
     }
 }
 
+/// HUMAN: Query group for DeckScreen rebuild, input, and selected-card menu sync.
+/// AI: Keep deck_screen_update_system below Bevy's top-level system parameter limit.
+#[derive(SystemParam)]
+pub struct DeckScreenUpdateQueries<'w, 's> {
+    scene_root_query: Query<'w, 's, Entity, With<DeckSceneRoot>>,
+    ui_camera_query: Query<
+        'w,
+        's,
+        Entity,
+        (
+            With<Camera2d>,
+            With<DeckSceneEntity>,
+            Without<CardPointTextCamera>,
+        ),
+    >,
+    ui_root_query: Query<
+        'w,
+        's,
+        Entity,
+        Or<(
+            With<TopNavigationRoot>,
+            With<CardGrid>,
+            With<DeckScreenCardView>,
+            With<DeckScreenGridBackdrop>,
+            With<DeckScreenModalRoot>,
+            With<DeckScreenSelectedCardMenuRoot>,
+        )>,
+    >,
+    selection_menu_query: Query<'w, 's, Entity, With<DeckScreenSelectedCardMenuRoot>>,
+    selected_deck_card_query: Query<'w, 's, &'static DeckScreenCardView>,
+    button_query: Query<
+        'w,
+        's,
+        (
+            &'static Interaction,
+            Option<&'static DeckScreenDeckTileButton>,
+            Option<&'static DeckScreenDeckCommandButton>,
+            Option<&'static DeckScreenTabButton>,
+            Option<&'static DeckScreenModalActionButton>,
+            Option<&'static DeckScreenValidationOkButton>,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+}
+
 pub fn deck_screen_update_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -3841,39 +4020,19 @@ pub fn deck_screen_update_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     masked_background_materials: Option<ResMut<Assets<CardBackgroundMaskMaterial>>>,
-    scene_root_query: Query<Entity, With<DeckSceneRoot>>,
-    ui_camera_query: Query<Entity, (With<Camera2d>, With<DeckSceneEntity>)>,
-    ui_root_query: Query<
-        Entity,
-        Or<(
-            With<TopNavigationRoot>,
-            With<CardGrid>,
-            With<DeckScreenCardView>,
-            With<DeckScreenGridBackdrop>,
-            With<DeckScreenModalRoot>,
-        )>,
-    >,
-    mut button_query: Query<
-        (
-            &Interaction,
-            Option<&DeckScreenDeckTileButton>,
-            Option<&DeckScreenDeckCommandButton>,
-            Option<&DeckScreenTabButton>,
-            Option<&DeckScreenModalActionButton>,
-            Option<&DeckScreenValidationOkButton>,
-        ),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut queries: DeckScreenUpdateQueries,
 ) {
-    ensure_deck_screen_collection(&mut player_deck_collection);
+    ensure_deck_screen_collection_no_auto_fill(&mut player_deck_collection);
     let mut should_persist = false;
-    if selected_card_modal.is_active() || selected_card_modal.press_candidate.is_some() {
-        selected_card_modal.clear();
-        deck_screen_model.close_modal();
-    }
+    sync_deck_screen_modal_to_selected_card(
+        &selected_card_modal,
+        &mut deck_screen_model,
+        &player_deck_collection,
+        &queries.selected_deck_card_query,
+    );
 
     for (interaction, deck_tile, deck_command, tab_button, modal_action, validation_ok) in
-        &mut button_query
+        &mut queries.button_query
     {
         if *interaction != Interaction::Pressed {
             continue;
@@ -3906,9 +4065,9 @@ pub fn deck_screen_update_system(
                             .is_some()
                         {
                             should_persist = true;
-                            deck_screen_model.close_modal();
-                            selected_card_modal.request_dismiss();
                         }
+                        deck_screen_model.close_modal();
+                        selected_card_modal.request_dismiss();
                     }
                     DeckScreenModalActionButton::MoveToDeck => {
                         let modal = deck_screen_model.modal.clone();
@@ -3920,11 +4079,14 @@ pub fn deck_screen_update_system(
                             )
                         {
                             should_persist = true;
-                            deck_screen_model.close_modal();
-                            selected_card_modal.request_dismiss();
                         }
+                        deck_screen_model.close_modal();
+                        selected_card_modal.request_dismiss();
                     }
-                    DeckScreenModalActionButton::TransferOut => {}
+                    DeckScreenModalActionButton::TransferOut => {
+                        selected_card_modal.request_dismiss();
+                        deck_screen_model.show_coming_soon_prompt();
+                    }
                 }
             }
             continue;
@@ -3961,17 +4123,25 @@ pub fn deck_screen_update_system(
         should_rebuild = true;
     }
     if !should_rebuild {
+        sync_deck_screen_selected_card_menu_view(
+            &mut commands,
+            &queries.scene_root_query,
+            &queries.ui_camera_query,
+            &queries.selection_menu_query,
+            deck_screen_model.modal.as_ref(),
+            deck_screen_model.validation_prompt || deck_screen_model.coming_soon_prompt,
+        );
         return;
     }
 
-    for entity in &ui_root_query {
+    for entity in &queries.ui_root_query {
         commands.entity(entity).despawn();
     }
 
-    let Ok(scene_root) = scene_root_query.single() else {
+    let Ok(scene_root) = queries.scene_root_query.single() else {
         return;
     };
-    let Ok(ui_camera) = ui_camera_query.single() else {
+    let Ok(ui_camera) = queries.ui_camera_query.single() else {
         return;
     };
     let deck_cards = deck_screen_deck_cards(&player_deck_collection);
@@ -4006,6 +4176,8 @@ pub fn deck_screen_update_system(
                 DECK_SCREEN_COMING_SOON_TITLE,
                 DECK_SCREEN_COMING_SOON_MESSAGE,
             );
+        } else if let Some(modal) = deck_screen_model.modal.as_ref() {
+            spawn_deck_screen_selected_card_menu(parent, ui_camera, modal);
         }
     });
     if deck_screen_model.mode == crate::runtime::resources::DeckScreenMode::Editor {
@@ -4034,6 +4206,68 @@ pub fn deck_screen_update_system(
             scene_root,
         );
     }
+}
+
+/// HUMAN: Mirrors the selected zoomed card into DeckScreen editor action state.
+/// AI: This keeps card selection owned by SelectedCardModalModel instead of UI tile buttons.
+fn sync_deck_screen_modal_to_selected_card(
+    selected_card_modal: &SelectedCardModalModel,
+    deck_screen_model: &mut DeckScreenModel,
+    player_deck_collection: &PlayerDeckCollectionModel,
+    selected_deck_card_query: &Query<&DeckScreenCardView>,
+) {
+    let Some(selected_entity) = selected_card_modal.selected_entity else {
+        deck_screen_model.modal = None;
+        return;
+    };
+    let Ok(selected_card) = selected_deck_card_query.get(selected_entity) else {
+        return;
+    };
+    let deck_cards = deck_screen_deck_cards(player_deck_collection);
+    let next_modal = crate::runtime::resources::DeckScreenCardModalModel {
+        card_id: selected_card.card_id.clone(),
+        source_zone: selected_card.zone,
+        source_index: selected_card.index,
+        actions: modal_actions_for(selected_card.zone, &selected_card.card_id, &deck_cards),
+    };
+    if deck_screen_model.modal.as_ref() != Some(&next_modal) {
+        deck_screen_model.modal = Some(next_modal);
+    }
+}
+
+fn sync_deck_screen_selected_card_menu_view(
+    commands: &mut Commands,
+    scene_root_query: &Query<Entity, With<DeckSceneRoot>>,
+    ui_camera_query: &Query<
+        Entity,
+        (
+            With<Camera2d>,
+            With<DeckSceneEntity>,
+            Without<CardPointTextCamera>,
+        ),
+    >,
+    selection_menu_query: &Query<Entity, With<DeckScreenSelectedCardMenuRoot>>,
+    modal: Option<&crate::runtime::resources::DeckScreenCardModalModel>,
+    prompt_blocks_menu: bool,
+) {
+    let existing_menus: Vec<Entity> = selection_menu_query.iter().collect();
+    if modal.is_none() || prompt_blocks_menu {
+        for entity in existing_menus {
+            commands.entity(entity).despawn();
+        }
+        return;
+    }
+    if !existing_menus.is_empty() {
+        return;
+    }
+    let (Ok(scene_root), Ok(ui_camera), Some(modal)) =
+        (scene_root_query.single(), ui_camera_query.single(), modal)
+    else {
+        return;
+    };
+    commands.entity(scene_root).with_children(|parent| {
+        spawn_deck_screen_selected_card_menu(parent, ui_camera, modal);
+    });
 }
 
 /// HUMAN: Spawns the debug sub-screen scene.
@@ -4083,6 +4317,11 @@ fn spawn_debug_scene_contents(
     let scene_root = commands.spawn(DebugScreenBundle::default()).id();
     let camera = spawn_debug_primary_camera(commands, camera_defaults);
     let ui_camera = spawn_debug_ui_camera(commands);
+    let point_text_camera = spawn_card_point_text_camera(
+        commands,
+        "DebugScene Card Point Text Camera",
+        DebugSceneEntity,
+    );
     let light = spawn_debug_light(commands);
     commands.entity(scene_root).with_children(|parent| {
         spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::Debug, false);
@@ -4102,6 +4341,7 @@ fn spawn_debug_scene_contents(
     );
     commands.entity(scene_root).add_child(camera);
     commands.entity(scene_root).add_child(ui_camera);
+    commands.entity(scene_root).add_child(point_text_camera);
     commands.entity(scene_root).add_child(light);
     commands.entity(scene_root).add_child(card);
     commands
@@ -4112,6 +4352,7 @@ fn spawn_debug_scene_contents(
                 view: ActiveView::DebugScene,
             }),
         ))
+        .observe(card_click_selection)
         .observe(card_click_navigation);
     if let Some(parent) = app_scene_parent {
         commands.entity(parent).add_child(scene_root);
@@ -4729,6 +4970,7 @@ fn spawn_parallax_plane(
         CardParallaxLayer::new(role, apparent_depth, neutral_translation),
     ));
     entity.observe(card_click_navigation);
+    entity.observe(card_click_selection);
     if let Some(background_layer) = background_layer {
         entity.insert(background_layer);
     }
@@ -4774,6 +5016,7 @@ fn spawn_masked_background_plane(
         entity.insert(CpuPlacedCardFaceLayer);
     }
     entity.observe(card_click_navigation);
+    entity.observe(card_click_selection);
 }
 
 fn spawn_card_back_plane(
@@ -4810,6 +5053,7 @@ fn spawn_card_back_plane(
         entity.insert(CpuPlacedCardFaceLayer);
     }
     entity.observe(card_click_navigation);
+    entity.observe(card_click_selection);
 }
 
 pub fn track_card_pointer_target(
@@ -5693,16 +5937,28 @@ impl ViewChangeParams<'_, '_> {
     }
 
     fn despawn_deck_scene(&mut self) {
+        let mut visited = std::collections::HashSet::new();
         for entity in self.deck_scene_roots.iter() {
-            if self.commands.get_entity(entity).is_ok() {
+            if visited.insert(entity) && self.commands.get_entity(entity).is_ok() {
+                self.commands.entity(entity).despawn();
+            }
+        }
+        for entity in self.standalone_deck_scene_entities.iter() {
+            if visited.insert(entity) && self.commands.get_entity(entity).is_ok() {
                 self.commands.entity(entity).despawn();
             }
         }
     }
 
     fn despawn_debug_scene(&mut self) {
+        let mut visited = std::collections::HashSet::new();
         for entity in self.debug_scene_roots.iter() {
-            if self.commands.get_entity(entity).is_ok() {
+            if visited.insert(entity) && self.commands.get_entity(entity).is_ok() {
+                self.commands.entity(entity).despawn();
+            }
+        }
+        for entity in self.standalone_debug_scene_entities.iter() {
+            if visited.insert(entity) && self.commands.get_entity(entity).is_ok() {
                 self.commands.entity(entity).despawn();
             }
         }
@@ -6193,6 +6449,77 @@ pub fn ai_runtime_show_deck_library_system(
     }))
 }
 
+/// HUMAN: BRP helper that switches the running app to GameScene for AI runtime inspection.
+/// AI: Keep this deterministic so card-click runtime checks do not depend on navigation UI.
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub fn ai_runtime_show_game_screen_system(
+    In(_params): In<Option<serde_json::Value>>,
+    active_card_model: Res<ActiveCardModel>,
+    mut params: ViewChangeParams,
+) -> bevy::remote::BrpResult {
+    match *params.active_view {
+        ActiveView::GameScene => {
+            params.set_game_scene_active(true);
+        }
+        ActiveView::DeckScene
+        | ActiveView::DebugScene
+        | ActiveView::MainMenuScene
+        | ActiveView::LightningScene
+        | ActiveView::MatchmakingScene
+        | ActiveView::SettingsScene => {
+            params.transition_to_game_scene(&active_card_model);
+        }
+    }
+
+    Ok(serde_json::json!({
+        "active_view": "GameScene",
+        "success": true
+    }))
+}
+
+/// HUMAN: BRP helper that switches the running app to DebugScene for AI runtime inspection.
+/// AI: Uses the same debug scene spawning path as in-app navigation for runtime card QA.
+#[cfg(all(feature = "ai-runtime", not(target_arch = "wasm32")))]
+pub fn ai_runtime_show_debug_screen_system(
+    In(_params): In<Option<serde_json::Value>>,
+    active_card_model: Res<ActiveCardModel>,
+    flip_state: Res<CardFlipState>,
+    mut params: ViewChangeParams,
+) -> bevy::remote::BrpResult {
+    match *params.active_view {
+        ActiveView::GameScene => {
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.hide_game_scene();
+            params.spawn_debug_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+            *params.active_view = ActiveView::DebugScene;
+        }
+        ActiveView::DebugScene => {}
+        ActiveView::DeckScene
+        | ActiveView::MainMenuScene
+        | ActiveView::LightningScene
+        | ActiveView::MatchmakingScene
+        | ActiveView::SettingsScene => {
+            let initial_rotation =
+                composed_rotation_for_face(&params.card_state, flip_state.visible_face);
+            params.transition_to_debug_scene(
+                &active_card_model,
+                flip_state.visible_face,
+                initial_rotation,
+            );
+        }
+    }
+
+    Ok(serde_json::json!({
+        "active_view": "DebugScene",
+        "success": true
+    }))
+}
+
 /// HUMAN: Handles pointer navigation from scene card click back to GameScene.
 /// AI: Deck scene blocks restart when the click resolves to a selectable deck card.
 pub fn view_input_system(
@@ -6278,6 +6605,98 @@ fn card_click_navigation(
         params.despawn_deck_scene();
         params.restart_game(&active_card_model);
     }
+}
+
+/// HUMAN: Handles the actual clicked-card consequence for selectable screen cards.
+/// AI: Pointer picking owns the real click path; coordinate hit-testing remains only a fallback.
+fn card_click_selection(
+    click: On<Pointer<Click>>,
+    mut commands: Commands,
+    active_view: Res<ActiveView>,
+    card_defaults: Res<CardInspectionDefaults>,
+    mut selected_modal: ResMut<SelectedCardModalModel>,
+    gesture_model: Res<CardGestureModel>,
+    card_query: Query<(Entity, &SelectableCard, &Transform, Option<&ChildOf>), With<CardView>>,
+    parent_query: Query<&ChildOf>,
+    parent_transform_query: Query<&GlobalTransform>,
+) {
+    if selected_modal.is_active()
+        || matches!(
+            gesture_model.state,
+            CardGestureState::Dragging | CardGestureState::Returning
+        )
+    {
+        return;
+    }
+
+    let Some((entity, selectable, source_transform, parent)) =
+        clicked_selectable_card(click.original_event_target(), &card_query, &parent_query)
+    else {
+        return;
+    };
+    if !card_click_selection_source_matches_view(selectable.source, *active_view) {
+        return;
+    }
+
+    let target_transform = parent
+        .and_then(|parent| parent_transform_query.get(parent).ok())
+        .map(|parent_global_transform| {
+            selected_inspection_transform_relative_to_parent(
+                &card_defaults,
+                parent_global_transform,
+            )
+        })
+        .unwrap_or_else(|| selected_inspection_transform(&card_defaults));
+
+    commands.entity(entity).remove::<CpuPlacedCardAnimation>();
+    selected_modal.select_entity(entity, source_transform, target_transform);
+}
+
+fn clicked_selectable_card(
+    clicked_entity: Entity,
+    card_query: &Query<(Entity, &SelectableCard, &Transform, Option<&ChildOf>), With<CardView>>,
+    parent_query: &Query<&ChildOf>,
+) -> Option<(Entity, SelectableCard, Transform, Option<Entity>)> {
+    let mut current = Some(clicked_entity);
+
+    while let Some(entity) = current {
+        if let Ok((entity, selectable, transform, child_of)) = card_query.get(entity) {
+            return Some((
+                entity,
+                *selectable,
+                *transform,
+                child_of.map(|child_of| child_of.parent()),
+            ));
+        }
+
+        current = parent_query.get(entity).ok().map(|parent| parent.parent());
+    }
+
+    None
+}
+
+fn card_click_selection_source_matches_view(
+    source: CardSelectionSource,
+    active_view: ActiveView,
+) -> bool {
+    match source {
+        CardSelectionSource::ScreenCard { view } => active_view == view,
+        CardSelectionSource::CardViewBundle
+        | CardSelectionSource::LocalHand { .. }
+        | CardSelectionSource::LocalLocation { .. }
+        | CardSelectionSource::OpponentHand { .. }
+        | CardSelectionSource::OpponentLocation { .. } => false,
+    }
+}
+
+fn selected_inspection_transform_relative_to_parent(
+    card_defaults: &CardInspectionDefaults,
+    parent_global_transform: &GlobalTransform,
+) -> Transform {
+    let target_transform = selected_inspection_transform(card_defaults);
+    let local_matrix = parent_global_transform.affine().inverse()
+        * GlobalTransform::from(target_transform).affine();
+    Transform::from_matrix(Mat4::from(local_matrix))
 }
 
 fn card_click_navigation_restarts_game(active_view: ActiveView) -> bool {
