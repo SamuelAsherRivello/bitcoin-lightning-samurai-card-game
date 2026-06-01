@@ -647,7 +647,7 @@ fn debug_hud_title_shows_active_view_without_card_model_status() {
 }
 
 #[test]
-fn debug_hud_is_hidden_only_on_deck_screen() {
+fn debug_hud_is_hidden_on_game_and_deck_screens() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .init_resource::<ButtonInput<KeyCode>>()
@@ -656,6 +656,16 @@ fn debug_hud_is_hidden_only_on_deck_screen() {
         .init_resource::<DebugHudState>()
         .add_systems(Startup, setup_debug_hud)
         .add_systems(Update, update_debug_hud);
+
+    *app.world_mut().resource_mut::<ActiveView>() = ActiveView::GameScene;
+    app.update();
+
+    let game_visibility = *app
+        .world_mut()
+        .query_filtered::<&Visibility, With<DebugHudText>>()
+        .single(app.world())
+        .expect("debug hud should exist");
+    assert_eq!(game_visibility, Visibility::Hidden);
 
     *app.world_mut().resource_mut::<ActiveView>() = ActiveView::DeckScene;
     app.update();
@@ -2256,7 +2266,7 @@ fn game_scene_owns_camera_world_background_and_three_locations() {
     let mut top_nav_query = app
         .world_mut()
         .query_filtered::<Entity, With<TopNavigationRoot>>();
-    assert_eq!(top_nav_query.iter(app.world()).count(), 1);
+    assert_eq!(top_nav_query.iter(app.world()).count(), 0);
 
     let mut light_query = app
         .world_mut()
@@ -5323,6 +5333,49 @@ fn hand_sync_keeps_existing_near_card_while_dragging() {
     assert!(
         app.world().get_entity(card).is_ok(),
         "hand sync must not despawn the active card entity while it is being dragged"
+    );
+}
+
+#[test]
+fn round_deal_completion_allows_settled_hand_card_hover_rotation() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<CardInspectionDefaults>()
+        .insert_resource(CardStateModel::with_size(1));
+    let target_transform =
+        hand_source_transform(0, 1, app.world().resource::<CardInspectionDefaults>());
+    app.world_mut().spawn((
+        HandCardGestureTarget::new(0),
+        CardGestureView,
+        Transform {
+            rotation: Quat::from_rotation_z(0.05),
+            ..target_transform
+        },
+    ));
+
+    let is_complete = app
+        .world_mut()
+        .run_system_once(
+            |defaults: Res<CardInspectionDefaults>,
+             states: Res<CardStateModel>,
+             local_hand_query: Query<
+                (&HandCardGestureTarget, &Transform),
+                With<CardGestureView>,
+            >,
+             cpu_hand_query: Query<Option<&CardAnimation>, With<CpuHandCardView>>| {
+                round_deal_visuals_are_complete(
+                    &defaults,
+                    &states,
+                    &local_hand_query,
+                    &cpu_hand_query,
+                )
+            },
+        )
+        .unwrap();
+
+    assert!(
+        is_complete,
+        "hover tilt must not keep the round-deal gate closed after hand cards settle"
     );
 }
 

@@ -1333,7 +1333,7 @@ fn spawn_drop_target_hints(parent: &mut ChildSpawnerCommands, slot_board: &CardS
 
 fn spawn_game_scene_ui(
     parent: &mut ChildSpawnerCommands,
-    ui_camera: Entity,
+    _ui_camera: Entity,
     asset_server: &AssetServer,
     game_round_model: &GameRoundModel,
     slot_board: &CardSlotBoardModel,
@@ -1353,7 +1353,6 @@ fn spawn_game_scene_ui(
             Visibility::Visible,
         ))
         .with_children(|parent| {
-            spawn_top_navigation_view(parent, ui_camera, TopNavigationDestination::PlayGame, false);
             spawn_drop_target_hints(parent, slot_board);
             spawn_local_player_hand(parent);
             spawn_game_controls(parent, asset_server, game_round_model);
@@ -2008,7 +2007,6 @@ fn round_deal_visuals_are_complete(
             hand_source_transform(order_index, hand_indices.len(), card_defaults);
         if transform.translation.distance(target_transform.translation) > 0.01
             || transform.scale.distance(target_transform.scale) > 0.01
-            || transform.rotation.angle_between(target_transform.rotation) > 0.01
         {
             return false;
         }
@@ -9523,7 +9521,9 @@ pub fn update_debug_hud(mut params: DebugHudUpdateParams) {
         *text = Text::new(full_text.clone());
     }
     for mut visibility in &mut params.visibility_query {
-        *visibility = if *params.active_view == ActiveView::DeckScene {
+        *visibility = if *params.active_view == ActiveView::GameScene
+            || *params.active_view == ActiveView::DeckScene
+        {
             Visibility::Hidden
         } else {
             Visibility::Visible
